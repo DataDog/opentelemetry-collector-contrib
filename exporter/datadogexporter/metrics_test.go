@@ -99,14 +99,24 @@ func NewMetricsData(metrics []*v1.Metric) pdata.Metrics {
 func TestMapNumericMetric(t *testing.T) {
 	ts := time.Now()
 
+	intValue := &v1.Point{
+		Timestamp: metricstest.Timestamp(ts),
+		Value:     &v1.Point_Int64Value{Int64Value: 17},
+	}
+
 	md := NewMetricsData([]*v1.Metric{
 		metricstest.Gauge("gauge.float64.test", testKeys[:],
 			metricstest.Timeseries(ts, testValues[:], metricstest.Double(ts, math.Pi))),
 		metricstest.Cumulative("cumulative.float64.test", testKeys[:],
 			metricstest.Timeseries(ts, testValues[:], metricstest.Double(ts, math.Pi))),
+
+		metricstest.GaugeInt("gauge.int64.test", testKeys[:],
+			metricstest.Timeseries(ts, testValues[:], intValue)),
+		metricstest.CumulativeInt("cumulative.int64.test", testKeys[:],
+			metricstest.Timeseries(ts, testValues[:], intValue)),
 	})
 
-	series, droppedTimeSeries := MapMetrics(mockExporter, md)
+	metrics, droppedTimeSeries := MapMetrics(mockExporter, md)
 
 	assert.Equal(t, 0, droppedTimeSeries)
 	assert.ElementsMatch(t,
@@ -123,6 +133,20 @@ func TestMapNumericMetric(t *testing.T) {
 				"cumulative.float64.test",
 				int32(ts.Unix()),
 				math.Pi,
+				testTags[:],
+			),
+			NewGauge(
+				testHost,
+				"gauge.int64.test",
+				int32(ts.Unix()),
+				17,
+				testTags[:],
+			),
+			NewGauge(
+				testHost,
+				"cumulative.int64.test",
+				int32(ts.Unix()),
+				17,
 				testTags[:],
 			),
 		},
@@ -256,4 +280,20 @@ func TestMapSummaryMetric(t *testing.T) {
 	},
 		series.metrics,
 	)
+}
+
+func TestMapInvalid(t *testing.T) {
+	ts := time.Now()
+	md := NewMetricsData([]*v1.Metric{{
+		MetricDescriptor: &v1.MetricDescriptor{
+			Type: v1.MetricDescriptor_UNSPECIFIED,
+		},
+		Timeseries: []*v1.TimeSeries{metricstest.Timeseries(
+			ts, []string{}, metricstest.Double(ts, 0.0))},
+	}})
+
+	metrics, dropped := MapMetrics(mockExporter, md)
+
+	assert.Equal(t, dropped, 1)
+	assert.Equal(t, metrics, map[string][]MetricValue{})
 }

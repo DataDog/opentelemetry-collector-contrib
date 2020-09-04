@@ -72,7 +72,7 @@ func (exp *dogStatsDExporter) PushMetricsData(_ context.Context, md pdata.Metric
 		}
 
 		if err != nil {
-			return droppedTimeSeries, err
+			exp.GetLogger().Warn("Could not send metric to statsd", zap.String("metric", name), zap.Error(err))
 		}
 	}
 

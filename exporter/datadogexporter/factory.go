@@ -28,16 +28,6 @@ const (
 
 	// DefaultSite is the default site of the Datadog intake to send data to
 	DefaultSite = "datadoghq.com"
-
-	// List the different sending methods
-	AgentMode   = "agent"
-	APIMode     = "api"
-	DefaultMode = APIMode
-)
-
-var (
-	// DefaultTags is the default set of tags to add to every metric or trace
-	DefaultTags = []string{}
 )
 
 // NewFactory creates a Datadog exporter factory

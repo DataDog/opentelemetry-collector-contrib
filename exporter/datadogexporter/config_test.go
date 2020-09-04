@@ -111,6 +111,28 @@ func TestLoadConfig(t *testing.T) {
 
 }
 
+func TestTags(t *testing.T) {
+	tc := TagsConfig{
+		Hostname: "customhost",
+		Env:      "customenv",
+		Service:  "customservice",
+		Version:  "customversion",
+		Tags:     []string{"key1:val1", "key2:val2"},
+	}
+
+	assert.Equal(t,
+		tc.GetTags(),
+		[]string{
+			"host:customhost",
+			"env:customenv",
+			"service:customservice",
+			"version:customversion",
+			"key1:val1",
+			"key2:val2",
+		},
+	)
+}
+
 // TestOverrideMetricsURL tests that the metrics URL is overridden
 // correctly when set manually.
 func TestOverrideMetricsURL(t *testing.T) {
