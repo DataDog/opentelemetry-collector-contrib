@@ -26,7 +26,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"go.opentelemetry.io/collector/consumer/consumerdata"
 	"go.opentelemetry.io/collector/consumer/pdata"
-	"go.opentelemetry.io/collector/consumer/pdatautil"
 	"go.opentelemetry.io/collector/exporter/exporterhelper"
 	metricstest "go.opentelemetry.io/collector/testutil/metricstestutil"
 	"go.uber.org/zap"
@@ -82,18 +81,16 @@ var (
 	testTags     = [...]string{"key1:val1", "key2:val2", "key3:n/a"}
 )
 
-func NewMetricsData(metrics []*v1.Metric) pdata.Metrics {
-	return pdatautil.MetricsFromMetricsData([]consumerdata.MetricsData{
-		{
-			Node: &v1agent.Node{
-				Identifier: &v1agent.ProcessIdentifier{
-					HostName: testHost,
-				},
+func NewMetricsData(metrics []*v1.Metric) []consumerdata.MetricsData {
+	return []consumerdata.MetricsData{{
+		Node: &v1agent.Node{
+			Identifier: &v1agent.ProcessIdentifier{
+				HostName: "unknown",
 			},
-			Resource: nil,
-			Metrics:  metrics,
 		},
-	})
+		Resource: nil,
+		Metrics:  metrics,
+	}}
 }
 
 func TestMapNumericMetric(t *testing.T) {
@@ -116,7 +113,7 @@ func TestMapNumericMetric(t *testing.T) {
 			metricstest.Timeseries(ts, testValues[:], intValue)),
 	})
 
-	metrics, droppedTimeSeries := MapMetrics(mockExporter, md)
+	series, droppedTimeSeries := MapMetrics(mockExporter, md)
 
 	assert.Equal(t, 0, droppedTimeSeries)
 	assert.ElementsMatch(t,
@@ -292,8 +289,8 @@ func TestMapInvalid(t *testing.T) {
 			ts, []string{}, metricstest.Double(ts, 0.0))},
 	}})
 
-	metrics, dropped := MapMetrics(mockExporter, md)
+	metrics, droppedTimeSeries := MapMetrics(mockExporter, md)
 
-	assert.Equal(t, dropped, 1)
-	assert.Equal(t, metrics, map[string][]MetricValue{})
+	assert.Equal(t, droppedTimeSeries, 1)
+	assert.Equal(t, metrics, Series{})
 }

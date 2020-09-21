@@ -41,7 +41,7 @@ func newMetricsAPIExporter(logger *zap.Logger, cfg *Config) (*metricsAPIExporter
 	} else if ok {
 		logger.Info("Provided Datadog API key is valid")
 	} else {
-		return nil, fmt.Errorf("Provided Datadog API key is invalid: %s", cfg.API.GetCensoredKey())
+		return nil, fmt.Errorf("provided Datadog API key is invalid: %s", cfg.API.GetCensoredKey())
 	}
 
 	// Calculate tags at startup

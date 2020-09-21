@@ -33,7 +33,11 @@ func TestCreateDefaultConfig(t *testing.T) {
 	factory := NewFactory()
 	cfg := factory.CreateDefaultConfig()
 
-	assert.Equal(t, cfg, &Config{
+	assert.Equal(t, &Config{
+		ExporterSettings: configmodels.ExporterSettings{
+			TypeVal: configmodels.Type(typeStr),
+			NameVal: typeStr,
+		},
 		API: APIConfig{Site: "datadoghq.com"},
 		Metrics: MetricsConfig{
 			Mode:        DogStatsDMode,
@@ -43,7 +47,7 @@ func TestCreateDefaultConfig(t *testing.T) {
 				Telemetry: true,
 			},
 		},
-	}, "failed to create default config")
+	}, cfg, "failed to create default config")
 
 	assert.NoError(t, configcheck.ValidateConfig(cfg))
 }

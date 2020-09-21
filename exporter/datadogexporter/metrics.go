@@ -42,10 +42,10 @@ func newMetricsExporter(logger *zap.Logger, cfg *Config) (MetricsExporter, error
 	case AgentlessMode:
 		return newMetricsAPIExporter(logger, cfg)
 	case NoneMode:
-		return nil, fmt.Errorf("Metrics exporter disabled for Datadog exporter")
+		return nil, fmt.Errorf("metrics exporter disabled for Datadog exporter")
 	}
 
-	return nil, fmt.Errorf("Unsupported mode: '%s'", cfg.Metrics.Mode)
+	return nil, fmt.Errorf("unsupported mode: '%s'", cfg.Metrics.Mode)
 }
 
 const (

@@ -41,10 +41,10 @@ func TestLoadConfig(t *testing.T) {
 	err = apiConfig.Sanitize()
 
 	require.NoError(t, err)
-	assert.Equal(t, apiConfig, &Config{
+	assert.Equal(t, &Config{
 		ExporterSettings: configmodels.ExporterSettings{
 			NameVal: "datadog/api",
-			TypeVal: "datadog",
+			TypeVal: typeStr,
 		},
 
 		TagsConfig: TagsConfig{
@@ -74,16 +74,16 @@ func TestLoadConfig(t *testing.T) {
 				Endpoint: "https://api.datadoghq.eu",
 			},
 		},
-	})
+	}, apiConfig)
 
 	dogstatsdConfig := cfg.Exporters["datadog/dogstatsd"].(*Config)
 	err = dogstatsdConfig.Sanitize()
 
 	require.NoError(t, err)
-	assert.Equal(t, dogstatsdConfig, &Config{
+	assert.Equal(t, &Config{
 		ExporterSettings: configmodels.ExporterSettings{
 			NameVal: "datadog/dogstatsd",
-			TypeVal: "datadog",
+			TypeVal: typeStr,
 		},
 
 		TagsConfig: TagsConfig{},
@@ -99,7 +99,7 @@ func TestLoadConfig(t *testing.T) {
 
 			Agentless: AgentlessConfig{},
 		},
-	})
+	}, dogstatsdConfig)
 
 	invalidConfig := cfg.Exporters["datadog/invalid"].(*Config)
 	err = invalidConfig.Sanitize()
@@ -120,8 +120,7 @@ func TestTags(t *testing.T) {
 		Tags:     []string{"key1:val1", "key2:val2"},
 	}
 
-	assert.Equal(t,
-		tc.GetTags(),
+	assert.ElementsMatch(t,
 		[]string{
 			"host:customhost",
 			"env:customenv",
@@ -130,6 +129,7 @@ func TestTags(t *testing.T) {
 			"key1:val1",
 			"key2:val2",
 		},
+		tc.GetTags(true), // get host
 	)
 }
 

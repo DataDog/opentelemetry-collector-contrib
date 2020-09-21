@@ -48,7 +48,7 @@ func newDogStatsDExporter(logger *zap.Logger, cfg *Config) (*dogStatsDExporter, 
 	)
 
 	if err != nil {
-		return nil, fmt.Errorf("Failed to initialize DogStatsD client: %s", err)
+		return nil, fmt.Errorf("failed to initialize DogStatsD client: %s", err)
 	}
 
 	return &dogStatsDExporter{logger, cfg, client}, nil
@@ -74,7 +74,7 @@ func (exp *dogStatsDExporter) PushMetricsData(_ context.Context, md pdata.Metric
 		}
 
 		if err != nil {
-			exp.GetLogger().Warn("Could not send metric to statsd", zap.String("metric", *metric.Metric), zap.Error(err))
+			exp.GetLogger().Warn("could not send metric to statsd", zap.String("metric", *metric.Metric), zap.Error(err))
 		}
 	}
 

@@ -180,7 +180,7 @@ type Config struct {
 func (c *Config) Sanitize() error {
 
 	if c.Metrics.Mode != AgentlessMode && c.Metrics.Mode != DogStatsDMode {
-		return fmt.Errorf("Metrics mode '%s' is not recognized", c.Metrics.Mode)
+		return fmt.Errorf("metrics mode '%s' is not recognized", c.Metrics.Mode)
 	}
 
 	// Get info from environment variables

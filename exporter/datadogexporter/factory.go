@@ -43,6 +43,11 @@ func NewFactory() component.ExporterFactory {
 // createDefaultConfig creates the default exporter configuration
 func createDefaultConfig() configmodels.Exporter {
 	return &Config{
+		ExporterSettings: configmodels.ExporterSettings{
+			TypeVal: configmodels.Type(typeStr),
+			NameVal: typeStr,
+		},
+
 		API: APIConfig{
 			Key:  "", // must be set if using API
 			Site: "datadoghq.com",
