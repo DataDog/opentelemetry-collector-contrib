@@ -79,10 +79,6 @@ type Series struct {
 	metrics []datadog.Metric
 }
 
-func NewSeries() Series {
-	return Series{}
-}
-
 func (m *Series) Add(metric datadog.Metric) {
 	m.metrics = append(m.metrics, metric)
 }
