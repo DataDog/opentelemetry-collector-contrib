@@ -20,6 +20,7 @@ import (
 
 	"go.opentelemetry.io/collector/consumer/pdata"
 	"go.opentelemetry.io/collector/exporter/exporterhelper"
+	"go.opentelemetry.io/collector/translator/internaldata"
 	"go.uber.org/zap"
 	"gopkg.in/zorkian/go-datadog-api.v2"
 )
@@ -51,7 +52,8 @@ func newMetricsAPIExporter(logger *zap.Logger, cfg *Config) (*metricsAPIExporter
 }
 
 func (exp *metricsAPIExporter) PushMetricsData(ctx context.Context, md pdata.Metrics) (int, error) {
-	series, droppedTimeseries := MapMetrics(exp, md)
+	data := internaldata.MetricsToOC(md)
+	series, droppedTimeSeries := MapMetrics(exp, data)
 
 	addNamespace := exp.GetConfig().Metrics.Namespace != ""
 	overrideHostname := exp.GetConfig().Hostname != ""
@@ -74,7 +76,7 @@ func (exp *metricsAPIExporter) PushMetricsData(ctx context.Context, md pdata.Met
 	}
 
 	err := exp.client.PostMetrics(series.metrics)
-	return droppedTimeseries, err
+	return droppedTimeSeries, err
 }
 
 func (exp *metricsAPIExporter) GetLogger() *zap.Logger {

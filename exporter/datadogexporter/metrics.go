@@ -20,8 +20,8 @@ import (
 	"math"
 
 	v1 "github.com/census-instrumentation/opencensus-proto/gen-go/metrics/v1"
+	"go.opentelemetry.io/collector/consumer/consumerdata"
 	"go.opentelemetry.io/collector/consumer/pdata"
-	"go.opentelemetry.io/collector/consumer/pdatautil"
 	"go.opentelemetry.io/collector/exporter/exporterhelper"
 	"go.uber.org/zap"
 	"gopkg.in/zorkian/go-datadog-api.v2"
@@ -87,9 +87,7 @@ func (m *Series) Add(metric datadog.Metric) {
 	m.metrics = append(m.metrics, metric)
 }
 
-func MapMetrics(exp MetricsExporter, md pdata.Metrics) (series Series, droppedTimeSeries int) {
-	// Transform it into OpenCensus format
-	data := pdatautil.MetricsToMetricsData(md)
+func MapMetrics(exp MetricsExporter, data []consumerdata.MetricsData) (series Series, droppedTimeSeries int) {
 	logger := exp.GetLogger()
 
 	for _, metricsData := range data {

@@ -21,6 +21,7 @@ import (
 	"github.com/DataDog/datadog-go/statsd"
 	"go.opentelemetry.io/collector/consumer/pdata"
 	"go.opentelemetry.io/collector/exporter/exporterhelper"
+	"go.opentelemetry.io/collector/translator/internaldata"
 	"go.uber.org/zap"
 )
 
@@ -54,7 +55,8 @@ func newDogStatsDExporter(logger *zap.Logger, cfg *Config) (*dogStatsDExporter, 
 }
 
 func (exp *dogStatsDExporter) PushMetricsData(_ context.Context, md pdata.Metrics) (int, error) {
-	series, droppedTimeSeries := MapMetrics(exp, md)
+	data := internaldata.MetricsToOC(md)
+	series, droppedTimeSeries := MapMetrics(exp, data)
 
 	for _, metric := range series.metrics {
 
@@ -72,7 +74,7 @@ func (exp *dogStatsDExporter) PushMetricsData(_ context.Context, md pdata.Metric
 		}
 
 		if err != nil {
-			exp.GetLogger().Warn("Could not send metric to statsd", zap.String("metric", name), zap.Error(err))
+			exp.GetLogger().Warn("Could not send metric to statsd", zap.String("metric", *metric.Metric), zap.Error(err))
 		}
 	}
 
