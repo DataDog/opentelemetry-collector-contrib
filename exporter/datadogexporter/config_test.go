@@ -22,6 +22,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/collector/component/componenttest"
 	"go.opentelemetry.io/collector/config/configmodels"
+	"go.opentelemetry.io/collector/config/confignet"
 	"go.opentelemetry.io/collector/config/configtest"
 )
 
@@ -71,7 +72,9 @@ func TestLoadConfig(t *testing.T) {
 			},
 
 			Agentless: AgentlessConfig{
-				Endpoint: "https://api.datadoghq.eu",
+				confignet.TCPAddr{
+					Endpoint: "https://api.datadoghq.eu",
+				},
 			},
 		},
 	}, apiConfig)
@@ -96,8 +99,6 @@ func TestLoadConfig(t *testing.T) {
 				Endpoint:  "127.0.0.1:8125",
 				Telemetry: true,
 			},
-
-			Agentless: AgentlessConfig{},
 		},
 	}, dogstatsdConfig)
 
@@ -143,7 +144,7 @@ func TestOverrideMetricsURL(t *testing.T) {
 		API: APIConfig{Key: "notnull", Site: DefaultSite},
 		Metrics: MetricsConfig{
 			Mode:      AgentlessMode,
-			Agentless: AgentlessConfig{Endpoint: DebugEndpoint},
+			Agentless: AgentlessConfig{confignet.TCPAddr{Endpoint: DebugEndpoint}},
 		},
 	}
 

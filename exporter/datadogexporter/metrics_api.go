@@ -34,7 +34,7 @@ type metricsAPIExporter struct {
 
 func newMetricsAPIExporter(logger *zap.Logger, cfg *Config) (*metricsAPIExporter, error) {
 	client := datadog.NewClient(cfg.API.Key, "")
-	client.SetBaseUrl(cfg.Metrics.Agentless.Endpoint)
+	client.SetBaseUrl(cfg.Metrics.Agentless.TCPAddr.Endpoint)
 
 	if ok, err := client.Validate(); err != nil {
 		logger.Warn("Error when validating API key", zap.Error(err))

@@ -19,6 +19,7 @@ import (
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/config/configerror"
 	"go.opentelemetry.io/collector/config/configmodels"
+	"go.opentelemetry.io/collector/config/confignet"
 	"go.opentelemetry.io/collector/exporter/exporterhelper"
 )
 
@@ -63,7 +64,9 @@ func createDefaultConfig() configmodels.Exporter {
 			},
 
 			Agentless: AgentlessConfig{
-				Endpoint: "", // set during config sanitization
+				confignet.TCPAddr{
+					Endpoint: "", // set during config sanitization
+				},
 			},
 		},
 	}
