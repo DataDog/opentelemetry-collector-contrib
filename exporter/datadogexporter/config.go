@@ -155,7 +155,6 @@ func (c *Config) Sanitize() error {
 	c.TagsConfig.UpdateWithEnv()
 
 	// Add '.' at the end of namespace
-	// to have the same behavior on DogStatsD and the API
 	if c.Metrics.Namespace != "" && !strings.HasSuffix(c.Metrics.Namespace, ".") {
 		c.Metrics.Namespace = c.Metrics.Namespace + "."
 	}
