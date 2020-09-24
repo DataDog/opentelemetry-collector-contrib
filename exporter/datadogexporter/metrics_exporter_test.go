@@ -22,6 +22,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/collector/config/confignet"
 	"go.uber.org/zap"
 )
 
@@ -78,6 +79,43 @@ func TestNewExporterValidateError(t *testing.T) {
 	assert.NotNil(t, exp)
 }
 
-func TestPushMetricsData(t *testing.T) {
+func TestProcessMetrics(t *testing.T) {
+	ts := httptest.NewServer(http.NotFoundHandler())
+	defer ts.Close()
+
+	cfg := &Config{
+		TagsConfig: TagsConfig{
+			Hostname: "test_host",
+			Env:      "test_env",
+			Tags:     []string{"key:val"},
+		},
+		Metrics: MetricsConfig{
+			TCPAddr:   confignet.TCPAddr{Endpoint: ts.URL},
+			Namespace: "test.",
+		},
+	}
+	logger := zap.NewNop()
+
+	exp, err := newMetricsExporter(logger, cfg)
+
+	require.NoError(t, err)
+
+	var series Series
+	series.Add(NewGauge(
+		"original_host",
+		"metric_name",
+		0,
+		0,
+		[]string{"key2:val2"},
+	))
+
+	exp.processMetrics(&series)
+
+	assert.Equal(t, "test_host", *series.metrics[0].Host)
+	assert.Equal(t, "test.metric_name", *series.metrics[0].Metric)
+	assert.ElementsMatch(t,
+		[]string{"key:val", "env:test_env", "key2:val2"},
+		series.metrics[0].Tags,
+	)
 
 }
