@@ -19,7 +19,6 @@ import (
 	"fmt"
 
 	"go.opentelemetry.io/collector/consumer/pdata"
-	"go.opentelemetry.io/collector/translator/internaldata"
 	"go.uber.org/zap"
 	"gopkg.in/zorkian/go-datadog-api.v2"
 )
@@ -73,8 +72,7 @@ func (exp *metricsExporter) processMetrics(series *Series) {
 }
 
 func (exp *metricsExporter) PushMetricsData(ctx context.Context, md pdata.Metrics) (int, error) {
-	data := internaldata.MetricsToOC(md)
-	series, droppedTimeSeries := MapMetrics(exp.logger, exp.cfg.Metrics, data)
+	series, droppedTimeSeries := MapMetrics(exp.logger, exp.cfg.Metrics, md)
 	exp.processMetrics(&series)
 
 	err := exp.client.PostMetrics(series.metrics)
