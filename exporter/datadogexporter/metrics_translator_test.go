@@ -28,7 +28,7 @@ func TestMetricValue(t *testing.T) {
 	var (
 		name  string   = "name"
 		value float64  = math.Pi
-		ts    int32    = int32(time.Now().Unix())
+		ts    uint64   = uint64(time.Now().UnixNano())
 		tags  []string = []string{"tool:opentelemetry", "version:0.1.0"}
 	)
 
@@ -42,7 +42,7 @@ func TestGetTags(t *testing.T) {
 	labels.InitFromMap(map[string]string{
 		"key1": "val1",
 		"key2": "val2",
- 		"key3": "",			   
+		"key3": "",
 	})
 
 	assert.ElementsMatch(t,
@@ -52,7 +52,7 @@ func TestGetTags(t *testing.T) {
 }
 
 func TestMapIntMetrics(t *testing.T) {
-	ts := time.Now().Unix()
+	ts := time.Now().UnixNano()
 	slice := pdata.NewIntDataPointSlice()
 
 	point := pdata.NewIntDataPoint()
@@ -66,12 +66,12 @@ func TestMapIntMetrics(t *testing.T) {
 
 	assert.ElementsMatch(t,
 		mapIntMetrics("int64.test", slice),
-		[]datadog.Metric{NewGauge("int64.test", int32(ts), 17, []string{})},
+		[]datadog.Metric{NewGauge("int64.test", uint64(ts), 17, []string{})},
 	)
 }
 
 func TestMapDoubleMetrics(t *testing.T) {
-	ts := time.Now().Unix()
+	ts := time.Now().UnixNano()
 	slice := pdata.NewDoubleDataPointSlice()
 
 	point := pdata.NewDoubleDataPoint()
@@ -85,12 +85,12 @@ func TestMapDoubleMetrics(t *testing.T) {
 
 	assert.ElementsMatch(t,
 		mapDoubleMetrics("float64.test", slice),
-		[]datadog.Metric{NewGauge("float64.test", int32(ts), math.Pi, []string{})},
+		[]datadog.Metric{NewGauge("float64.test", uint64(ts), math.Pi, []string{})},
 	)
 }
 
 func TestMapIntHistogramMetrics(t *testing.T) {
-	ts := time.Now().Unix()
+	ts := time.Now().UnixNano()
 	slice := pdata.NewIntHistogramDataPointSlice()
 
 	point := pdata.NewIntHistogramDataPoint()
@@ -105,13 +105,13 @@ func TestMapIntHistogramMetrics(t *testing.T) {
 	slice.Append(nilPoint)
 
 	noBuckets := []datadog.Metric{
-		NewGauge("intHist.test.count", int32(ts), 20, []string{}),
-		NewGauge("intHist.test.sum", int32(ts), 200, []string{}),
+		NewGauge("intHist.test.count", uint64(ts), 20, []string{}),
+		NewGauge("intHist.test.sum", uint64(ts), 200, []string{}),
 	}
 
 	buckets := []datadog.Metric{
-		NewGauge("intHist.test.count_per_bucket", int32(ts), 2, []string{"bucket_idx:0"}),
-		NewGauge("intHist.test.count_per_bucket", int32(ts), 18, []string{"bucket_idx:1"}),
+		NewGauge("intHist.test.count_per_bucket", uint64(ts), 2, []string{"bucket_idx:0"}),
+		NewGauge("intHist.test.count_per_bucket", uint64(ts), 18, []string{"bucket_idx:1"}),
 	}
 
 	assert.ElementsMatch(t,
@@ -126,7 +126,7 @@ func TestMapIntHistogramMetrics(t *testing.T) {
 }
 
 func TestMapDoubleHistogramMetrics(t *testing.T) {
-	ts := time.Now().Unix()
+	ts := time.Now().UnixNano()
 	slice := pdata.NewDoubleHistogramDataPointSlice()
 
 	point := pdata.NewDoubleHistogramDataPoint()
@@ -141,13 +141,13 @@ func TestMapDoubleHistogramMetrics(t *testing.T) {
 	slice.Append(nilPoint)
 
 	noBuckets := []datadog.Metric{
-		NewGauge("doubleHist.test.count", int32(ts), 20, []string{}),
-		NewGauge("doubleHist.test.sum", int32(ts), math.Pi, []string{}),
+		NewGauge("doubleHist.test.count", uint64(ts), 20, []string{}),
+		NewGauge("doubleHist.test.sum", uint64(ts), math.Pi, []string{}),
 	}
 
 	buckets := []datadog.Metric{
-		NewGauge("doubleHist.test.count_per_bucket", int32(ts), 2, []string{"bucket_idx:0"}),
-		NewGauge("doubleHist.test.count_per_bucket", int32(ts), 18, []string{"bucket_idx:1"}),
+		NewGauge("doubleHist.test.count_per_bucket", uint64(ts), 2, []string{"bucket_idx:0"}),
+		NewGauge("doubleHist.test.count_per_bucket", uint64(ts), 18, []string{"bucket_idx:1"}),
 	}
 
 	assert.ElementsMatch(t,

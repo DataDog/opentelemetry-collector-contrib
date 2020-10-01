@@ -26,8 +26,10 @@ const (
 	Gauge string = "gauge"
 )
 
-func NewGauge(name string, ts int32, value float64, tags []string) datadog.Metric {
-	timestamp := float64(ts)
+func NewGauge(name string, ts uint64, value float64, tags []string) datadog.Metric {
+	// Transform UnixNano timestamp into Unix timestamp
+	// 1 second = 1e9 ns
+	timestamp := float64(ts / 1e9)
 
 	gauge := datadog.Metric{
 		Points: []datadog.DataPoint{[2]*float64{&timestamp, &value}},
@@ -69,7 +71,7 @@ func mapIntMetrics(name string, slice pdata.IntDataPointSlice) []datadog.Metric 
 			continue
 		}
 		metrics = append(metrics,
-			NewGauge(name, int32(p.Timestamp()), float64(p.Value()), getTags(p.LabelsMap())),
+			NewGauge(name, uint64(p.Timestamp()), float64(p.Value()), getTags(p.LabelsMap())),
 		)
 	}
 	return metrics
@@ -84,7 +86,7 @@ func mapDoubleMetrics(name string, slice pdata.DoubleDataPointSlice) []datadog.M
 			continue
 		}
 		metrics = append(metrics,
-			NewGauge(name, int32(p.Timestamp()), float64(p.Value()), getTags(p.LabelsMap())),
+			NewGauge(name, uint64(p.Timestamp()), float64(p.Value()), getTags(p.LabelsMap())),
 		)
 	}
 	return metrics
@@ -111,7 +113,7 @@ func mapIntHistogramMetrics(name string, slice pdata.IntHistogramDataPointSlice,
 		if p.IsNil() {
 			continue
 		}
-		ts := int32(p.Timestamp())
+		ts := uint64(p.Timestamp())
 		tags := getTags(p.LabelsMap())
 
 		metrics = append(metrics,
@@ -145,7 +147,7 @@ func mapDoubleHistogramMetrics(name string, slice pdata.DoubleHistogramDataPoint
 		if p.IsNil() {
 			continue
 		}
-		ts := int32(p.Timestamp())
+		ts := uint64(p.Timestamp())
 		tags := getTags(p.LabelsMap())
 
 		metrics = append(metrics,
