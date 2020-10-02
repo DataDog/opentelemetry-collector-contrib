@@ -986,6 +986,8 @@ github.com/signalfx/sapm-proto v0.5.3 h1:1+YNMTQBCS3XXuwfXARAyk2PbsbZdMwRVb6Y7Wg
 github.com/signalfx/sapm-proto v0.5.3/go.mod h1:irslr5i7XlHJTm1CpRy+llvf4COzF5K6Je05RkhetTE=
 github.com/signalfx/sapm-proto v0.6.0 h1:SpcBPBN7mllCaittxvTmXM4zCob79ytb9DEHsZ9jLF0=
 github.com/signalfx/sapm-proto v0.6.0/go.mod h1:2uHysA4VySJpaZKEvsceKew2aNclf5Bu45bfbNwgbhI=
+github.com/signalfx/sapm-proto v0.6.1 h1:tg7Bir+GJj67lSDClG2b6YeTkRwNyfLNnmxqFq01Tgc=
+github.com/signalfx/sapm-proto v0.6.1/go.mod h1:2uHysA4VySJpaZKEvsceKew2aNclf5Bu45bfbNwgbhI=
 github.com/sirupsen/logrus v1.2.0/go.mod h1:LxeOpSwHxABJmUn/MG1IvRgCAasNZTLOkJPxbbu5VWo=
 github.com/sirupsen/logrus v1.4.0/go.mod h1:LxeOpSwHxABJmUn/MG1IvRgCAasNZTLOkJPxbbu5VWo=
 github.com/sirupsen/logrus v1.4.1/go.mod h1:ni0Sbl8bgC9z8RoU9G6nDWqqs/fq4eDPysMBDgk/93Q=
