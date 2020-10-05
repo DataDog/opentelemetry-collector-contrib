@@ -98,17 +98,13 @@ type TagsConfig struct {
 }
 
 // GetTags gets the default tags extracted from the configuration
-func (t *TagsConfig) GetTags(addHost bool) []string {
+func (t *TagsConfig) GetTags() []string {
 	tags := make([]string, 0, 4)
 
 	vars := map[string]string{
 		"env":     t.Env,
 		"service": t.Service,
 		"version": t.Version,
-	}
-
-	if addHost {
-		vars["host"] = t.Hostname
 	}
 
 	for name, val := range vars {

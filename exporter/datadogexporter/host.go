@@ -16,6 +16,11 @@ package datadogexporter
 
 import "os"
 
+const (
+	opentelemetryFlavor  string = "opentelemetry-collector"
+	opentelemetryVersion string = "alpha"
+)
+
 // GetHost gets the hostname according to configuration.
 // It gets the configuration hostname and if
 // not available it relies on the OS hostname
@@ -29,4 +34,64 @@ func GetHost(cfg *Config) *string {
 		host = "unknown"
 	}
 	return &host
+}
+
+// hostMetadata includes metadata about the host tags,
+// host aliases and identifies the host as an OpenTelemetry host
+type hostMetadata struct {
+	// Meta includes metadata about the host.
+	Meta *meta `json:"meta"`
+
+	// InternalHostname is the canonical hostname
+	InternalHostname string `json:"internalHostname"`
+
+	// Version is the OpenTelemetry Collector version.
+	// This is used for correctly identifying the Collector in the backend,
+	// and for telemetry purposes.
+	Version string `json:"otel_version"`
+
+	// Flavor is always set to "opentelemetry-collector".
+	// It is used for telemetry purposes in the backend.
+	Flavor string `json:"agent-flavor"`
+
+	// Tags includes the host tags
+	Tags *hostTags `json:"host-tags"`
+}
+
+// hostTags are the host tags.
+// Currently only system (configuration) tags are considered.
+type hostTags struct {
+	// System are host tags set in the configuration
+	System []string `json:"system,omitempty"`
+}
+
+// meta includes metadata about the host aliases
+type meta struct {
+	// InstanceID is the EC2 instance id the Collector is running on, if available
+	InstanceID string `json:"instance-id,omitemtpy"`
+
+	// EC2Hostname is the hostname from the EC2 metadata API
+	EC2Hostname string `json:"ec2-hostname,omitempty"`
+
+	// Hostname is the canonical hostname
+	Hostname string `json:"hostname"`
+
+	// SocketHostname is the OS hostname
+	SocketHostname string `json:"socket-hostname"`
+
+	// HostAliases are other available host names
+	HostAliases []string `json:"host-aliases,omitempty"`
+}
+
+func getHostMetadata(cfg *Config) hostMetadata {
+	host := *GetHost(cfg)
+	return hostMetadata{
+		InternalHostname: host,
+		Flavor:           opentelemetryFlavor,
+		Version:          opentelemetryVersion,
+		Tags:             &hostTags{cfg.TagsConfig.GetTags()},
+		Meta: &meta{
+			Hostname: host,
+		},
+	}
 }

@@ -15,7 +15,12 @@
 package datadogexporter
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"time"
 
 	"go.opentelemetry.io/collector/consumer/pdata"
 	"go.uber.org/zap"
@@ -26,23 +31,46 @@ type metricsExporter struct {
 	logger *zap.Logger
 	cfg    *Config
 	client *datadog.Client
-	tags   []string
 }
 
 func newMetricsExporter(logger *zap.Logger, cfg *Config) (*metricsExporter, error) {
 	client := datadog.NewClient(cfg.API.Key, "")
 	client.SetBaseUrl(cfg.Metrics.TCPAddr.Endpoint)
 
-	// Calculate tags at startup
-	tags := cfg.TagsConfig.GetTags(false)
+	return &metricsExporter{logger, cfg, client}, nil
+}
 
-	return &metricsExporter{logger, cfg, client, tags}, nil
+// pushHostMetadata sends a host metadata payload to the "/intake" endpoint
+func (exp *metricsExporter) pushHostMetadata(metadata hostMetadata) error {
+	path := exp.cfg.Metrics.TCPAddr.Endpoint + "/intake"
+	buf, _ := json.Marshal(metadata)
+	req, _ := http.NewRequest(http.MethodPost, path, bytes.NewBuffer(buf))
+	req.Header.Set("DD-API-KEY", exp.cfg.API.Key)
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	defer resp.Body.Close()
+
+	if err != nil {
+		return err
+	}
+
+	if resp.StatusCode/100 >= 4 {
+		return fmt.Errorf(
+			"'%d - %s' error when sending metadata payload to %s",
+			resp.StatusCode,
+			resp.Status,
+			path,
+		)
+	}
+
+	return nil
 }
 
 func (exp *metricsExporter) processMetrics(metrics []datadog.Metric) {
 	addNamespace := exp.cfg.Metrics.Namespace != ""
 	overrideHostname := exp.cfg.Hostname != ""
-	addTags := len(exp.tags) > 0
 
 	for i := range metrics {
 		if addNamespace {
@@ -53,11 +81,6 @@ func (exp *metricsExporter) processMetrics(metrics []datadog.Metric) {
 		if overrideHostname || metrics[i].GetHost() == "" {
 			metrics[i].Host = GetHost(exp.cfg)
 		}
-
-		if addTags {
-			metrics[i].Tags = append(metrics[i].Tags, exp.tags...)
-		}
-
 	}
 }
 

@@ -84,23 +84,21 @@ func TestLoadConfig(t *testing.T) {
 
 func TestTags(t *testing.T) {
 	tc := TagsConfig{
-		Hostname: "customhost",
-		Env:      "customenv",
-		Service:  "customservice",
-		Version:  "customversion",
-		Tags:     []string{"key1:val1", "key2:val2"},
+		Env:     "customenv",
+		Service: "customservice",
+		Version: "customversion",
+		Tags:    []string{"key1:val1", "key2:val2"},
 	}
 
 	assert.ElementsMatch(t,
 		[]string{
-			"host:customhost",
 			"env:customenv",
 			"service:customservice",
 			"version:customversion",
 			"key1:val1",
 			"key2:val2",
 		},
-		tc.GetTags(true), // get host
+		tc.GetTags(), // get host
 	)
 }
 

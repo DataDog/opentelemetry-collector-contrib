@@ -58,14 +58,14 @@ func TestProcessMetrics(t *testing.T) {
 			0,
 			[]string{"key2:val2"},
 		),
-	}	 
+	}
 
 	exp.processMetrics(metrics)
 
 	assert.Equal(t, "test_host", *metrics[0].Host)
 	assert.Equal(t, "test.metric_name", *metrics[0].Metric)
 	assert.ElementsMatch(t,
-		[]string{"key:val", "env:test_env", "key2:val2"},
+		[]string{"key2:val2"},
 		metrics[0].Tags,
 	)
 
