@@ -50,11 +50,12 @@ func (exp *metricsExporter) pushHostMetadata(metadata hostMetadata) error {
 
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Do(req)
-	defer resp.Body.Close()
 
 	if err != nil {
 		return err
 	}
+
+	defer resp.Body.Close()
 
 	if resp.StatusCode/100 >= 4 {
 		return fmt.Errorf(

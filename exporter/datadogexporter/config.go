@@ -99,18 +99,10 @@ type TagsConfig struct {
 
 // GetTags gets the default tags extracted from the configuration
 func (t *TagsConfig) GetTags() []string {
-	tags := make([]string, 0, 4)
+	tags := make([]string, 0, len(t.Tags)+1)
 
-	vars := map[string]string{
-		"env":     t.Env,
-		"service": t.Service,
-		"version": t.Version,
-	}
-
-	for name, val := range vars {
-		if val != "" {
-			tags = append(tags, fmt.Sprintf("%s:%s", name, val))
-		}
+	if t.Env != "none" {
+		tags = append(tags, fmt.Sprintf("env:%s", t.Env))
 	}
 
 	tags = append(tags, t.Tags...)

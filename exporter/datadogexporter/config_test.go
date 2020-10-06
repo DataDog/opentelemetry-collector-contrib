@@ -84,7 +84,11 @@ func TestLoadConfig(t *testing.T) {
 
 func TestTags(t *testing.T) {
 	tc := TagsConfig{
-		Env:     "customenv",
+		// environment should be picked up if it is not 'none'
+		Env: "customenv",
+
+		// these should be ignored;
+		// they are used only on trace translation
 		Service: "customservice",
 		Version: "customversion",
 		Tags:    []string{"key1:val1", "key2:val2"},
@@ -93,13 +97,14 @@ func TestTags(t *testing.T) {
 	assert.ElementsMatch(t,
 		[]string{
 			"env:customenv",
-			"service:customservice",
-			"version:customversion",
 			"key1:val1",
 			"key2:val2",
 		},
-		tc.GetTags(), // get host
+		tc.GetTags(),
 	)
+
+	tc.Env = "none"
+	assert.ElementsMatch(t, tc.GetTags(), tc.Tags)
 }
 
 // TestOverrideMetricsURL tests that the metrics URL is overridden

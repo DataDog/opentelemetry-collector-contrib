@@ -68,7 +68,7 @@ type hostTags struct {
 // meta includes metadata about the host aliases
 type meta struct {
 	// InstanceID is the EC2 instance id the Collector is running on, if available
-	InstanceID string `json:"instance-id,omitemtpy"`
+	InstanceID string `json:"instance-id,omitempty"`
 
 	// EC2Hostname is the hostname from the EC2 metadata API
 	EC2Hostname string `json:"ec2-hostname,omitempty"`
