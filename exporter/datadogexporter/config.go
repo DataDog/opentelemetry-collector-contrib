@@ -155,6 +155,11 @@ func (c *Config) Sanitize() error {
 
 	c.API.Key = strings.TrimSpace(c.API.Key)
 
+	// Set the Site option to the default
+	if c.API.Site == "" {
+		c.API.Site = "datadoghq.com"
+	}
+
 	// Set the endpoint based on the Site
 	if c.Metrics.TCPAddr.Endpoint == "" {
 		c.Metrics.TCPAddr.Endpoint = fmt.Sprintf("https://api.%s", c.API.Site)

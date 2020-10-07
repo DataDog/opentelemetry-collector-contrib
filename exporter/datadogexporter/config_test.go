@@ -141,3 +141,17 @@ func TestCensorAPIKey(t *testing.T) {
 		cfg.GetCensoredKey(),
 	)
 }
+
+// TestDefaultSiteEndpoint tests that the site and metrics URL are
+// correctly set to defaults when unspecified in the config.
+func TestDefaultSiteEndpoint(t *testing.T) {
+
+	cfg := Config{
+		API: APIConfig{Key: "notnull"},
+	}
+
+	err := cfg.Sanitize()
+	require.NoError(t, err)
+	assert.Equal(t, cfg.API.Site, "datadoghq.com")
+	assert.Equal(t, cfg.Metrics.Endpoint, "https://api.datadoghq.com")
+}
