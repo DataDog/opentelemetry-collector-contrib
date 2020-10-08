@@ -57,7 +57,7 @@ func (exp *metricsExporter) pushHostMetadata(metadata hostMetadata) error {
 
 	defer resp.Body.Close()
 
-	if resp.StatusCode/100 >= 4 {
+	if resp.StatusCode >= 400 {
 		return fmt.Errorf(
 			"'%d - %s' error when sending metadata payload to %s",
 			resp.StatusCode,
