@@ -15,6 +15,7 @@ package datadogexporter
 
 import (
 	"context"
+	"time"
 
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/config/configmodels"
@@ -90,24 +91,30 @@ func createMetricsExporter(
 		return nil, err
 	}
 
-	// Send host metadata
-	var sent bool
-	metadata := getHostMetadata(cfg)
-	for i := 0; i < maxRetries; i++ {
-		err := exp.pushHostMetadata(metadata)
-		if err != nil {
-			params.Logger.Warn("Sending host metadata failed", zap.Error(err))
-		} else {
-			sent = true
-			params.Logger.Info("Sent host metadata", zap.Int("numRetries", i))
-			break
-		}
-	}
+	go func() {
+		// Send host metadata
+		var sent bool
+		wait := 1 * time.Second
+		metadata := getHostMetadata(cfg)
+		for i := 0; i < maxRetries; i++ {
+			err := exp.pushHostMetadata(metadata)
+			if err != nil {
+				params.Logger.Warn("Sending host metadata failed", zap.Error(err))
+			} else {
+				sent = true
+				params.Logger.Info("Sent host metadata", zap.Int("numRetries", i))
+				break
+			}
 
-	if !sent {
-		// log and continue without metadata
-		params.Logger.Error("Could not send host metadata", zap.Int("numRetries", maxRetries))
-	}
+			time.Sleep(wait)
+			wait = 2 * wait
+		}
+
+		if !sent {
+			// log and continue without metadata
+			params.Logger.Error("Could not send host metadata", zap.Int("numRetries", maxRetries))
+		}
+	}()
 
 	return exporterhelper.NewMetricsExporter(
 		cfg,
