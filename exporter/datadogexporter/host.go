@@ -14,11 +14,18 @@
 
 package datadogexporter
 
-import "os"
+import (
+	"fmt"
+	"os"
+)
 
 const (
 	opentelemetryFlavor  string = "opentelemetry-collector"
 	opentelemetryVersion string = "alpha"
+)
+
+var (
+	userAgent string = fmt.Sprintf("%s/%s", opentelemetryFlavor, opentelemetryVersion)
 )
 
 // GetHost gets the hostname according to configuration.

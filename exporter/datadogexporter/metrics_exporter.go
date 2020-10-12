@@ -35,6 +35,7 @@ type metricsExporter struct {
 
 func newMetricsExporter(logger *zap.Logger, cfg *Config) (*metricsExporter, error) {
 	client := datadog.NewClient(cfg.API.Key, "")
+	client.ExtraHeader["User-Agent"] = userAgent
 	client.SetBaseUrl(cfg.Metrics.TCPAddr.Endpoint)
 
 	return &metricsExporter{logger, cfg, client}, nil
@@ -47,7 +48,7 @@ func (exp *metricsExporter) pushHostMetadata(metadata hostMetadata) error {
 	req, _ := http.NewRequest(http.MethodPost, path, bytes.NewBuffer(buf))
 	req.Header.Set("DD-API-KEY", exp.cfg.API.Key)
 	req.Header.Set("Content-Type", "application/json")
-
+	req.Header.Set("User-Agent", userAgent)
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Do(req)
 
