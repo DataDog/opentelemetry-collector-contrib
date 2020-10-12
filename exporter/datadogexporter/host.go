@@ -20,12 +20,12 @@ import (
 )
 
 const (
-	opentelemetryFlavor  string = "opentelemetry-collector"
-	opentelemetryVersion string = "alpha"
+	opentelemetryFlavor  = "opentelemetry-collector"
+	opentelemetryVersion = "alpha"
 )
 
 var (
-	userAgent string = fmt.Sprintf("%s/%s", opentelemetryFlavor, opentelemetryVersion)
+	userAgent = fmt.Sprintf("%s/%s", opentelemetryFlavor, opentelemetryVersion)
 )
 
 // GetHost gets the hostname according to configuration.

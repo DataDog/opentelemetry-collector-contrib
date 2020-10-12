@@ -19,6 +19,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"time"
 
@@ -33,10 +34,27 @@ type metricsExporter struct {
 	client *datadog.Client
 }
 
+func newHTTPClient() *http.Client {
+	return &http.Client{
+		Timeout: 20 * time.Second,
+		Transport: &http.Transport{
+			Proxy: http.ProxyFromEnvironment,
+			DialContext: (&net.Dialer{
+				// Disable RFC 6555 Fast Fallback ("Happy Eyeballs")
+				FallbackDelay: -1 * time.Nanosecond,
+			}).DialContext,
+			MaxIdleConns: 100,
+			// Not supported by intake
+			ForceAttemptHTTP2: false,
+		},
+	}
+}
+
 func newMetricsExporter(logger *zap.Logger, cfg *Config) (*metricsExporter, error) {
 	client := datadog.NewClient(cfg.API.Key, "")
 	client.ExtraHeader["User-Agent"] = userAgent
 	client.SetBaseUrl(cfg.Metrics.TCPAddr.Endpoint)
+	client.HttpClient = newHTTPClient()
 
 	return &metricsExporter{logger, cfg, client}, nil
 }
@@ -49,7 +67,7 @@ func (exp *metricsExporter) pushHostMetadata(metadata hostMetadata) error {
 	req.Header.Set("DD-API-KEY", exp.cfg.API.Key)
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("User-Agent", userAgent)
-	client := &http.Client{Timeout: 10 * time.Second}
+	client := newHTTPClient()
 	resp, err := client.Do(req)
 
 	if err != nil {
