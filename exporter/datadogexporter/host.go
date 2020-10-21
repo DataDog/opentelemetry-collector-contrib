@@ -68,8 +68,8 @@ type hostMetadata struct {
 // hostTags are the host tags.
 // Currently only system (configuration) tags are considered.
 type hostTags struct {
-	// System are host tags set in the configuration
-	System []string `json:"system,omitempty"`
+	// OTel are host tags set in the configuration
+	OTel []string `json:"otel,omitempty"`
 }
 
 // meta includes metadata about the host aliases
