@@ -117,7 +117,7 @@ func NormalizeSpanKind(kind pdata.SpanKind) string {
 }
 
 // NormalizeServiceName returns a span service name normalized to remove invalid characters
-// TODO: we'd like to move to the datadog-agent traceutil version of this once it's available in the exportable package
+// TODO: we'd like to move to the datadog-agent traceutil version of this once it's available in the export package
 // https://github.com/DataDog/datadog-agent/blob/eab0dde41fe3a069a65c33d82a81b1ef1cf6b3bc/pkg/trace/traceutil/normalize.go#L52
 func NormalizeServiceName(service string) string {
 	if service == "" {

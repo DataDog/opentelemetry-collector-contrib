@@ -21,8 +21,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/DataDog/datadog-agent/pkg/trace/exportable/pb"
-	"github.com/DataDog/datadog-agent/pkg/trace/exportable/stats"
+	"github.com/DataDog/datadog-agent/pkg/trace/export/pb"
+	"github.com/DataDog/datadog-agent/pkg/trace/export/writer"
 	"github.com/gogo/protobuf/proto"
 	"go.opentelemetry.io/collector/component"
 
@@ -32,7 +32,7 @@ import (
 // TraceEdgeConnection is used to send data to trace edge
 type TraceEdgeConnection interface {
 	SendTraces(ctx context.Context, trace *pb.TracePayload, maxRetries int) error
-	SendStats(ctx context.Context, stats *stats.Payload, maxRetries int) error
+	SendStats(ctx context.Context, stats *pb.StatsPayload, maxRetries int) error
 }
 
 type traceEdgeConnection struct {
@@ -108,9 +108,9 @@ func (con *traceEdgeConnection) SendTraces(ctx context.Context, trace *pb.TraceP
 }
 
 // SendStats serializes a stats payload to json and sends it to Trace Edge
-func (con *traceEdgeConnection) SendStats(ctx context.Context, sts *stats.Payload, maxRetries int) error {
+func (con *traceEdgeConnection) SendStats(ctx context.Context, sts *pb.StatsPayload, maxRetries int) error {
 	var b bytes.Buffer
-	err := stats.EncodePayload(&b, sts)
+	err := writer.EncodePayload(&b, *sts)
 	if err != nil {
 		return fmt.Errorf("failed to encode stats payload: %w", err)
 	}

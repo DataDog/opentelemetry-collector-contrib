@@ -17,8 +17,8 @@ package datadogexporter
 import (
 	"time"
 
-	"github.com/DataDog/datadog-agent/pkg/trace/exportable/pb"
-	"github.com/DataDog/datadog-agent/pkg/trace/exportable/stats"
+	"github.com/DataDog/datadog-agent/pkg/trace/export/pb"
+	"github.com/DataDog/datadog-agent/pkg/trace/export/stats"
 )
 
 const (
@@ -27,13 +27,12 @@ const (
 )
 
 // ComputeAPMStats calculates the stats that should be submitted to APM about a given trace
-func computeAPMStats(tracePayload *pb.TracePayload, calculator *sublayerCalculator, pushTime int64) *stats.Payload {
+func computeAPMStats(tracePayload *pb.TracePayload, pushTime int64) *pb.StatsPayload {
 	statsRawBuckets := make(map[int64]*stats.RawBucket)
 
 	bucketTS := pushTime - statsBucketDuration
 	for _, trace := range tracePayload.Traces {
 		spans := getAnalyzedSpans(trace.Spans)
-		sublayers := calculator.computeSublayers(trace.Spans)
 		for _, span := range spans {
 
 			// TODO: While this is hardcoded to assume a single 10s buckets for now,
@@ -46,7 +45,7 @@ func computeAPMStats(tracePayload *pb.TracePayload, calculator *sublayerCalculat
 			if existingBucket, ok := statsRawBuckets[bucketTS]; ok {
 				statsRawBucket = existingBucket
 			} else {
-				statsRawBucket = stats.NewRawBucket(bucketTS, statsBucketDuration)
+				statsRawBucket = stats.NewRawBucket(uint64(bucketTS), uint64(statsBucketDuration))
 				statsRawBuckets[bucketTS] = statsRawBucket
 			}
 
@@ -58,19 +57,26 @@ func computeAPMStats(tracePayload *pb.TracePayload, calculator *sublayerCalculat
 				Weight:   1,
 				TopLevel: true,
 			}
-			statsRawBucket.HandleSpan(weightedSpan, tracePayload.Env, []string{versionAggregationTag}, sublayers)
+			statsRawBucket.HandleSpan(weightedSpan, tracePayload.Env, "TODO-APM")
 		}
 	}
 
 	// Export statsRawBuckets to statsBuckets
-	statsBuckets := make([]stats.Bucket, 0)
+	statsBuckets := make([]pb.ClientStatsBucket, 0)
 	for _, statsRawBucket := range statsRawBuckets {
-		statsBuckets = append(statsBuckets, statsRawBucket.Export())
+		for _, clientStatsBucket := range statsRawBucket.Export() {
+			statsBuckets = append(statsBuckets, clientStatsBucket)
+		}
 	}
 
-	return &stats.Payload{
-		HostName: tracePayload.HostName,
-		Env:      tracePayload.Env,
-		Stats:    statsBuckets,
+	return &pb.StatsPayload{
+		AgentHostname: tracePayload.HostName, // TODO: should this be the hostname we detect instead of the one in the trace?
+		AgentEnv:      tracePayload.Env,
+		// AgentVersion:  TODO do we need this?,
+		Stats: []pb.ClientStatsPayload{pb.ClientStatsPayload{
+			Hostname: tracePayload.HostName,
+			Env:      tracePayload.Env,
+			Stats:    statsBuckets,
+		}},
 	}
 }
