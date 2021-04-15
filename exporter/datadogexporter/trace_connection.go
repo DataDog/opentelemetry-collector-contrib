@@ -117,7 +117,7 @@ func (con *traceEdgeConnection) SendStats(ctx context.Context, sts *pb.StatsPayl
 	binary := b.Bytes()
 
 	// Set Headers
-	headers := utils.JSONHeaders
+	headers := utils.JSONHeaders // TODO: Update to msgp
 
 	// Construct a Payload{} from the headers and binary
 	payload := Payload{
