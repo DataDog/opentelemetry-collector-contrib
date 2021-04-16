@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/DataDog/datadog-agent/pkg/trace/export/pb"
+	"github.com/DataDog/datadog-agent/pkg/trace/export/traceutil"
 	"go.opentelemetry.io/collector/consumer/pdata"
 	"go.opentelemetry.io/collector/translator/conventions"
 	tracetranslator "go.opentelemetry.io/collector/translator/trace"
@@ -33,7 +34,6 @@ import (
 	"github.com/open-telemetry/opentelemetry-collector-contrib/exporter/datadogexporter/config"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/exporter/datadogexporter/metadata"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/exporter/datadogexporter/metrics"
-	"github.com/open-telemetry/opentelemetry-collector-contrib/exporter/datadogexporter/utils"
 )
 
 const (
@@ -207,7 +207,8 @@ func spanToDatadogSpan(s pdata.Span,
 		serviceName = peerService
 	}
 
-	normalizedServiceName := utils.NormalizeServiceName(serviceName)
+	// TODO: Can this fail? How should the error be handled?
+	normalizedServiceName, _ := traceutil.NormalizeService(serviceName, "")
 
 	//  canonical resource attribute version should override others if it exists
 	if rsTagVersion := tags[conventions.AttributeServiceVersion]; rsTagVersion != "" {
@@ -418,21 +419,23 @@ func getDatadogSpanName(s pdata.Span, datadogTags map[string]string) string {
 	// https://github.com/open-telemetry/opentelemetry-python/blob/b2559409b2bf82e693f3e68ed890dd7fd1fa8eae/exporter/opentelemetry-exporter-datadog/src/opentelemetry/exporter/datadog/exporter.py#L213
 	// Get span name by using instrumentation library name and span kind while backing off to span.kind
 
+	spanKind := strings.TrimPrefix(s.Kind().String(), "SPAN_KIND_")
+
 	// The spec has changed over time and, depending on the original exporter, IL Name could represented a few different ways
 	// so we try to account for all permutations
 	if ilnOtlp, okOtlp := datadogTags[conventions.InstrumentationLibraryName]; okOtlp {
-		return utils.NormalizeSpanName(fmt.Sprintf("%s.%s", ilnOtlp, utils.NormalizeSpanKind(s.Kind())), false)
+		return traceutil.NormalizeTag(fmt.Sprintf("%s.%s", ilnOtlp, spanKind))
 	}
 
 	if ilnOtelCur, okOtelCur := datadogTags[currentILNameTag]; okOtelCur {
-		return utils.NormalizeSpanName(fmt.Sprintf("%s.%s", ilnOtelCur, utils.NormalizeSpanKind(s.Kind())), false)
+		return traceutil.NormalizeTag(fmt.Sprintf("%s.%s", ilnOtelCur, spanKind))
 	}
 
 	if ilnOtelOld, okOtelOld := datadogTags[oldILNameTag]; okOtelOld {
-		return utils.NormalizeSpanName(fmt.Sprintf("%s.%s", ilnOtelOld, utils.NormalizeSpanKind(s.Kind())), false)
+		return traceutil.NormalizeTag(fmt.Sprintf("%s.%s", ilnOtelOld, spanKind))
 	}
 
-	return utils.NormalizeSpanName(fmt.Sprintf("%s.%s", "opentelemetry", utils.NormalizeSpanKind(s.Kind())), false)
+	return traceutil.NormalizeTag(fmt.Sprintf("%s.%s", "opentelemetry", spanKind))
 }
 
 func getDatadogResourceName(s pdata.Span, datadogTags map[string]string) string {
