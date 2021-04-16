@@ -57,7 +57,7 @@ func computeAPMStats(tracePayload *pb.TracePayload, pushTime int64) *pb.StatsPay
 				Weight:   1,
 				TopLevel: true,
 			}
-			statsRawBucket.HandleSpan(weightedSpan, tracePayload.Env, "TODO-APM")
+			statsRawBucket.HandleSpan(weightedSpan, tracePayload.Env, tracePayload.HostName)
 		}
 	}
 
@@ -73,7 +73,7 @@ func computeAPMStats(tracePayload *pb.TracePayload, pushTime int64) *pb.StatsPay
 		AgentHostname: tracePayload.HostName, // TODO: should this be the hostname we detect instead of the one in the trace?
 		AgentEnv:      tracePayload.Env,
 		// AgentVersion:  TODO do we need this?,
-		Stats: []pb.ClientStatsPayload{pb.ClientStatsPayload{
+		Stats: []pb.ClientStatsPayload{{
 			Hostname: tracePayload.HostName,
 			Env:      tracePayload.Env,
 			Stats:    statsBuckets,
