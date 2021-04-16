@@ -63,9 +63,8 @@ func createTraceEdgeConnection(rootURL, apiKey string, startInfo component.Appli
 
 // Payload represents a data payload to be sent to some endpoint
 type Payload struct {
-	CreationDate time.Time
-	Bytes        []byte
-	Headers      map[string]string
+	Bytes   []byte
+	Headers map[string]string
 }
 
 // SendTraces serializes a trace payload to protobuf and sends it to Trace Edge
@@ -83,9 +82,8 @@ func (con *traceEdgeConnection) SendTraces(ctx context.Context, trace *pb.TraceP
 
 	// Construct a Payload{} from the headers and binary
 	payload := Payload{
-		CreationDate: time.Now().UTC(),
-		Bytes:        binary,
-		Headers:      headers,
+		Bytes:   binary,
+		Headers: headers,
 	}
 
 	var sendErr error
@@ -117,13 +115,12 @@ func (con *traceEdgeConnection) SendStats(ctx context.Context, sts *pb.StatsPayl
 	binary := b.Bytes()
 
 	// Set Headers
-	headers := utils.JSONHeaders // TODO: Update to msgp
+	headers := utils.MsgpHeaders
 
 	// Construct a Payload{} from the headers and binary
 	payload := Payload{
-		CreationDate: time.Now().UTC(),
-		Bytes:        binary,
-		Headers:      headers,
+		Bytes:   binary,
+		Headers: headers,
 	}
 
 	var sendErr error

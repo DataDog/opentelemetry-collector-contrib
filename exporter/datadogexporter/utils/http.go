@@ -33,6 +33,10 @@ var (
 		"Content-Type":     "application/x-protobuf",
 		"Content-Encoding": "identity",
 	}
+	MsgpHeaders map[string]string = map[string]string{
+		"Content-Type":     "application/msgpack",
+		"Content-Encoding": "gzip",
+	}
 )
 
 // NewClient returns a http.Client configured with the Agent options.
