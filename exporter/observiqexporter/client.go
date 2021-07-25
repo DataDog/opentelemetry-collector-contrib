@@ -21,7 +21,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
+	"io/ioutil"
 	"net/http"
 	"sync"
 	"time"
@@ -102,7 +102,7 @@ func (c *client) sendLogs(
 		// 400: bad request
 		// ignore this chunk
 		var body string
-		bytes, err := io.ReadAll(res.Body)
+		bytes, err := ioutil.ReadAll(res.Body)
 		if err == nil {
 			body = string(bytes)
 		}
@@ -114,7 +114,7 @@ func (c *client) sendLogs(
 		// 403: forbidden
 		// 404: not found
 		var body string
-		bytes, err := io.ReadAll(res.Body)
+		bytes, err := ioutil.ReadAll(res.Body)
 		if err == nil {
 			body = string(bytes)
 		}
