@@ -29,3 +29,70 @@ The full list of settings exposed for this exporter are documented [here](config
 
 This exporter also offers proxy support as documented
 [here](https://github.com/open-telemetry/opentelemetry-collector/tree/main/exporter#proxy-support).
+
+## DD Logs exporter
+
+The following configuration options are required:
+
+- `api_key` (no default): use Placeholder `"11111111-2222-3333-4444-555555555555"`
+- `endpoint` (default: `https://nozzle.app.observiq.com/v1/add`): Endpoint where logs are sent to over http(s). Use: `"https://http-intake.logs.datadoghq.com/v1/input/<YOUR_DD_API_KEY>?ddsource=otel&service=<EXAMPLE_SERVICE>"`
+
+```yaml
+extensions:
+receivers:
+  otlp:
+    protocols:
+      grpc:
+      http:
+  # otlp/logs:
+  #   protocols:
+  #     grpc:
+  #     http:
+  jaeger:
+    protocols:
+      thrift_http:
+  zipkin:
+  syslog:
+    udp:
+      listen_address: "0.0.0.0:54526"
+    protocol: rfc3164
+    location: UTC
+
+processors:
+  batch:
+    timeout: 10s
+  memory_limiter:
+      ballast_size_mib: 32
+      limit_mib: 256
+      check_interval: 1s
+
+  # attributes/example:
+  #   actions:
+  #     - key: process.pid
+  #       action: delete    
+
+exporters:
+  logging:
+    logLevel: info
+  logging/logs:
+    logLevel: debug
+  observiq:
+    api_key: "11111111-2222-3333-4444-555555555555"
+    endpoint: "https://http-intake.logs.datadoghq.com/v1/input/<YOUR_DD_API_KEY>?ddsource=otel&service=example"
+
+service:
+  pipelines:
+    logs:
+      receivers: [syslog]
+      processors: []
+      exporters: [observiq, logging/logs]
+```
+
+To Demo with syslog in a docker-compose file, add example syslog logging configuration:
+
+```yaml
+    logging:
+      driver: syslog
+      options:
+          syslog-address: "udp://0.0.0.0:54526"
+```
