@@ -60,6 +60,11 @@ func (c *client) sendLogs(
 	// Conversion errors should be returned after sending what could be converted.
 	data, conversionErrs := logdataToObservIQFormat(ld, c.config.AgentID, c.config.AgentName, c.buildVersion)
 
+	ppdata, _ := json.MarshalIndent(data, "", " ")
+
+	fmt.println("printing log entries:")
+	fmt.println(string(ppdata))
+
 	jsonData, err := json.Marshal(data)
 
 	if err != nil {
