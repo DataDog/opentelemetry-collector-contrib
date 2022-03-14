@@ -16,6 +16,7 @@ package translator // import "github.com/open-telemetry/opentelemetry-collector-
 
 import (
 	"context"
+	"github.com/stretchr/testify/require"
 	"math"
 	"testing"
 	"time"
@@ -74,7 +75,7 @@ func TestExponentialHistogramToDDSketch(t *testing.T) {
 	assert.InDelta(t, accuracy, sketch.RelativeAccuracy(), acceptableFloatError)
 }
 
-func createExponentialHistogramMetrics(additionalResourceAttributes map[string]string, additionalDatapointAttributes map[string]string) pdata.Metrics {
+func createExponentialHistogramMetrics(n int, t int, additionalResourceAttributes map[string]string, additionalDatapointAttributes map[string]string) pdata.Metrics {
 	md := pdata.NewMetrics()
 	rms := md.ResourceMetrics()
 	rm := rms.AppendEmpty()
@@ -89,37 +90,44 @@ func createExponentialHistogramMetrics(additionalResourceAttributes map[string]s
 	ilm := ilms.AppendEmpty()
 	metricsArray := ilm.Metrics()
 
-	met := metricsArray.AppendEmpty()
-	met.SetName("expHist.test")
-	met.SetDataType(pdata.MetricDataTypeExponentialHistogram)
-	met.ExponentialHistogram().SetAggregationTemporality(pdata.MetricAggregationTemporalityDelta)
-	points := met.ExponentialHistogram().DataPoints()
-	point := points.AppendEmpty()
+	for i := 0; i < n; i++ {
+		met := metricsArray.AppendEmpty()
+		met.SetName("expHist.test")
+		met.SetDataType(pdata.MetricDataTypeExponentialHistogram)
+		met.ExponentialHistogram().SetAggregationTemporality(pdata.MetricAggregationTemporalityDelta)
+		points := met.ExponentialHistogram().DataPoints()
+		point := points.AppendEmpty()
 
-	datapointAttrs := point.Attributes()
-	for attr, val := range additionalDatapointAttributes {
-		datapointAttrs.InsertString(attr, val)
+		datapointAttrs := point.Attributes()
+		for attr, val := range additionalDatapointAttributes {
+			datapointAttrs.InsertString(attr, val)
+		}
+
+		point.SetScale(6)
+
+		point.SetCount(30)
+		point.SetZeroCount(10)
+		point.SetSum(math.Pi)
+
+		buckets := make([]uint64, t)
+		for i := 0; i < t; i++ {
+			buckets[i] = 10
+		}
+
+		point.Negative().SetOffset(2)
+		point.Negative().SetBucketCounts(buckets)
+
+		point.Positive().SetOffset(3)
+		point.Positive().SetBucketCounts(buckets)
+
+		point.SetTimestamp(seconds(0))
 	}
-
-	point.SetScale(6)
-
-	point.SetCount(30)
-	point.SetZeroCount(10)
-	point.SetSum(math.Pi)
-
-	point.Negative().SetOffset(2)
-	point.Negative().SetBucketCounts([]uint64{3, 2, 5})
-
-	point.Positive().SetOffset(3)
-	point.Positive().SetBucketCounts([]uint64{1, 1, 1, 2, 2, 3})
-
-	point.SetTimestamp(seconds(0))
 
 	return md
 }
 
 func TestMapDeltaExponentialHistogramMetrics(t *testing.T) {
-	metrics := createExponentialHistogramMetrics(map[string]string{}, map[string]string{
+	metrics := createExponentialHistogramMetrics(1, 5, map[string]string{}, map[string]string{
 		"attribute_tag": "attribute_value",
 	})
 
@@ -182,4 +190,182 @@ func TestMapDeltaExponentialHistogramMetrics(t *testing.T) {
 			testMatchingSketches(t, testInstance.expectedSketches, consumer.sketches)
 		})
 	}
+}
+
+func newBenchmarkTranslator(b *testing.B, logger *zap.Logger, opts ...Option) *Translator {
+	options := append([]Option{
+		WithFallbackHostnameProvider(testProvider("fallbackHostname")),
+		WithHistogramMode(HistogramModeDistributions),
+		WithNumberMode(NumberModeCumulativeToDelta),
+	}, opts...)
+
+	tr, err := New(
+		logger,
+		options...,
+	)
+
+	require.NoError(b, err)
+	return tr
+}
+
+func benchmarkMapDeltaExponentialHistogramMetrics(metrics pdata.Metrics, b *testing.B) {
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		ctx := context.Background()
+		tr := newBenchmarkTranslator(b, zap.NewNop())
+		consumer := &mockFullConsumer{}
+		tr.MapMetrics(ctx, metrics, consumer)
+	}
+}
+
+func BenchmarkMapDeltaExponentialHistogramMetrics1_5(b *testing.B) {
+	metrics := createExponentialHistogramMetrics(1, 5, map[string]string{}, map[string]string{
+		"attribute_tag": "attribute_value",
+	})
+
+	benchmarkMapDeltaExponentialHistogramMetrics(metrics, b)
+}
+
+func BenchmarkMapDeltaExponentialHistogramMetrics10_5(b *testing.B) {
+	metrics := createExponentialHistogramMetrics(10, 5, map[string]string{}, map[string]string{
+		"attribute_tag": "attribute_value",
+	})
+
+	benchmarkMapDeltaExponentialHistogramMetrics(metrics, b)
+}
+
+func BenchmarkMapDeltaExponentialHistogramMetrics100_5(b *testing.B) {
+	metrics := createExponentialHistogramMetrics(100, 5, map[string]string{}, map[string]string{
+		"attribute_tag": "attribute_value",
+	})
+
+	benchmarkMapDeltaExponentialHistogramMetrics(metrics, b)
+}
+
+func BenchmarkMapDeltaExponentialHistogramMetrics1000_5(b *testing.B) {
+	metrics := createExponentialHistogramMetrics(1000, 5, map[string]string{}, map[string]string{
+		"attribute_tag": "attribute_value",
+	})
+
+	benchmarkMapDeltaExponentialHistogramMetrics(metrics, b)
+}
+
+func BenchmarkMapDeltaExponentialHistogramMetrics10000_5(b *testing.B) {
+	metrics := createExponentialHistogramMetrics(10000, 5, map[string]string{}, map[string]string{
+		"attribute_tag": "attribute_value",
+	})
+
+	benchmarkMapDeltaExponentialHistogramMetrics(metrics, b)
+}
+
+func BenchmarkMapDeltaExponentialHistogramMetrics1_50(b *testing.B) {
+	metrics := createExponentialHistogramMetrics(1, 50, map[string]string{}, map[string]string{
+		"attribute_tag": "attribute_value",
+	})
+
+	benchmarkMapDeltaExponentialHistogramMetrics(metrics, b)
+}
+
+func BenchmarkMapDeltaExponentialHistogramMetrics10_50(b *testing.B) {
+	metrics := createExponentialHistogramMetrics(10, 50, map[string]string{}, map[string]string{
+		"attribute_tag": "attribute_value",
+	})
+
+	benchmarkMapDeltaExponentialHistogramMetrics(metrics, b)
+}
+
+func BenchmarkMapDeltaExponentialHistogramMetrics100_50(b *testing.B) {
+	metrics := createExponentialHistogramMetrics(100, 50, map[string]string{}, map[string]string{
+		"attribute_tag": "attribute_value",
+	})
+
+	benchmarkMapDeltaExponentialHistogramMetrics(metrics, b)
+}
+
+func BenchmarkMapDeltaExponentialHistogramMetrics1000_50(b *testing.B) {
+	metrics := createExponentialHistogramMetrics(1000, 50, map[string]string{}, map[string]string{
+		"attribute_tag": "attribute_value",
+	})
+
+	benchmarkMapDeltaExponentialHistogramMetrics(metrics, b)
+}
+
+func BenchmarkMapDeltaExponentialHistogramMetrics10000_50(b *testing.B) {
+	metrics := createExponentialHistogramMetrics(10000, 50, map[string]string{}, map[string]string{
+		"attribute_tag": "attribute_value",
+	})
+
+	benchmarkMapDeltaExponentialHistogramMetrics(metrics, b)
+}
+
+func BenchmarkMapDeltaExponentialHistogramMetrics1_500(b *testing.B) {
+	metrics := createExponentialHistogramMetrics(1, 500, map[string]string{}, map[string]string{
+		"attribute_tag": "attribute_value",
+	})
+
+	benchmarkMapDeltaExponentialHistogramMetrics(metrics, b)
+}
+
+func BenchmarkMapDeltaExponentialHistogramMetrics10_500(b *testing.B) {
+	metrics := createExponentialHistogramMetrics(10, 500, map[string]string{}, map[string]string{
+		"attribute_tag": "attribute_value",
+	})
+
+	benchmarkMapDeltaExponentialHistogramMetrics(metrics, b)
+}
+
+func BenchmarkMapDeltaExponentialHistogramMetrics100_500(b *testing.B) {
+	metrics := createExponentialHistogramMetrics(100, 500, map[string]string{}, map[string]string{
+		"attribute_tag": "attribute_value",
+	})
+
+	benchmarkMapDeltaExponentialHistogramMetrics(metrics, b)
+}
+
+func BenchmarkMapDeltaExponentialHistogramMetrics1000_500(b *testing.B) {
+	metrics := createExponentialHistogramMetrics(1000, 500, map[string]string{}, map[string]string{
+		"attribute_tag": "attribute_value",
+	})
+
+	benchmarkMapDeltaExponentialHistogramMetrics(metrics, b)
+}
+
+func BenchmarkMapDeltaExponentialHistogramMetrics10000_500(b *testing.B) {
+	metrics := createExponentialHistogramMetrics(10000, 500, map[string]string{}, map[string]string{
+		"attribute_tag": "attribute_value",
+	})
+
+	benchmarkMapDeltaExponentialHistogramMetrics(metrics, b)
+}
+
+func BenchmarkMapDeltaExponentialHistogramMetrics1_5000(b *testing.B) {
+	metrics := createExponentialHistogramMetrics(1, 5000, map[string]string{}, map[string]string{
+		"attribute_tag": "attribute_value",
+	})
+
+	benchmarkMapDeltaExponentialHistogramMetrics(metrics, b)
+}
+
+func BenchmarkMapDeltaExponentialHistogramMetrics10_5000(b *testing.B) {
+	metrics := createExponentialHistogramMetrics(10, 5000, map[string]string{}, map[string]string{
+		"attribute_tag": "attribute_value",
+	})
+
+	benchmarkMapDeltaExponentialHistogramMetrics(metrics, b)
+}
+
+func BenchmarkMapDeltaExponentialHistogramMetrics100_5000(b *testing.B) {
+	metrics := createExponentialHistogramMetrics(100, 5000, map[string]string{}, map[string]string{
+		"attribute_tag": "attribute_value",
+	})
+
+	benchmarkMapDeltaExponentialHistogramMetrics(metrics, b)
+}
+
+func BenchmarkMapDeltaExponentialHistogramMetrics1000_5000(b *testing.B) {
+	metrics := createExponentialHistogramMetrics(1000, 5000, map[string]string{}, map[string]string{
+		"attribute_tag": "attribute_value",
+	})
+
+	benchmarkMapDeltaExponentialHistogramMetrics(metrics, b)
 }
