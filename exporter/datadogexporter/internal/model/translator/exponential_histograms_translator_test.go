@@ -19,7 +19,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"math"
 	"testing"
-	"time"
 
 	"github.com/DataDog/datadog-agent/pkg/quantile/summary"
 	"github.com/stretchr/testify/assert"
@@ -32,48 +31,6 @@ import (
 const (
 	acceptableFloatError = 1e-12
 )
-
-func TestExponentialHistogramToDDSketch(t *testing.T) {
-	ts := pdata.NewTimestampFromTime(time.Now())
-	point := pdata.NewExponentialHistogramDataPoint()
-	point.SetScale(6)
-
-	point.SetCount(30)
-	point.SetZeroCount(10)
-	point.SetSum(math.Pi)
-
-	point.Negative().SetOffset(2)
-	point.Negative().SetBucketCounts([]uint64{3, 2, 5})
-
-	point.Positive().SetOffset(3)
-	point.Positive().SetBucketCounts([]uint64{1, 1, 1, 2, 2, 3})
-
-	point.SetTimestamp(ts)
-
-	tr := newTranslator(t, zap.NewNop())
-
-	sketch, err := tr.exponentialHistogramToDDSketch(point, true)
-	assert.NoError(t, err)
-
-	sketch.GetPositiveValueStore().ForEach(func(index int, count float64) bool {
-		expectedCount := float64(point.Positive().BucketCounts()[index-int(point.Positive().Offset())])
-		assert.Equal(t, expectedCount, count)
-		return false
-	})
-
-	sketch.GetNegativeValueStore().ForEach(func(index int, count float64) bool {
-		expectedCount := float64(point.Negative().BucketCounts()[index-int(point.Negative().Offset())])
-		assert.Equal(t, expectedCount, count)
-		return false
-	})
-
-	assert.Equal(t, float64(point.Count()), sketch.GetCount())
-	assert.Equal(t, float64(point.ZeroCount()), sketch.GetCount()-sketch.GetPositiveValueStore().TotalCount()-sketch.GetNegativeValueStore().TotalCount())
-
-	gamma := math.Pow(2, math.Pow(2, float64(-point.Scale())))
-	accuracy := (gamma - 1) / (gamma + 1)
-	assert.InDelta(t, accuracy, sketch.RelativeAccuracy(), acceptableFloatError)
-}
 
 func createExponentialHistogramMetrics(n int, t int, additionalResourceAttributes map[string]string, additionalDatapointAttributes map[string]string) pdata.Metrics {
 	md := pdata.NewMetrics()
