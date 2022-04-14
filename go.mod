@@ -178,10 +178,12 @@ require (
 	github.com/Azure/go-autorest/tracing v0.6.0 // indirect
 	github.com/ClickHouse/clickhouse-go v1.5.4 // indirect
 	github.com/DataDog/agent-payload/v5 v5.0.22 // indirect
-	github.com/DataDog/datadog-agent/pkg/quantile v0.36.0-rc.4.0.20220426134022-b55bccd5073f // indirect
-	github.com/DataDog/datadog-agent/pkg/trace/exportable v0.0.0-20201016145401-4646cf596b02 // indirect
-	github.com/DataDog/datadog-agent/pkg/util/log v0.0.0-20201009092105-58e18918b2db // indirect
-	github.com/DataDog/datadog-go v4.8.2+incompatible // indirect
+	github.com/DataDog/datadog-agent/pkg/obfuscate v0.37.0-rc.3 // indirect
+	github.com/DataDog/datadog-agent/pkg/otlp/model v0.37.0-rc.3.0.20220616085127-b5a26677aa40 // indirect
+	github.com/DataDog/datadog-agent/pkg/quantile v0.37.0-rc.3 // indirect
+	github.com/DataDog/datadog-agent/pkg/remoteconfig/client v0.37.0-rc.3 // indirect
+	github.com/DataDog/datadog-agent/pkg/trace v0.37.0-rc.3.0.20220616085127-b5a26677aa40 // indirect
+	github.com/DataDog/datadog-go/v5 v5.1.0 // indirect
 	github.com/DataDog/sketches-go v1.4.1 // indirect
 	github.com/GehirnInc/crypt v0.0.0-20200316065508-bb7000b8a962 // indirect
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/detectors/gcp v0.32.2 // indirect
@@ -195,7 +197,6 @@ require (
 	github.com/SermoDigital/jose v0.9.2-0.20161205224733-f6df55f235c2 // indirect
 	github.com/Shopify/sarama v1.34.1 // indirect
 	github.com/Showmax/go-fqdn v1.0.0 // indirect
-	github.com/StackExchange/wmi v1.2.1 // indirect
 	github.com/VividCortex/gohistogram v1.0.0 // indirect
 	github.com/aerospike/aerospike-client-go/v5 v5.8.0 // indirect
 	github.com/alecthomas/participle/v2 v2.0.0-alpha9 // indirect
@@ -225,7 +226,6 @@ require (
 	github.com/census-instrumentation/opencensus-proto v0.3.0 // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/checkpoint-restore/go-criu/v5 v5.3.0 // indirect
-	github.com/cihub/seelog v0.0.0-20170130134532-f561c5e57575 // indirect
 	github.com/cilium/ebpf v0.7.0 // indirect
 	github.com/cloudflare/golz4 v0.0.0-20150217214814-ef862a3cdc58 // indirect
 	github.com/cloudfoundry-incubator/uaago v0.0.0-20190307164349-8136b7bbe76e // indirect
@@ -439,7 +439,7 @@ require (
 	github.com/santhosh-tekuri/jsonschema v1.2.4 // indirect
 	github.com/scaleway/scaleway-sdk-go v1.0.0-beta.9 // indirect
 	github.com/seccomp/libseccomp-golang v0.9.2-0.20210429002308-3879420cc921 // indirect
-	github.com/shirou/gopsutil v3.21.10+incompatible // indirect
+	github.com/secure-systems-lab/go-securesystemslib v0.3.1 // indirect
 	github.com/shirou/gopsutil/v3 v3.22.5 // indirect
 	github.com/signalfx/com_signalfx_metrics_protobuf v0.0.3 // indirect
 	github.com/signalfx/gohistogram v0.0.0-20160107210732-1ccfd2ff5083 // indirect
@@ -447,6 +447,7 @@ require (
 	github.com/signalfx/sapm-proto v0.9.0 // indirect
 	github.com/signalfx/signalfx-agent/pkg/apm v0.0.0-20201202163743-65b4fa925fc8 // indirect
 	github.com/sirupsen/logrus v1.8.1 // indirect
+	github.com/smartystreets/assertions v1.0.1 // indirect
 	github.com/soheilhy/cmux v0.1.5 // indirect
 	github.com/spf13/afero v1.8.2 // indirect
 	github.com/spf13/cast v1.5.0 // indirect
@@ -457,9 +458,10 @@ require (
 	github.com/stretchr/objx v0.4.0 // indirect
 	github.com/subosito/gotenv v1.2.0 // indirect
 	github.com/syndtr/gocapability v0.0.0-20200815063812-42c35b437635 // indirect
-	github.com/syndtr/goleveldb v1.0.0 // indirect
+	github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7 // indirect
 	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common v1.0.424 // indirect
 	github.com/tg123/go-htpasswd v1.2.0 // indirect
+	github.com/theupdateframework/go-tuf v0.3.0 // indirect
 	github.com/tidwall/gjson v1.12.1 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.0 // indirect
@@ -521,7 +523,6 @@ require (
 	google.golang.org/genproto v0.0.0-20220616135557-88e70c0c3a90 // indirect
 	google.golang.org/grpc v1.47.0 // indirect
 	google.golang.org/protobuf v1.28.0 // indirect
-	gopkg.in/DataDog/dd-trace-go.v1 v1.38.1 // indirect
 	gopkg.in/alexcesaro/statsd.v2 v2.0.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.66.4 // indirect

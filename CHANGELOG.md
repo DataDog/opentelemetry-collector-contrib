@@ -152,6 +152,7 @@
 ### 🛑 Breaking changes 🛑
 
 - `datadogexporter`: Replace HistogramMode defined as string with enum. (#9589)
+- `datadogexporter`: The `traces.span_name_remappings` setting now correctly refers to the OpenTelemetry key without any sort of normalization. (#9693)
 - `pkg/translator/signalfx`: Change signalfx translator to expose To/From translator structs. (#9740)
 - `transformprocessor`: Add parameter validation to `truncate_all` and `limit` functions.  The `limit` parameter can no longer be negative. (#9783)
 - `newrelicexporter` deleted. Use New Relic [native OTLP ingest](https://docs.newrelic.com/docs/more-integrations/open-source-telemetry-integrations/opentelemetry/opentelemetry-setup/) instead. (#9894)
@@ -184,6 +185,7 @@
 - `transformprocessor`: Add new `limit` function to allow limiting the number of items in a map, such as the number of attributes in `attributes` or `resource.attributes` (#9552)
 - `processor/attributes`: Support attributes set by server authenticator (#9420)
 - `datadogexporter`: Experimental support for Exponential Histograms with delta aggregation temporality (#8350)
+- `datadogexporter`: Unify traces exporter behavior with Datadog Agent OTLP traces ingest
 - `prometheusreceiver`: Support OpenMetrics Info and Stateset metrics (#9378)
 
 ### 🧰 Bug fixes 🧰
