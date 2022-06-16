@@ -71,11 +71,11 @@ func TestFillHostMetadata(t *testing.T) {
 		ConfigTags:     []string{"key1:tag1", "key2:tag2", "env:prod"},
 	}
 
-	hostProvider, err := GetHostnameProvider(componenttest.NewNopTelemetrySettings(), "hostname")
+	sourceProvider, err := GetSourceProvider(componenttest.NewNopTelemetrySettings(), "hostname")
 	require.NoError(t, err)
 
 	metadata := &HostMetadata{Meta: &Meta{}, Tags: &HostTags{}}
-	fillHostMetadata(params, pcfg, hostProvider, metadata)
+	fillHostMetadata(params, pcfg, sourceProvider, metadata)
 
 	assert.Equal(t, metadata.InternalHostname, "hostname")
 	assert.Equal(t, metadata.Flavor, "otelcontribcol")
@@ -89,7 +89,7 @@ func TestFillHostMetadata(t *testing.T) {
 		Tags:             &HostTags{},
 	}
 
-	fillHostMetadata(params, pcfg, hostProvider, metadataWithVals)
+	fillHostMetadata(params, pcfg, sourceProvider, metadataWithVals)
 	assert.Equal(t, metadataWithVals.InternalHostname, "my-custom-hostname")
 	assert.Equal(t, metadataWithVals.Flavor, "otelcontribcol")
 	assert.Equal(t, metadataWithVals.Version, "1.0")
@@ -207,7 +207,7 @@ func TestPusher(t *testing.T) {
 	params := componenttest.NewNopExporterCreateSettings()
 	params.BuildInfo = mockBuildInfo
 
-	hostProvider, err := GetHostnameProvider(componenttest.NewNopTelemetrySettings(), "")
+	hostProvider, err := GetSourceProvider(componenttest.NewNopTelemetrySettings(), "")
 	require.NoError(t, err)
 
 	attrs := testutils.NewAttributeMap(map[string]string{

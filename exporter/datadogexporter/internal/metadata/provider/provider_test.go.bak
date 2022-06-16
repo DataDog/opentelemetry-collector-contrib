@@ -1,0 +1,147 @@
+// Copyright The OpenTelemetry Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package provider
+
+import (
+	"context"
+	"errors"
+	"testing"
+
+	"github.com/open-telemetry/opentelemetry-collector-contrib/exporter/datadogexporter/internal/model/source"
+	"github.com/stretchr/testify/assert"
+	"go.uber.org/zap"
+)
+
+var _ source.Provider = (*ConstantProvider)(nil)
+
+type ConstantProvider source.Source
+
+func (p ConstantProvider) Source(context.Context) (source.Source, error) {
+	return source.Source(p), nil
+}
+
+var _ source.Provider = (*ErrorProvider)(nil)
+
+type ErrorProvider string
+
+func (p ErrorProvider) Source(context.Context) (source.Source, error) {
+	return source.Source{}, errors.New(string(p))
+}
+
+func TestChainSource(t *testing.T) {
+	testSrc1 := source.Source{Kind: source.HostnameKind, Identifier: "hostnameP1"}
+	testSrc2 := source.Source{Kind: source.AWSECSFargateKind, Identifier: "taskARNP2"}
+	testSrc3 := source.Source{Kind: source.AWSECSFargateKind, Identifier: "hostnameP2"}
+
+	tests := []struct {
+		name         string
+		providers    map[string]source.Provider
+		priorityList []string
+
+		buildErr string
+
+		src      source.Source
+		queryErr string
+	}{
+		{
+			name: "missing provider in priority list",
+			providers: map[string]source.Provider{
+				"p1": ConstantProvider(testSrc1),
+				"p2": ErrorProvider("errP2"),
+			},
+			priorityList: []string{"p1", "p2", "p3"},
+
+			buildErr: "\"p3\" source is not available in providers",
+		},
+		{
+			name: "all providers fail",
+			providers: map[string]source.Provider{
+				"p1": ErrorProvider("errP1"),
+				"p2": ErrorProvider("errP2"),
+				"p3": ConstantProvider(testSrc1),
+			},
+			priorityList: []string{"p1", "p2"},
+
+			queryErr: "no cluster name provider was available",
+		},
+		{
+			name: "no providers fail",
+			providers: map[string]source.Provider{
+				"p1": ConstantProvider(testSrc1),
+				"p2": ConstantProvider(testSrc2),
+				"p3": ConstantProvider(testSrc3),
+			},
+			priorityList: []string{"p1", "p2", "p3"},
+
+			src: testSrc1,
+		},
+		{
+			name: "some providers fail",
+			providers: map[string]source.Provider{
+				"p1": ErrorProvider("p1Err"),
+				"p2": ConstantProvider(testSrc2),
+				"p3": ErrorProvider("p3Err"),
+			},
+			priorityList: []string{"p1", "p2", "p3"},
+
+			src: testSrc2,
+		},
+	}
+
+	for _, testInstance := range tests {
+		t.Run(testInstance.name, func(t *testing.T) {
+			provider, err := Chain(zap.NewNop(), testInstance.providers, testInstance.priorityList)
+			if err != nil || testInstance.buildErr != "" {
+				assert.EqualError(t, err, testInstance.buildErr)
+				return
+			}
+
+			src, err := provider.Source(context.Background())
+			if err != nil || testInstance.queryErr != "" {
+				assert.EqualError(t, err, testInstance.queryErr)
+			} else {
+				assert.Equal(t, testInstance.src, src)
+			}
+		})
+	}
+}
+
+var _ source.Provider = (*countProvider)(nil)
+
+type countProvider struct {
+	nCalls int
+	src    source.Source
+}
+
+func (p *countProvider) Source(context.Context) (source.Source, error) {
+	p.nCalls += 1
+	return p.src, nil
+}
+
+func TestOnceProvider(t *testing.T) {
+	testSrc := source.Source{Kind: source.HostnameKind, Identifier: "hostname"}
+	countP := &countProvider{src: testSrc}
+	onceP := Once(countP)
+
+	src, err := onceP.Source(context.Background())
+	assert.NoError(t, err)
+	assert.Equal(t, testSrc, src)
+	assert.Equal(t, 1, countP.nCalls)
+
+	src, err = onceP.Source(context.Background())
+	assert.NoError(t, err)
+	assert.Equal(t, testSrc, src)
+	assert.Equal(t, 1, countP.nCalls, "Underlying provider was called more than once")
+}

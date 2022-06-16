@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"math"
 	"strconv"
+	"sync"
 
 	"github.com/DataDog/datadog-agent/pkg/quantile"
 	"go.opentelemetry.io/collector/pdata/pmetric"
@@ -45,6 +46,8 @@ type Translator struct {
 	prevPts *ttlCache
 	logger  *zap.Logger
 	cfg     translatorConfig
+
+	onceHostnameChanged sync.Once
 }
 
 // New creates a new translator with given options.
@@ -73,7 +76,11 @@ func New(logger *zap.Logger, options ...Option) (*Translator, error) {
 	}
 
 	cache := newTTLCache(cfg.sweepInterval, cfg.deltaTTL)
-	return &Translator{cache, logger, cfg}, nil
+	return &Translator{
+		prevPts: cache,
+		logger:  logger,
+		cfg:     cfg,
+	}, nil
 }
 
 // isCumulativeMonotonic checks if a metric is a cumulative monotonic metric
@@ -424,6 +431,24 @@ func (t *Translator) MapMetrics(ctx context.Context, md pmetric.Metrics, consume
 		case source.AWSECSFargateKind:
 			if c, ok := consumer.(TagsConsumer); ok {
 				c.ConsumeTag(src.Tag())
+			}
+		}
+
+		// Log related to the preview hostname feature flag.
+		// TODO (#10424): Remove this once the feature flag is enabled by default.
+		if !t.cfg.previewHostnameFromAttributes && host != "" {
+			previewSrc, oldOk := attributes.SourceFromAttributes(rm.Resource().Attributes(), true)
+			if !oldOk {
+				previewSrc, _ = t.cfg.fallbackSourceProvider.Source(context.Background())
+			}
+			if previewSrc != src {
+				t.onceHostnameChanged.Do(func() {
+					t.logger.Warn(
+						"The hostname resolved from attributes on one of your metrics will change on a future minor version. See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/10424",
+						zap.Any("current source", src),
+						zap.Any("future source", previewSrc),
+					)
+				})
 			}
 		}
 
