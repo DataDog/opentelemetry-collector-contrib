@@ -38,6 +38,8 @@ import (
 	"github.com/open-telemetry/opentelemetry-collector-contrib/exporter/datadogexporter/internal/model/source"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/exporter/datadogexporter/internal/scrub"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/exporter/datadogexporter/internal/utils"
+
+	modelsource "github.com/DataDog/datadog-agent/pkg/otlp/model/source"
 )
 
 type traceExporter struct {
@@ -120,13 +122,12 @@ func (exp *traceExporter) consumeTraces(
 	now := pcommon.NewTimestampFromTime(time.Now())
 	for i := 0; i < rspans.Len(); i++ {
 		rspan := rspans.At(i)
-		s := exp.agent.OTLPReceiver.ReceiveResourceSpans(rspan, http.Header{}, "otlp-exporter")
-		if s.Hostname != "" {
-			hosts[s.Hostname] = struct{}{}
-		} else {
-			for _, tag := range s.Tags {
-				tags[tag] = struct{}{}
-			}
+		src := exp.agent.OTLPReceiver.ReceiveResourceSpans(rspan, http.Header{}, "otlp-exporter")
+		switch src.Kind {
+		case modelsource.HostnameKind:
+			hosts[src.Identifier] = struct{}{}
+		case modelsource.AWSECSFargateKind:
+			tags[src.Identifier] = struct{}{}
 		}
 	}
 	series := make([]datadog.Metric, 0, len(hosts)+len(tags))
