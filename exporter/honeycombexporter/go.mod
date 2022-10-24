@@ -7,7 +7,7 @@ require (
 	github.com/google/go-cmp v0.5.2
 	github.com/honeycombio/libhoney-go v1.14.1
 	github.com/klauspost/compress v1.11.1
-	github.com/stretchr/testify v1.6.1
+	github.com/stretchr/testify v1.8.1
 	go.opentelemetry.io/collector v0.11.1-0.20201001213035-035aa5cf6c92
 	go.uber.org/zap v1.16.0
 	google.golang.org/grpc v1.32.0
