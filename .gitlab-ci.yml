@@ -1,5 +1,6 @@
 variables:
   # Various retry settings for Gitlab runners
+  CI_DOCKER_IMAGE: registry.ddbuild.io/images/docker:20.10.13
   RESTORE_CACHE_ATTEMPTS: 2
 
 stages:
