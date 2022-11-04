@@ -14,7 +14,7 @@ stages:
   tags: ["runner:docker"]
   image: $CI_DOCKER_IMAGE
   script:
-    - TAG="$IMAGE_TAG_PREFIX-$CI_COMMIT_SHORT_SHA"
+    - TAG="$IMAGE_TAG_PREFIX-v$CI_COMMIT_SHORT_SHA"
     - docker build --file $DOCKERFILE --tag 486234852809.dkr.ecr.us-east-1.amazonaws.com/ci/opentelemetry-collector-contrib:$TAG .
     - docker push 486234852809.dkr.ecr.us-east-1.amazonaws.com/ci/opentelemetry-collector-contrib:$TAG
 
