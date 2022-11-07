@@ -15,8 +15,8 @@ stages:
   image: $CI_DOCKER_IMAGE
   script:
     - TAG="$IMAGE_TAG_PREFIX-v$CI_COMMIT_SHORT_SHA"
-    - docker build --file $DOCKERFILE --tag 486234852809.dkr.ecr.us-east-1.amazonaws.com/ci/opentelemetry-collector-contrib:$TAG .
-    - docker push 486234852809.dkr.ecr.us-east-1.amazonaws.com/ci/opentelemetry-collector-contrib:$TAG
+    - docker build --file $DOCKERFILE --tag registry.ddbuild.io/ci/opentelemetry-collector-contrib:$TAG --label target=staging .
+    - docker push registry.ddbuild.io/ci/opentelemetry-collector-contrib:$TAG
 
 build-ci-image-main:
   <<: *build-ci-image
