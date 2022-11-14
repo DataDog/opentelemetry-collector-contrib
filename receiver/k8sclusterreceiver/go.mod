@@ -13,7 +13,7 @@ require (
 	github.com/openshift/client-go v0.0.0-20210521082421-73d9475a9142
 	github.com/stretchr/testify v1.8.1
 	go.opentelemetry.io/collector v0.64.0
-	go.opentelemetry.io/collector/pdata v0.64.0
+	go.opentelemetry.io/collector/pdata v0.64.1
 	go.opentelemetry.io/collector/semconv v0.64.0
 	go.uber.org/atomic v1.10.0
 	go.uber.org/zap v1.23.0
