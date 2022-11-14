@@ -7,9 +7,9 @@ require (
 	github.com/google/go-cmp v0.5.9
 	github.com/open-telemetry/opentelemetry-collector-contrib/internal/coreinternal v0.64.0
 	github.com/stretchr/testify v1.8.1
-	go.opentelemetry.io/collector v0.64.0
-	go.opentelemetry.io/collector/pdata v0.64.0
-	go.opentelemetry.io/collector/semconv v0.64.0
+	go.opentelemetry.io/collector v0.64.1
+	go.opentelemetry.io/collector/pdata v0.64.1
+	go.opentelemetry.io/collector/semconv v0.64.1
 )
 
 require (
