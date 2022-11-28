@@ -49,6 +49,7 @@ func DatadogServerMock(overwriteHandlerFuncs ...OverwriteHandleFunc) *DatadogSer
 	handlers := map[string]http.HandlerFunc{
 		"/api/v1/validate": validateAPIKeyEndpoint,
 		"/api/v1/series":   metricsEndpoint,
+		"/api/v2/series":   metricsV2Endpoint,
 		"/intake":          newMetadataEndpoint(metadataChan),
 		"/":                func(w http.ResponseWriter, r *http.Request) {},
 	}
@@ -121,6 +122,18 @@ type metricsResponse struct {
 }
 
 func metricsEndpoint(w http.ResponseWriter, r *http.Request) {
+	res := metricsResponse{Status: "ok"}
+	resJSON, _ := json.Marshal(res)
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusAccepted)
+	_, err := w.Write(resJSON)
+	if err != nil {
+		log.Fatalln(err)
+	}
+}
+
+func metricsV2Endpoint(w http.ResponseWriter, r *http.Request) {
 	res := metricsResponse{Status: "ok"}
 	resJSON, _ := json.Marshal(res)
 

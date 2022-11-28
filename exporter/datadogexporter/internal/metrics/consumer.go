@@ -149,6 +149,7 @@ var _ translator.HostConsumer = (*ZorkianConsumer)(nil)
 var _ translator.TagsConsumer = (*ZorkianConsumer)(nil)
 
 // ZorkianConsumer is the metrics Consumer using Zorkian APIs.
+// Deprecated: Zorkian is deprecated, use Consumer instead.
 type ZorkianConsumer struct {
 	ms        []zorkian.Metric
 	sl        sketches.SketchSeriesList
@@ -157,6 +158,7 @@ type ZorkianConsumer struct {
 }
 
 // NewZorkianConsumer creates a new Zorkian Datadog consumer.
+// Deprecated: Zorkian is deprecated, use NewConsumer instead.
 func NewZorkianConsumer() *ZorkianConsumer {
 	return &ZorkianConsumer{
 		seenHosts: make(map[string]struct{}),

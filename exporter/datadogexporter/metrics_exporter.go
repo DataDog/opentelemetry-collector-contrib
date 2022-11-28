@@ -24,6 +24,7 @@ import (
 
 	"github.com/DataDog/datadog-agent/pkg/otlp/model/source"
 	"github.com/DataDog/datadog-agent/pkg/otlp/model/translator"
+	"github.com/DataDog/datadog-api-client-go/v2/api/datadogV2"
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/featuregate"
 	"go.opentelemetry.io/collector/pdata/pcommon"
@@ -44,6 +45,7 @@ type metricsExporter struct {
 	cfg            *Config
 	ctx            context.Context
 	client         *zorkian.Client
+	metricsApi     *datadogV2.MetricsApi
 	tr             *translator.Translator
 	scrubber       scrub.Scrubber
 	retrier        *clientutil.Retrier
@@ -97,32 +99,44 @@ func translatorFromConfig(logger *zap.Logger, cfg *Config, sourceProvider source
 }
 
 func newMetricsExporter(ctx context.Context, params component.ExporterCreateSettings, cfg *Config, onceMetadata *sync.Once, sourceProvider source.Provider) (*metricsExporter, error) {
-	client := clientutil.CreateZorkianClient(cfg.API.Key, cfg.Metrics.TCPAddr.Endpoint)
-	client.ExtraHeader["User-Agent"] = clientutil.UserAgent(params.BuildInfo)
-	client.HttpClient = clientutil.NewHTTPClient(cfg.TimeoutSettings, cfg.LimitedHTTPClientSettings.TLSSetting.InsecureSkipVerify)
-
-	if err := clientutil.ValidateAPIKeyZorkian(params.Logger, client); err != nil && cfg.API.FailOnInvalidKey {
-		return nil, err
-	}
-
 	tr, err := translatorFromConfig(params.Logger, cfg, sourceProvider)
 	if err != nil {
 		return nil, err
 	}
 
 	scrubber := scrub.NewScrubber()
-	return &metricsExporter{
+	exporter := &metricsExporter{
 		params:         params,
 		cfg:            cfg,
 		ctx:            ctx,
-		client:         client,
 		tr:             tr,
 		scrubber:       scrubber,
 		retrier:        clientutil.NewRetrier(params.Logger, cfg.RetrySettings, scrubber),
 		onceMetadata:   onceMetadata,
 		sourceProvider: sourceProvider,
 		getPushTime:    func() uint64 { return uint64(time.Now().UTC().UnixNano()) },
-	}, nil
+	}
+	if isMetricExportV2Enabled() {
+		apiClient := clientutil.CreateAPIClient(
+			params.BuildInfo,
+			cfg.Metrics.TCPAddr.Endpoint,
+			cfg.TimeoutSettings,
+			cfg.LimitedHTTPClientSettings.TLSSetting.InsecureSkipVerify)
+		if err := clientutil.ValidateAPIKey(ctx, cfg.API.Key, params.Logger, apiClient); err != nil && cfg.API.FailOnInvalidKey {
+			return nil, err
+		}
+		exporter.metricsApi = datadogV2.NewMetricsApi(apiClient)
+	} else {
+		client := clientutil.CreateZorkianClient(cfg.API.Key, cfg.Metrics.TCPAddr.Endpoint)
+		client.ExtraHeader["User-Agent"] = clientutil.UserAgent(params.BuildInfo)
+		client.HttpClient = clientutil.NewHTTPClient(cfg.TimeoutSettings, cfg.LimitedHTTPClientSettings.TLSSetting.InsecureSkipVerify)
+
+		if err := clientutil.ValidateAPIKeyZorkian(params.Logger, client); err != nil && cfg.API.FailOnInvalidKey {
+			return nil, err
+		}
+		exporter.client = client
+	}
+	return exporter, nil
 }
 
 func (exp *metricsExporter) pushSketches(ctx context.Context, sl sketches.SketchSeriesList) error {
@@ -142,7 +156,12 @@ func (exp *metricsExporter) pushSketches(ctx context.Context, sl sketches.Sketch
 
 	clientutil.SetDDHeaders(req.Header, exp.params.BuildInfo, exp.cfg.API.Key)
 	clientutil.SetExtraHeaders(req.Header, clientutil.ProtobufHeaders)
-	resp, err := exp.client.HttpClient.Do(req)
+	var resp *http.Response
+	if isMetricExportV2Enabled() {
+		resp, err = exp.metricsApi.Client.Cfg.HTTPClient.Do(req)
+	} else {
+		resp, err = exp.client.HttpClient.Do(req)
+	}
 
 	if err != nil {
 		return fmt.Errorf("failed to do sketches HTTP request: %w", err)
@@ -171,7 +190,12 @@ func (exp *metricsExporter) PushMetricsData(ctx context.Context, md pmetric.Metr
 			go metadata.Pusher(exp.ctx, exp.params, newMetadataConfigfromConfig(exp.cfg), exp.sourceProvider, attrs)
 		})
 	}
-	consumer := metrics.NewZorkianConsumer()
+	var consumer translator.Consumer
+	if isMetricExportV2Enabled() {
+		consumer = metrics.NewConsumer()
+	} else {
+		consumer = metrics.NewZorkianConsumer()
+	}
 	err := exp.tr.MapMetrics(ctx, md, consumer)
 	if err != nil {
 		return fmt.Errorf("failed to map metrics: %w", err)
@@ -184,18 +208,40 @@ func (exp *metricsExporter) PushMetricsData(ctx context.Context, md pmetric.Metr
 	if src.Kind == source.AWSECSFargateKind {
 		tags = append(tags, exp.cfg.HostMetadata.Tags...)
 	}
-	ms, sl := consumer.All(exp.getPushTime(), exp.params.BuildInfo, tags)
-	ms = metrics.PrepareZorkianSystemMetrics(ms)
 
-	err = nil
-	if len(ms) > 0 {
-		exp.params.Logger.Debug("exporting payload", zap.Any("metric", ms))
-		err = multierr.Append(
-			err,
-			exp.retrier.DoWithRetries(ctx, func(context.Context) error {
-				return exp.client.PostMetrics(ms)
-			}),
-		)
+	var sl sketches.SketchSeriesList
+	if isMetricExportV2Enabled() {
+		var ms []datadogV2.MetricSeries
+		ms, sl = consumer.(*metrics.Consumer).All(exp.getPushTime(), exp.params.BuildInfo, tags)
+		ms = metrics.PrepareSystemMetrics(ms)
+
+		err = nil
+		if len(ms) > 0 {
+			exp.params.Logger.Debug("exporting native Datadog payload", zap.Any("metric", ms))
+			err = multierr.Append(
+				err,
+				exp.retrier.DoWithRetries(ctx, func(context.Context) error {
+					ctx = clientutil.GetRequestContext(ctx, exp.cfg.API.Key)
+					_, _, err := exp.metricsApi.SubmitMetrics(ctx, datadogV2.MetricPayload{Series: ms}, *datadogV2.NewSubmitMetricsOptionalParameters())
+					return err
+				}),
+			)
+		}
+	} else {
+		var ms []zorkian.Metric
+		ms, sl = consumer.(*metrics.ZorkianConsumer).All(exp.getPushTime(), exp.params.BuildInfo, tags)
+		ms = metrics.PrepareZorkianSystemMetrics(ms)
+
+		err = nil
+		if len(ms) > 0 {
+			exp.params.Logger.Debug("exporting Zorkian Datadog payload", zap.Any("metric", ms))
+			err = multierr.Append(
+				err,
+				exp.retrier.DoWithRetries(ctx, func(context.Context) error {
+					return exp.client.PostMetrics(ms)
+				}),
+			)
+		}
 	}
 
 	if len(sl) > 0 {
