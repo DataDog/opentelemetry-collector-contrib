@@ -10,5 +10,6 @@ RUN clean-apt install make \
             ca-certificates 
 
 COPY --from=build /src/bin/otelcontribcol_* /otelcontribcol
+USER 1001
 ENTRYPOINT ["/otelcontribcol"]
 EXPOSE 4317 55680 55679
