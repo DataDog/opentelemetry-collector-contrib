@@ -38,6 +38,7 @@ import (
 )
 
 func TestNewExporter(t *testing.T) {
+	enableNativeMetricExport()
 	server := testutil.DatadogServerMock()
 	defer server.Close()
 
@@ -86,7 +87,7 @@ func TestNewExporter(t *testing.T) {
 }
 
 func Test_metricsExporter_PushMetricsData(t *testing.T) {
-	enableZorkianMetricExport()
+	enableNativeMetricExport()
 	attrs := map[string]string{
 		conventions.AttributeDeploymentEnvironment: "dev",
 		"custom_attribute":                         "custom_value",
@@ -290,8 +291,8 @@ func Test_metricsExporter_PushMetricsData(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(fmt.Sprintf("kind=%s,histgramMode=%s", tt.source.Kind, tt.histogramMode), func(t *testing.T) {
-			seriesRecorder := &testutil.HTTPRequestRecorder{Pattern: "/api/v1/series"}
-			sketchRecorder := &testutil.HTTPRequestRecorder{Pattern: "/api/beta/sketches"}
+			seriesRecorder := &testutil.HTTPRequestRecorder{Pattern: testutil.MetricV2Endpoint}
+			sketchRecorder := &testutil.HTTPRequestRecorder{Pattern: testutil.SketchesMetricEndpoint}
 			server := testutil.DatadogServerMock(
 				seriesRecorder.HandlerFunc,
 				sketchRecorder.HandlerFunc,
@@ -346,10 +347,10 @@ func Test_metricsExporter_PushMetricsData(t *testing.T) {
 }
 
 func TestNewExporter_Zorkian(t *testing.T) {
+	enableZorkianMetricExport()
 	server := testutil.DatadogServerMock()
 	defer server.Close()
 
-	enableZorkianMetricExport()
 	cfg := &Config{
 		API: APIConfig{
 			Key: "ddog_32_characters_long_api_key1",
@@ -599,8 +600,8 @@ func Test_metricsExporter_PushMetricsData_Zorkian(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(fmt.Sprintf("kind=%s,histgramMode=%s", tt.source.Kind, tt.histogramMode), func(t *testing.T) {
-			seriesRecorder := &testutil.HTTPRequestRecorder{Pattern: "/api/v1/series"}
-			sketchRecorder := &testutil.HTTPRequestRecorder{Pattern: "/api/beta/sketches"}
+			seriesRecorder := &testutil.HTTPRequestRecorder{Pattern: testutil.MetricV1Endpoint}
+			sketchRecorder := &testutil.HTTPRequestRecorder{Pattern: testutil.SketchesMetricEndpoint}
 			server := testutil.DatadogServerMock(
 				seriesRecorder.HandlerFunc,
 				sketchRecorder.HandlerFunc,

@@ -474,6 +474,8 @@ func TestCreateAPIExporterFailOnInvalidKey(t *testing.T) {
 	server := testutil.DatadogServerMock(testutil.ValidateAPIKeyEndpointInvalid)
 	defer server.Close()
 
+	enableNativeMetricExport()
+
 	cm, err := confmaptest.LoadConf(filepath.Join("testdata", "config.yaml"))
 	require.NoError(t, err)
 	factory := NewFactory()

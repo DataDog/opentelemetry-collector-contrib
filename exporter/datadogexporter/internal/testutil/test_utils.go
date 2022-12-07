@@ -41,17 +41,25 @@ type DatadogServer struct {
 	MetadataChan chan []byte
 }
 
+const (
+	ValidateAPIKeyEndpoint = "/api/v1/validate"
+	MetricV1Endpoint       = "/api/v1/series"
+	MetricV2Endpoint       = "/api/v2/series"
+	SketchesMetricEndpoint = "/api/beta/sketches"
+	MetadataEndpoint       = "/intake"
+)
+
 // DatadogServerMock mocks a Datadog backend server
 func DatadogServerMock(overwriteHandlerFuncs ...OverwriteHandleFunc) *DatadogServer {
 	metadataChan := make(chan []byte)
 	mux := http.NewServeMux()
 
 	handlers := map[string]http.HandlerFunc{
-		"/api/v1/validate": validateAPIKeyEndpoint,
-		"/api/v1/series":   metricsEndpoint,
-		"/api/v2/series":   metricsV2Endpoint,
-		"/intake":          newMetadataEndpoint(metadataChan),
-		"/":                func(w http.ResponseWriter, r *http.Request) {},
+		ValidateAPIKeyEndpoint: validateAPIKeyEndpoint,
+		MetricV1Endpoint:       metricsEndpoint,
+		MetricV2Endpoint:       metricsV2Endpoint,
+		MetadataEndpoint:       newMetadataEndpoint(metadataChan),
+		"/":                    func(w http.ResponseWriter, r *http.Request) {},
 	}
 	for _, f := range overwriteHandlerFuncs {
 		p, hf := f()
