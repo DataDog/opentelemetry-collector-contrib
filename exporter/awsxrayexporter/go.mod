@@ -12,7 +12,7 @@ require (
 	go.opentelemetry.io/collector/component v0.66.0
 	go.opentelemetry.io/collector/consumer v0.66.0
 	go.opentelemetry.io/collector/pdata v0.66.0
-	go.opentelemetry.io/collector/semconv v0.66.0
+	go.opentelemetry.io/collector/semconv v0.68.0
 	go.uber.org/zap v1.23.0
 )
 
