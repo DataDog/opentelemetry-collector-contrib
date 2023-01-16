@@ -11,7 +11,7 @@ require (
 	go.opentelemetry.io/collector/component v0.68.0
 	go.opentelemetry.io/collector/confmap v0.68.0
 	go.opentelemetry.io/collector/consumer v0.68.0
-	go.opentelemetry.io/collector/pdata v1.0.0-rc2
+	go.opentelemetry.io/collector/pdata v1.0.0-rc3
 )
 
 require (
