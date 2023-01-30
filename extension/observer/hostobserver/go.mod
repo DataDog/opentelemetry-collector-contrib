@@ -8,7 +8,7 @@ require (
 	github.com/stretchr/testify v1.8.1
 	go.opentelemetry.io/collector v0.68.0
 	go.opentelemetry.io/collector/component v0.68.0
-	go.opentelemetry.io/collector/confmap v0.68.0
+	go.opentelemetry.io/collector/confmap v0.70.0
 	go.uber.org/zap v1.24.0
 )
 
@@ -20,7 +20,7 @@ require (
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
-	github.com/knadh/koanf v1.4.4 // indirect
+	github.com/knadh/koanf v1.5.0 // indirect
 	github.com/kr/pretty v0.3.0 // indirect
 	github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0 // indirect
 	github.com/mitchellh/copystructure v1.2.0 // indirect
@@ -35,7 +35,7 @@ require (
 	github.com/tklauser/numcpus v0.6.0 // indirect
 	github.com/yusufpapurcu/wmi v1.2.2 // indirect
 	go.opentelemetry.io/collector/consumer v0.68.0 // indirect
-	go.opentelemetry.io/collector/featuregate v0.68.0 // indirect
+	go.opentelemetry.io/collector/featuregate v0.70.0 // indirect
 	go.opentelemetry.io/collector/pdata v1.0.0-rc2 // indirect
 	go.opentelemetry.io/otel v1.11.2 // indirect
 	go.opentelemetry.io/otel/metric v0.34.0 // indirect
