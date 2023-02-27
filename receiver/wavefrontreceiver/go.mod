@@ -8,7 +8,7 @@ require (
 	github.com/open-telemetry/opentelemetry-collector-contrib/pkg/translator/opencensus v0.71.0
 	github.com/open-telemetry/opentelemetry-collector-contrib/receiver/carbonreceiver v0.71.0
 	github.com/open-telemetry/opentelemetry-collector-contrib/receiver/collectdreceiver v0.71.0
-	github.com/stretchr/testify v1.8.1
+	github.com/stretchr/testify v1.8.2
 	go.opentelemetry.io/collector v0.71.0
 	go.opentelemetry.io/collector/component v0.71.0
 	go.opentelemetry.io/collector/confmap v0.71.0
