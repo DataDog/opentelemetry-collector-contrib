@@ -33,7 +33,6 @@ import (
 	"go.opentelemetry.io/collector/consumer"
 	"go.opentelemetry.io/collector/obsreport"
 	"go.opentelemetry.io/collector/pdata/pcommon"
-	"go.opentelemetry.io/collector/pdata/plog"
 	"go.opentelemetry.io/collector/receiver"
 	"go.uber.org/zap"
 
@@ -44,14 +43,19 @@ const (
 	defaultServerTimeout = 20 * time.Second
 
 	responseOK                        = "OK"
+	responseHecHealthy                = `{"text": "HEC is healthy", "code": 17}`
 	responseInvalidMethod             = `Only "POST" method is supported`
 	responseInvalidEncoding           = `"Content-Encoding" must be "gzip" or empty`
+	responseInvalidDataFormat         = `{"text":"Invalid data format","code":6}`
+	responseErrEventRequired          = `{"text":"Event field is required","code":12}`
+	responseErrEventBlank             = `{"text":"Event field cannot be blank","code":13}`
 	responseErrGzipReader             = "Error on gzip body"
 	responseErrUnmarshalBody          = "Failed to unmarshal message body"
 	responseErrInternalServerError    = "Internal Server Error"
 	responseErrUnsupportedMetricEvent = "Unsupported metric event"
 	responseErrUnsupportedLogEvent    = "Unsupported log event"
 	responseErrHandlingIndexedFields  = `{"text":"Error in handling indexed fields","code":15,"invalid-event-number":%d}`
+	responseNoData                    = `{"text":"No data","code":5}`
 	// Centralizing some HTTP and related string constants.
 	gzipEncoding              = "gzip"
 	httpContentEncodingHeader = "Content-Encoding"
@@ -65,13 +69,17 @@ var (
 	errInvalidEncoding        = errors.New("invalid encoding")
 
 	okRespBody                = initJSONResponse(responseOK)
-	invalidMethodRespBody     = initJSONResponse(responseInvalidMethod)
+	eventRequiredRespBody     = initJSONResponse(responseErrEventRequired)
+	eventBlankRespBody        = initJSONResponse(responseErrEventBlank)
 	invalidEncodingRespBody   = initJSONResponse(responseInvalidEncoding)
+	invalidFormatRespBody     = initJSONResponse(responseInvalidDataFormat)
+	invalidMethodRespBody     = initJSONResponse(responseInvalidMethod)
 	errGzipReaderRespBody     = initJSONResponse(responseErrGzipReader)
 	errUnmarshalBodyRespBody  = initJSONResponse(responseErrUnmarshalBody)
 	errInternalServerError    = initJSONResponse(responseErrInternalServerError)
 	errUnsupportedMetricEvent = initJSONResponse(responseErrUnsupportedMetricEvent)
 	errUnsupportedLogEvent    = initJSONResponse(responseErrUnsupportedLogEvent)
+	noDataRespBody            = initJSONResponse(responseNoData)
 )
 
 // splunkReceiver implements the receiver.Metrics for Splunk HEC metric protocol.
@@ -196,6 +204,7 @@ func (r *splunkReceiver) Start(_ context.Context, host component.Host) error {
 
 	mx := mux.NewRouter()
 	mx.NewRoute().Path(r.config.HealthPath).HandlerFunc(r.handleHealthReq)
+	mx.NewRoute().Path(r.config.HealthPath + "/1.0").HandlerFunc(r.handleHealthReq).Methods("GET")
 	if r.logsConsumer != nil {
 		mx.NewRoute().Path(r.config.RawPath).HandlerFunc(r.handleRawReq)
 	}
@@ -247,6 +256,7 @@ func (r *splunkReceiver) handleRawReq(resp http.ResponseWriter, req *http.Reques
 
 	if req.ContentLength == 0 {
 		r.obsrecv.EndLogsOp(ctx, typeStr, 0, nil)
+		r.failRequest(ctx, resp, http.StatusBadRequest, noDataRespBody, 0, nil)
 		return
 	}
 
@@ -266,29 +276,17 @@ func (r *splunkReceiver) handleRawReq(resp http.ResponseWriter, req *http.Reques
 	}
 
 	sc := bufio.NewScanner(bodyReader)
-
-	ld := plog.NewLogs()
-	rl := ld.ResourceLogs().AppendEmpty()
 	resourceCustomizer := r.createResourceCustomizer(req)
-	if resourceCustomizer != nil {
-		resourceCustomizer(rl.Resource())
-	}
-	sl := rl.ScopeLogs().AppendEmpty()
-
-	for sc.Scan() {
-		logRecord := sl.LogRecords().AppendEmpty()
-		logLine := sc.Text()
-		logRecord.Body().SetStr(logLine)
-	}
+	ld, slLen := splunkHecRawToLogData(sc, req.URL.Query(), resourceCustomizer, r.config)
 	consumerErr := r.logsConsumer.ConsumeLogs(ctx, ld)
 
 	_ = bodyReader.Close()
 
 	if consumerErr != nil {
-		r.failRequest(ctx, resp, http.StatusInternalServerError, errInternalServerError, sl.LogRecords().Len(), consumerErr)
+		r.failRequest(ctx, resp, http.StatusInternalServerError, errInternalServerError, slLen, consumerErr)
 	} else {
 		resp.WriteHeader(http.StatusOK)
-		r.obsrecv.EndLogsOp(ctx, typeStr, sl.LogRecords().Len(), nil)
+		r.obsrecv.EndLogsOp(ctx, typeStr, slLen, nil)
 	}
 }
 
@@ -324,9 +322,7 @@ func (r *splunkReceiver) handleReq(resp http.ResponseWriter, req *http.Request) 
 	}
 
 	if req.ContentLength == 0 {
-		if _, err := resp.Write(okRespBody); err != nil {
-			r.failRequest(ctx, resp, http.StatusInternalServerError, errInternalServerError, 0, err)
-		}
+		r.failRequest(ctx, resp, http.StatusBadRequest, noDataRespBody, 0, nil)
 		return
 	}
 
@@ -338,7 +334,17 @@ func (r *splunkReceiver) handleReq(resp http.ResponseWriter, req *http.Request) 
 		var msg splunk.Event
 		err := dec.Decode(&msg)
 		if err != nil {
-			r.failRequest(ctx, resp, http.StatusBadRequest, errUnmarshalBodyRespBody, len(events), err)
+			r.failRequest(ctx, resp, http.StatusBadRequest, invalidFormatRespBody, len(events), err)
+			return
+		}
+
+		if msg.Event == nil {
+			r.failRequest(ctx, resp, http.StatusBadRequest, eventRequiredRespBody, len(events), nil)
+			return
+		}
+
+		if msg.Event == "" {
+			r.failRequest(ctx, resp, http.StatusBadRequest, eventBlankRespBody, len(events), nil)
 			return
 		}
 
@@ -454,7 +460,9 @@ func (r *splunkReceiver) failRequest(
 }
 
 func (r *splunkReceiver) handleHealthReq(writer http.ResponseWriter, _ *http.Request) {
-	writer.WriteHeader(200)
+	writer.Header().Add("Content-Type", "application/json")
+	writer.WriteHeader(http.StatusOK)
+	_, _ = writer.Write([]byte(responseHecHealthy))
 }
 
 func initJSONResponse(s string) []byte {

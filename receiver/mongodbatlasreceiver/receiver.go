@@ -51,7 +51,7 @@ func newMongoDBAtlasReceiver(settings rcvr.CreateSettings, cfg *Config) *receive
 		log:         settings.Logger,
 		cfg:         cfg,
 		client:      client,
-		mb:          metadata.NewMetricsBuilder(cfg.Metrics, settings),
+		mb:          metadata.NewMetricsBuilder(cfg.MetricsBuilderConfig, settings),
 		stopperChan: make(chan struct{}),
 	}
 }
@@ -117,6 +117,7 @@ func (s *receiver) poll(ctx context.Context, time timeconstraints) error {
 					metadata.WithMongodbAtlasProjectName(project.Name),
 					metadata.WithMongodbAtlasProjectID(project.ID),
 					metadata.WithMongodbAtlasHostName(process.Hostname),
+					metadata.WithMongodbAtlasUserAlias(process.UserAlias),
 					metadata.WithMongodbAtlasProcessPort(strconv.Itoa(process.Port)),
 					metadata.WithMongodbAtlasProcessTypeName(process.TypeName),
 					metadata.WithMongodbAtlasProcessID(process.ID),
@@ -195,6 +196,7 @@ func (s *receiver) extractProcessDatabaseMetrics(
 			metadata.WithMongodbAtlasProjectName(project.Name),
 			metadata.WithMongodbAtlasProjectID(project.ID),
 			metadata.WithMongodbAtlasHostName(process.Hostname),
+			metadata.WithMongodbAtlasUserAlias(process.UserAlias),
 			metadata.WithMongodbAtlasProcessPort(strconv.Itoa(process.Port)),
 			metadata.WithMongodbAtlasProcessTypeName(process.TypeName),
 			metadata.WithMongodbAtlasProcessID(process.ID),
@@ -230,6 +232,7 @@ func (s *receiver) extractProcessDiskMetrics(
 			metadata.WithMongodbAtlasProjectName(project.Name),
 			metadata.WithMongodbAtlasProjectID(project.ID),
 			metadata.WithMongodbAtlasHostName(process.Hostname),
+			metadata.WithMongodbAtlasUserAlias(process.UserAlias),
 			metadata.WithMongodbAtlasProcessPort(strconv.Itoa(process.Port)),
 			metadata.WithMongodbAtlasProcessTypeName(process.TypeName),
 			metadata.WithMongodbAtlasProcessID(process.ID),
