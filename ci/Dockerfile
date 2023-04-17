@@ -12,4 +12,4 @@ RUN clean-apt install make \
 COPY --from=build /src/bin/otelcontribcol_* /otelcontribcol
 USER 1001
 ENTRYPOINT ["/otelcontribcol"]
-EXPOSE 4317 55680 55679
+EXPOSE 4317 4318 55680 55679
