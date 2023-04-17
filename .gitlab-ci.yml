@@ -19,8 +19,8 @@ stages:
   script:
     - IMAGE_TAG_PREFIX=otelcolcontrib
     - TAG="$IMAGE_TAG_PREFIX-v$CI_COMMIT_SHORT_SHA"
-    - docker build --file $DOCKERFILE --tag BUILD_REGISTRY:$TAG --label target=staging .
-    - docker push BUILD_REGISTRY:$TAG 
+    - docker build --file $DOCKERFILE --tag $BUILD_REGISTRY:$TAG --label target=staging .
+    - docker push $BUILD_REGISTRY:$TAG
 
 build-ci-image-main:
   <<: *build-ci-image
