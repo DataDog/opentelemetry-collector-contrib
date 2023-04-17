@@ -1,6 +1,9 @@
 variables:
   CI_IMAGE: registry.ddbuild.io/images/docker:20.10.13
   RESTORE_CACHE_ATTEMPTS: 2
+  BUILD_DD_REGISTRY: registry.ddbuild.io/ci/opentelemetry-collector-contrib
+  BUILD_DEMO_REGISTRY: 172597598159.dkr.ecr.us-east-1.amazonaws.com/otel-collector-contrib:$TAG
+  DOCKERFILE: ci/Dockerfile
 
 stages:
   - build
@@ -14,25 +17,17 @@ stages:
   tags: ["runner:docker"]
   image: $CI_IMAGE
   script:
+    - IMAGE_TAG_PREFIX=otelcolcontrib
     - TAG="$IMAGE_TAG_PREFIX-v$CI_COMMIT_SHORT_SHA"
-    - docker build --file $DOCKERFILE --tag registry.ddbuild.io/ci/opentelemetry-collector-contrib:$TAG --label target=staging .
-    - docker push registry.ddbuild.io/ci/opentelemetry-collector-contrib:$TAG
+    - docker build --file $DOCKERFILE --tag BUILD_REGISTRY:$TAG --label target=staging .
+    - docker push BUILD_REGISTRY:$TAG 
 
 build-ci-image-main:
   <<: *build-ci-image
   variables:
-    DOCKERFILE: ci/Dockerfile
-    IMAGE_TAG_PREFIX: otelcolcontrib
+    BUILD_REGISTRY: $BUILD_DD_REGISTRY
 
 build-ci-image-demo:
-  stage: build
-  tags: ["runner:docker"]
-  image: $CI_IMAGE
-  script:
-    - TAG="$IMAGE_TAG_PREFIX-v$CI_COMMIT_SHORT_SHA"
-    - docker build --file $DOCKERFILE --tag 172597598159.dkr.ecr.us-east-1.amazonaws.com/otel-collector-contrib:$TAG .
-    - docker push 172597598159.dkr.ecr.us-east-1.amazonaws.com/otel-collector-contrib:$TAG
+  <<: *build-ci-image
   variables:
-    DOCKERFILE: ci/Dockerfile
-    IMAGE_TAG_PREFIX: otelcolcontrib
-
+    BUILD_REGISTRY: $BUILD_DEMO_REGISTRY
