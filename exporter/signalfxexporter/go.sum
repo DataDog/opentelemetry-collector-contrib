@@ -1670,8 +1670,9 @@ go.opentelemetry.io/collector/semconv v0.54.0/go.mod h1:HAGkPKNMhc4kEHevEqVIEtUu
 go.opentelemetry.io/collector/semconv v0.56.0/go.mod h1:EH1wbDvTyqKpKBBpoMIe0KQk2plCcFS66Mo17WtR7CQ=
 go.opentelemetry.io/collector/semconv v0.57.2/go.mod h1:84YnUjmm+nhGu4YTDLnHCbxnL74ooWpismPG79tFD7w=
 go.opentelemetry.io/collector/semconv v0.76.1/go.mod h1:eRAIvw3omXfvZxt1GAt9o4R/NFGSruOVkZ6JiJwPo6U=
-go.opentelemetry.io/collector/semconv v0.76.2-0.20230502195822-4df44379e094 h1:Aus3K06AfKymsw0OpUL2s2hoFdozdMqAnvOqrvGip9U=
 go.opentelemetry.io/collector/semconv v0.76.2-0.20230502195822-4df44379e094/go.mod h1:lazBA42nqZPNPWDMiqWfr5eIVeNgRmoLDbQmjXKcm70=
+go.opentelemetry.io/collector/semconv v0.77.0 h1:dPG7wjN5x6CNH9ojRgHX6ONvx6DIgXO3st+WXR6KAnw=
+go.opentelemetry.io/collector/semconv v0.77.0/go.mod h1:lazBA42nqZPNPWDMiqWfr5eIVeNgRmoLDbQmjXKcm70=
 go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.32.0/go.mod h1:J0dBVrt7dPS/lKJyQoW0xzQiUr4r2Ik1VwPjAUWnofI=
 go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.33.0/go.mod h1:y/SlJpJQPd2UzfBCj0E9Flk9FDCtTyqUmaCB41qFrWI=
 go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.40.0/go.mod h1:UMklln0+MRhZC4e3PwmN3pCtq4DyIadWw4yikh6bNrw=
