@@ -39,9 +39,6 @@ build-ci-image-demo:
     BUILD_REGISTRY: $BUILD_DEMO_REGISTRY
 
 prod-deploy-demo-eks:
-  only:
-    refs:
-      - prod
   stage: prod-deploy
   tags: ['runner:docker', 'size:large']
   image: $CI_IMAGE

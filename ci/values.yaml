@@ -1,0 +1,7 @@
+mode: deployment
+image:
+  # If you want to use the core image `otel/opentelemetry-collector`, you also need to change `command.name` value to `otelcol`.
+  repository: 172597598159.dkr.ecr.us-east-1.amazonaws.com/otel-collector-contrib
+  pullPolicy: IfNotPresent
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: "otelcolcontrib-v03c8a7a3"
