@@ -1,6 +1,5 @@
 variables:
-  # https://github.com/DataDog/cloudops/tree/master/AWS/build-stable/ci/dd-trace-demo
-  CI_PROJECT_NAME: 'dd-trace-demo'
+  CI_PROJECT_NAME: 'opentelemetry-collector-contrib'
   APP: 'dd-trace-demo'
   CURRENT_CI_IMAGE: 7
   BUILD_STABLE_REGISTRY: '486234852809.dkr.ecr.us-east-1.amazonaws.com'
@@ -42,6 +41,8 @@ prod-deploy-demo-eks:
   stage: prod-deploy
   tags: ['runner:docker', 'size:large']
   image: $CI_IMAGE
+  dependencies:
+    - build-ci-image-demo
   script:
     - >-
         TEMP_AWS_ACCESS_KEY_ID=$(aws ssm get-parameter --region us-east-1
