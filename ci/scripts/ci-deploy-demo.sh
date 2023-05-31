@@ -34,13 +34,11 @@ install_collector() {
 
 ###########################################################################################################
 clusterName="otel-demo"
+clusterArn="arn:aws:eks:us-east-1:172597598159:cluster/${clusterName}"
 
-aws eks --region us-east-1 update-kubeconfig --name otel-demo
-kubectl config use-context arn:aws:eks:us-east-1:172597598159:cluster/otel-demo
-if [ $? -ne 0 ]; then
-  {
-    echo "Command: 'kubectl config use-context arn:aws:eks:us-east-1:172597598159:cluster/otel-demo' Failed, exiting..."
-    exit 1
-  }
-fi
+aws sts get-caller-identity
+aws eks --region us-east-1 update-kubeconfig --name "${clusterName}"
+aws sts get-caller-identity
+kubectl config use-context "${clusterArn}"
+
 install_collector

@@ -44,6 +44,7 @@ prod-deploy-demo-eks:
   dependencies:
     - build-ci-image-demo
   script:
+    - aws sts get-caller-identity
     - >-
         TEMP_AWS_ACCESS_KEY_ID=$(aws ssm get-parameter --region us-east-1
         --name ci.opentelemetry-collector-contrib.eks_access_key
@@ -56,4 +57,5 @@ prod-deploy-demo-eks:
         --out text)
     - export AWS_ACCESS_KEY_ID=$TEMP_AWS_ACCESS_KEY_ID
     - export AWS_SECRET_ACCESS_KEY=$TEMP_AWS_SECRET_ACCESS_KEY
+    - aws sts get-caller-identity
     - bash ./ci/scripts/ci-deploy-demo.sh
