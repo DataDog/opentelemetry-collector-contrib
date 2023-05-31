@@ -11,15 +11,16 @@ set -x
 
 install_collector() {
   # Set the namespace and release name
-  release_name="otel-collector-deploy"
+  release_name="my-collector"
 
   # if repo already exists, helm 3+ will skip
   helm --debug repo add open-telemetry https://open-telemetry.github.io/opentelemetry-helm-charts
 
   # --install will run `helm install` if not already present.
-  helm --debug upgrade "${release_name}" --install \
+  helm --debug upgrade "${release_name}" open-telemetry/opentelemetry-collector --install \
     -f ./ci/values.yaml \
     --set-string image.tag="otelcolcontrib-$CI_COMMIT_SHORT_SHA"
+
 }
 
 ###########################################################################################################
