@@ -43,16 +43,4 @@ if [ $? -ne 0 ]; then
     exit 1
   }
 fi
-if [ -z "${AWS_ACCESS_KEY_ID}" ]; then
-  echo "AWS_ACCESS_KEY_ID is empty!!!"
-  exit 1
-fi
-
-kubectl get pods -A
-if [ $? -ne 0 ]; then
-  {
-    echo "Command: 'kubectl get pods' Failed, exiting..."
-    exit 1
-  }
-fi
 install_collector
