@@ -41,6 +41,7 @@ build-image-demo:
 build-ci-image:
   stage: manaul-jobs
   when: manual
+  tags: ["runner:docker"]
   image: $CI_IMAGE
   script:
     - TAG=ci-image-1
