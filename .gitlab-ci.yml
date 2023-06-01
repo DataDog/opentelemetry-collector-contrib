@@ -45,7 +45,7 @@ build-ci-image:
   image: $CI_IMAGE
   script:
     - TAG=ci-image-1
-    - docker build --file ci/Dockerfile.gitlab --tag $BUILD_DD_REGISTRY:$TAG
+    - docker build --file ci/Dockerfile.gitlab --tag $BUILD_DD_REGISTRY:$TAG . 
     - docker push $BUILD_DD_REGISTRY:$TAG
 
 prod-deploy-demo-eks:
