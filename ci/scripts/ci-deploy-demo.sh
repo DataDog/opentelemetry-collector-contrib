@@ -21,7 +21,7 @@ install_collector() {
   # --install will run `helm install` if not already present.
   helm --debug upgrade "${release_name}" open-telemetry/opentelemetry-collector --install \
     -f ./ci/values.yaml \
-    --set-string image.tag="otelcolcontrib-$CI_COMMIT_SHORT_SHA"
+    --set-string image.tag="otelcolcontrib-v$CI_COMMIT_SHORT_SHA"
 
 }
 

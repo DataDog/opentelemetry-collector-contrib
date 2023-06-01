@@ -1,15 +1,16 @@
 variables:
-  CI_PROJECT_NAME: 'opentelemetry-collector-contrib'
-  APP: 'dd-trace-demo'
+  CI_PROJECT_NAME: "opentelemetry-collector-contrib"
+  APP: "dd-trace-demo"
   CURRENT_CI_IMAGE: 7
-  BUILD_STABLE_REGISTRY: '486234852809.dkr.ecr.us-east-1.amazonaws.com'
-  CI_IMAGE: '$BUILD_STABLE_REGISTRY/ci/$APP:$CURRENT_CI_IMAGE'
+  BUILD_STABLE_REGISTRY: "486234852809.dkr.ecr.us-east-1.amazonaws.com"
+  CI_IMAGE: "$BUILD_STABLE_REGISTRY/ci/$APP:$CURRENT_CI_IMAGE"
   RESTORE_CACHE_ATTEMPTS: 2
   BUILD_DD_REGISTRY: registry.ddbuild.io/ci/opentelemetry-collector-contrib
   BUILD_DEMO_REGISTRY: 172597598159.dkr.ecr.us-east-1.amazonaws.com/otel-collector-contrib
   DOCKERFILE: ci/Dockerfile
 
 stages:
+  - manaul-jobs
   - build
   - prod-deploy
 
@@ -27,19 +28,28 @@ stages:
     - docker build --file $DOCKERFILE --tag $BUILD_REGISTRY:$TAG --label target=staging .
     - docker push $BUILD_REGISTRY:$TAG
 
-build-ci-image-main:
+build-image-main:
   <<: *build-ci-image
   variables:
     BUILD_REGISTRY: $BUILD_DD_REGISTRY
 
-build-ci-image-demo:
+build-image-demo:
   <<: *build-ci-image
   variables:
     BUILD_REGISTRY: $BUILD_DEMO_REGISTRY
 
+build-ci-image:
+  stage: manaul-jobs
+  when: manual
+  image: $CI_IMAGE
+  script:
+    - TAG=ci-image-1
+    - docker build --file ci/Dockerfile.gitlab --tag $BUILD_DD_REGISTRY:$TAG
+    - docker push $BUILD_DD_REGISTRY:$TAG
+
 prod-deploy-demo-eks:
   stage: prod-deploy
-  tags: ['runner:docker', 'size:large']
+  tags: ["runner:docker", "size:large"]
   image: $CI_IMAGE
   dependencies:
     - build-ci-image-demo
@@ -47,15 +57,15 @@ prod-deploy-demo-eks:
     # # For debugging
     #- aws sts get-caller-identity
     - >-
-        TEMP_AWS_ACCESS_KEY_ID=$(aws ssm get-parameter --region us-east-1
-        --name ci.opentelemetry-collector-contrib.eks_access_key
-        --with-decryption --query Parameter.Value
-        --out text)
+      TEMP_AWS_ACCESS_KEY_ID=$(aws ssm get-parameter --region us-east-1
+      --name ci.opentelemetry-collector-contrib.eks_access_key
+      --with-decryption --query Parameter.Value
+      --out text)
     - >-
-        TEMP_AWS_SECRET_ACCESS_KEY=$(aws ssm get-parameter --region us-east-1
-        --name ci.opentelemetry-collector-contrib.eks_secret_access_key
-        --with-decryption --query Parameter.Value
-        --out text)
+      TEMP_AWS_SECRET_ACCESS_KEY=$(aws ssm get-parameter --region us-east-1
+      --name ci.opentelemetry-collector-contrib.eks_secret_access_key
+      --with-decryption --query Parameter.Value
+      --out text)
     - export AWS_ACCESS_KEY_ID=$TEMP_AWS_ACCESS_KEY_ID
     - export AWS_SECRET_ACCESS_KEY=$TEMP_AWS_SECRET_ACCESS_KEY
     # # For debugging
