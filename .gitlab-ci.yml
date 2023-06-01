@@ -1,9 +1,7 @@
 variables:
   CI_PROJECT_NAME: "opentelemetry-collector-contrib"
-  APP: "dd-trace-demo"
-  CURRENT_CI_IMAGE: 7
   BUILD_STABLE_REGISTRY: "486234852809.dkr.ecr.us-east-1.amazonaws.com"
-  CI_IMAGE: "$BUILD_STABLE_REGISTRY/ci/$APP:$CURRENT_CI_IMAGE"
+  CI_IMAGE: registry.ddbuild.io/ci/opentelemetry-collector-contrib:ci-image-1
   RESTORE_CACHE_ATTEMPTS: 2
   BUILD_DD_REGISTRY: registry.ddbuild.io/ci/opentelemetry-collector-contrib
   BUILD_DEMO_REGISTRY: 172597598159.dkr.ecr.us-east-1.amazonaws.com/otel-collector-contrib
