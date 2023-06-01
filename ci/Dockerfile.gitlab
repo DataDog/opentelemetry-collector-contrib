@@ -5,11 +5,7 @@ RUN curl https://get.helm.sh/helm-v3.11.2-linux-amd64.tar.gz -o /tmp/helm-v3.11.
 RUN tar -xzvf /tmp/helm-v3.11.2-linux-amd64.tar.gz
 RUN mv linux-amd64/helm /usr/local/bin/helm
 
-RUN curl -O https://dl.google.com/go/go1.20.3.linux-amd64.tar.gz \
-    && tar -xvf go1.20.3.linux-amd64.tar.gz \
-    && mv go /usr/local/
-# Set environment variables for Go
-ENV GOROOT=/usr/local/go
-ENV GOPATH=$HOME/go
-ENV PATH=$GOPATH/bin:$GOROOT/bin:$PATH
-
+# install kubectl
+RUN curl -LO "https://dl.k8s.io/v1.21.13/kubernetes-client-linux-arm64.tar.gz"
+RUN tar -xvzf kubernetes-client-linux-arm64.tar.gz
+RUN install -o root -g root -m 0755 kubernetes/client/bin/kubectl /usr/local/bin/kubectl
