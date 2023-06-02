@@ -1,7 +1,95 @@
-mode: deployment
+---
+mode: daemonset
 image:
-  # If you want to use the core image `otel/opentelemetry-collector`, you also need to change `command.name` value to `otelcol`.
   repository: 172597598159.dkr.ecr.us-east-1.amazonaws.com/otel-collector-contrib
-  pullPolicy: IfNotPresent
-  # Overrides the image tag whose default is the chart appVersion.
-  tag: "otelcolcontrib-v03c8a7a3"
+  tag: ""
+
+resources:
+  limits:
+    cpu: 256m
+    memory: 1Gi
+presets:
+  logsCollection:
+    enabled: true
+    includeCollectorLogs: true
+    storeCheckpoints: false
+  hostMetrics:
+    enabled: true
+  kubernetesAttributes:
+    enabled: true
+  kubernetesEvents:
+    enabled: true
+  kubeletMetrics:
+    enabled: true
+
+config:
+  receivers:
+    jaeger: null
+    prometheus: null
+    zipkin: null
+    hostmetrics:
+      scrapers:
+        paging:
+          metrics:
+            system.paging.utilization:
+              enabled: true
+        cpu:
+          metrics:
+            system.cpu.utilization:
+              enabled: true
+        disk:
+        load:
+        memory:
+        network:
+        processes:
+    otlp:
+      protocols:
+        grpc:
+          endpoint: ${env:MY_POD_IP}:5317
+        http:
+          endpoint: ${env:MY_POD_IP}:5318
+  exporters:
+    datadog:
+      host_metadata:
+        tags: [env:otel]
+      metrics:
+        histograms:
+          mode: counters
+          send_count_sum_metrics: true
+      traces:
+        span_name_as_resource_name: true
+      api:
+        key: "$DD_API_KEY"
+
+  processors:
+    resourcedetection:
+      # ensures host.name and other important resource tags
+      # get picked up
+      detectors: [env, gcp, ecs, ec2, azure, system]
+      timeout: 5s
+      override: false
+    # adds various tags related to k8s
+    k8sattributes:
+    batch:
+      send_batch_max_size: 1000
+      send_batch_size: 100
+      timeout: 10s
+
+  service:
+    telemetry:
+      logs:
+        encoding: "json"
+        initial_fields:
+          - service: "otel-collector"
+    pipelines:
+      metrics:
+        receivers: [otlp, hostmetrics, prometheus]
+        processors: [resourcedetection, k8sattributes, batch]
+        exporters: [datadog]
+      traces:
+        receivers: [otlp]
+        processors: [resourcedetection, k8sattributes, batch]
+        exporters: [datadog]
+      logs:
+        processors: [resourcedetection, k8sattributes, batch]
+        exporters: [datadog]

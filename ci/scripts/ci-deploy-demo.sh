@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 
-# @ckelner: this script closely replicates deploy-prod-us-11287-eks.sh but
-# removes some dependencies like aws-vault in lieu of automation that can be
-# leveraged via GitLab
+# Copyright The OpenTelemetry Authors
+# SPDX-License-Identifier: Apache-2.0
 
-# http://redsymbol.net/articles/unofficial-bash-strict-mode/
+# This script is used to deploy collector on demo account cluster
+
 set -euo pipefail
 IFS=$'\n\t'
 set -x
