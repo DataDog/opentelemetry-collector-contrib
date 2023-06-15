@@ -32,7 +32,6 @@ extraEnvs:
 config:
   receivers:
     jaeger: null
-    prometheus: null
     zipkin: null
     hostmetrics:
       scrapers:
