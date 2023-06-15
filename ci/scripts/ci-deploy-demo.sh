@@ -11,7 +11,7 @@ set -x
 
 install_collector() {
   # Set the namespace and release name
-  release_name="my-collector"
+  release_name="opentelemetry-collector"
 
   # if repo already exists, helm 3+ will skip
   helm --debug repo add open-telemetry https://open-telemetry.github.io/opentelemetry-helm-charts
@@ -29,6 +29,5 @@ clusterArn="arn:aws:eks:us-east-1:172597598159:cluster/${clusterName}"
 
 aws eks --region us-east-1 update-kubeconfig --name "${clusterName}"
 kubectl config use-context "${clusterArn}"
-kubectl get svc
 
 install_collector

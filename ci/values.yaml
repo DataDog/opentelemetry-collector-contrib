@@ -22,6 +22,13 @@ presets:
   kubeletMetrics:
     enabled: true
 
+extraEnvs:
+  - name: DD_API_KEY
+    valueFrom:
+      secretKeyRef:
+        name: datadog-secrets
+        key: api-key
+        optional: false
 config:
   receivers:
     jaeger: null
