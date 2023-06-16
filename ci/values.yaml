@@ -151,7 +151,7 @@ config:
           - service: "otel-collector"
     pipelines:
       metrics:
-        receivers: [otlp, hostmetrics, prometheus, docker_stats]
+        receivers: [otlp, hostmetrics, prometheus]
         processors: [resourcedetection, k8sattributes, batch]
         exporters: [datadog]
       traces:
