@@ -4,6 +4,20 @@ image:
   repository: 172597598159.dkr.ecr.us-east-1.amazonaws.com/otel-collector-contrib
   tag: ""
 
+extraVolumes:
+  - name: cgroups
+    hostPath:
+      path: /sys/fs/cgroup
+  - name: docker-sock
+    hostPath:
+      path: /var/run/docker.sock
+
+extraVolumeMounts:
+  - name: cgroups
+    mounthPath: /sys/fs/cgroup
+  - name: docker-sock
+    mounthPath: /var/run/docker.sock
+
 resources:
   limits:
     cpu: 256m
@@ -151,7 +165,7 @@ config:
           - service: "otel-collector"
     pipelines:
       metrics:
-        receivers: [otlp, hostmetrics, prometheus]
+        receivers: [otlp, hostmetrics, prometheus, docker_stats]
         processors: [resourcedetection, k8sattributes, batch]
         exporters: [datadog]
       traces:
