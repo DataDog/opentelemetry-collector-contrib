@@ -14,9 +14,9 @@ extraVolumes:
 
 extraVolumeMounts:
   - name: cgroups
-    mounthPath: /sys/fs/cgroup
+    mountPath: /sys/fs/cgroup
   - name: docker-sock
-    mounthPath: /var/run/docker.sock
+    mountPath: /var/run/docker.sock
 
 resources:
   limits:
