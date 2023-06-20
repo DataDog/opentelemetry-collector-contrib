@@ -18,6 +18,10 @@ extraVolumeMounts:
   - name: docker-sock
     mountPath: /var/run/docker.sock
 
+securityContext:
+  runAsUser: 0
+  runAsGroup: 0
+
 resources:
   limits:
     cpu: 256m
