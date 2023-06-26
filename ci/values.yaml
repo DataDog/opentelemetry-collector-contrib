@@ -38,7 +38,7 @@ extraEnvs:
   - name: POD_IP
     valueFrom:
       fieldRef:
-      fieldPath: status.podIP
+        fieldPath: status.podIP
   - name: OTEL_RESOURCE_ATTRIBUTES
     value: "k8s.pod.ip=$(POD_IP)"
   - name: DD_API_KEY
