@@ -13,6 +13,8 @@ stages:
   - push
   - staging-deploy
   - prod-deploy
+  - system-tests
+
 # =======================================================================
 # Build and deploy the images used for CI
 # =======================================================================
@@ -116,3 +118,66 @@ prod-deploy-demo-eks:
     # # For debugging
     # - aws sts get-caller-identity
     - bash ./ci/scripts/ci-deploy-demo.sh
+
+# =======================================================================
+# System tests with the CI image
+# =======================================================================
+
+run-system-tests:
+  stage: system-tests
+  tags: ["runner:docker", "size:large"]
+  image: python:3.9.17
+  dependencies:
+    - build-image-demo
+  script:
+    - apt-get update
+    - curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+    - unzip awscliv2.zip
+    - ./aws/install
+    - curl -fsSL https://get.docker.com -o get-docker.sh
+    - sh get-docker.sh
+    - >-
+      TEMP_DD_API_KEY=$(aws ssm get-parameter --region us-east-1
+      --name ci.opentelemetry-collector-contrib.dd_api_key
+      --with-decryption --query Parameter.Value
+      --out text)
+    - >-
+      TEMP_DD_APP_KEY=$(aws ssm get-parameter --region us-east-1
+      --name ci.opentelemetry-collector-contrib.dd_app_key
+      --with-decryption --query Parameter.Value
+      --out text)
+    - >-
+      TEMP_DD_API_KEY_2=$(aws ssm get-parameter --region us-east-1
+      --name ci.opentelemetry-collector-contrib.dd_api_key_2
+      --with-decryption --query Parameter.Value
+      --out text)
+    - >-
+      TEMP_DD_APP_KEY_2=$(aws ssm get-parameter --region us-east-1
+      --name ci.opentelemetry-collector-contrib.dd_app_key_2
+      --with-decryption --query Parameter.Value
+      --out text)
+    - >-
+      TEMP_DD_API_KEY_3=$(aws ssm get-parameter --region us-east-1
+      --name ci.opentelemetry-collector-contrib.dd_api_key_3
+      --with-decryption --query Parameter.Value
+      --out text)
+    - >-
+      TEMP_DD_APP_KEY_3=$(aws ssm get-parameter --region us-east-1
+      --name ci.opentelemetry-collector-contrib.dd_app_key_3
+      --with-decryption --query Parameter.Value
+      --out text)
+    - export DD_API_KEY=$TEMP_DD_API_KEY
+    - export DD_APP_KEY=$TEMP_DD_APP_KEY
+    - export DD_API_KEY_2=$TEMP_DD_API_KEY_2
+    - export DD_APP_KEY_2=$TEMP_DD_APP_KEY_2
+    - export DD_API_KEY_3=$TEMP_DD_API_KEY_3
+    - export DD_APP_KEY_3=$TEMP_DD_APP_KEY_3
+    - git clone https://github.com/DataDog/system-tests
+    - cd system-tests
+    - git checkout yang.song/collector-healthcheck
+    - pip install -r requirements.txt 
+    - docker pull mitmproxy/mitmproxy
+    - ./build.sh java_otel
+    - ./run.sh OTEL_TRACING_E2E
+    - ./run.sh OTEL_METRIC_E2E
+    - ./run.sh OTEL_LOG_E2E
