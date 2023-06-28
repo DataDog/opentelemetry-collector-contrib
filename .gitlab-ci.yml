@@ -45,9 +45,10 @@ prod-deploy-demo-eks:
   image: $CI_IMAGE
   dependencies:
     - build-image-demo
-  refs:
-    - prod
-    - "*-staging"
+  only:
+    refs:
+      - prod
+      - "*-staging"
   script:
     # # For debugging
     #- aws sts get-caller-identity
