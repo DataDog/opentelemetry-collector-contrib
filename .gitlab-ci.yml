@@ -47,7 +47,7 @@ prod-deploy-demo-eks:
     - build-image-demo
   refs:
     - prod
-    - *-staging
+    - "*-staging"
   script:
     # # For debugging
     #- aws sts get-caller-identity
