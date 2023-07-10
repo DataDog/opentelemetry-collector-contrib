@@ -11,7 +11,7 @@ require (
 	go.opentelemetry.io/collector/component v0.80.0
 	go.opentelemetry.io/collector/config/confignet v0.80.0
 	go.opentelemetry.io/collector/confmap v0.80.0
-	go.opentelemetry.io/collector/consumer v0.80.0
+	go.opentelemetry.io/collector/consumer v0.81.0
 	go.opentelemetry.io/collector/receiver v0.80.0
 	go.uber.org/zap v1.24.0
 	google.golang.org/protobuf v1.31.0
