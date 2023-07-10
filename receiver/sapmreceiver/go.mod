@@ -19,7 +19,7 @@ require (
 	go.opentelemetry.io/collector/consumer v0.80.0
 	go.opentelemetry.io/collector/pdata v1.0.0-rcv0013
 	go.opentelemetry.io/collector/receiver v0.80.0
-	go.opentelemetry.io/collector/semconv v0.80.0
+	go.opentelemetry.io/collector/semconv v0.81.0
 )
 
 require (
