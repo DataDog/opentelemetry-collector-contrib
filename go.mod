@@ -172,7 +172,7 @@ require (
 	go.opentelemetry.io/collector/exporter/loggingexporter v0.80.0
 	go.opentelemetry.io/collector/exporter/otlpexporter v0.80.0
 	go.opentelemetry.io/collector/exporter/otlphttpexporter v0.80.0
-	go.opentelemetry.io/collector/extension v0.80.0
+	go.opentelemetry.io/collector/extension v0.81.0
 	go.opentelemetry.io/collector/extension/ballastextension v0.80.0
 	go.opentelemetry.io/collector/extension/zpagesextension v0.80.0
 	go.opentelemetry.io/collector/processor v0.80.0
@@ -442,6 +442,7 @@ require (
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51 // indirect
 	github.com/klauspost/compress v1.16.6 // indirect
 	github.com/knadh/koanf v1.5.0 // indirect
+	github.com/knadh/koanf/v2 v2.0.1 // indirect
 	github.com/kolo/xmlrpc v0.0.0-20220921171641-a4b6fa1dd06b // indirect
 	github.com/kr/fs v0.1.0 // indirect
 	github.com/kylelemons/godebug v1.1.0 // indirect
@@ -466,7 +467,7 @@ require (
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/mitchellh/hashstructure v1.1.0 // indirect
 	github.com/mitchellh/hashstructure/v2 v2.0.2 // indirect
-	github.com/mitchellh/mapstructure v1.5.0 // indirect
+	github.com/mitchellh/mapstructure v1.5.1-0.20220423185008-bf980b35cac4 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
 	github.com/moby/sys/mountinfo v0.6.2 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
@@ -601,17 +602,17 @@ require (
 	go.mongodb.org/atlas v0.29.0 // indirect
 	go.mongodb.org/mongo-driver v1.12.0 // indirect
 	go.opencensus.io v0.24.0 // indirect
-	go.opentelemetry.io/collector/component v0.80.0 // indirect
+	go.opentelemetry.io/collector/component v0.81.0 // indirect
 	go.opentelemetry.io/collector/config/configauth v0.80.0 // indirect
 	go.opentelemetry.io/collector/config/configcompression v0.80.0 // indirect
 	go.opentelemetry.io/collector/config/configgrpc v0.80.0 // indirect
 	go.opentelemetry.io/collector/config/confighttp v0.80.0 // indirect
 	go.opentelemetry.io/collector/config/confignet v0.80.0 // indirect
 	go.opentelemetry.io/collector/config/configopaque v0.80.0 // indirect
-	go.opentelemetry.io/collector/config/configtelemetry v0.80.0 // indirect
+	go.opentelemetry.io/collector/config/configtelemetry v0.81.0 // indirect
 	go.opentelemetry.io/collector/config/configtls v0.80.0 // indirect
 	go.opentelemetry.io/collector/config/internal v0.80.0 // indirect
-	go.opentelemetry.io/collector/confmap v0.80.0 // indirect
+	go.opentelemetry.io/collector/confmap v0.81.0 // indirect
 	go.opentelemetry.io/collector/connector v0.80.0 // indirect
 	go.opentelemetry.io/collector/consumer v0.80.0 // indirect
 	go.opentelemetry.io/collector/extension/auth v0.80.0 // indirect
