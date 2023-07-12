@@ -35,12 +35,6 @@ presets:
   kubeletMetrics:
     enabled: true
 extraEnvs:
-  - name: POD_IP
-    valueFrom:
-      fieldRef:
-        fieldPath: status.podIP
-  - name: OTEL_RESOURCE_ATTRIBUTES
-    value: "k8s.pod.ip=$(POD_IP)"
   - name: DD_API_KEY
     valueFrom:
       secretKeyRef:
@@ -135,11 +129,7 @@ config:
           - k8s.statefulset.uid
           - container.image.name
           - container.image.tag
-          - container.id
           - k8s.container.name
-          - container.image.name
-          - container.image.tag
-          - container.id
         labels:
           - tag_name: kube_app_name
             key: app.kubernetes.io/name
