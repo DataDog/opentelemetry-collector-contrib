@@ -41,11 +41,11 @@ build-image-main:
     - docker pull $BUILD_DD_REGISTRY:$TAG
     - docker tag $BUILD_DD_REGISTRY:$TAG $BUILD_REGISTRY:$TAG
     - docker push $BUILD_REGISTRY:$TAG
-build-image-demo:
+push-image-demo:
   !!merge <<: *push-image
   variables:
     BUILD_REGISTRY: $BUILD_DEMO_REGISTRY
-build-image-staging:
+push-image-staging:
   !!merge <<: *push-image
   variables:
     BUILD_REGISTRY: $BUILD_SANDBOX_REGISTRY
