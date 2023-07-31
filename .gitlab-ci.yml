@@ -10,6 +10,7 @@ variables:
 stages:
   - manaul-jobs
   - build
+  - staging-deploy
   - prod-deploy
 # =======================================================================
 # Build and deploy the images used for CI
