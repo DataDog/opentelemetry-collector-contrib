@@ -36,7 +36,7 @@ build-image-main:
   dependencies:
     - build-image-main
   script:
-    - eval $(aws ecr get-login --region us-east-1 --no-include-email --registry-ids $AWS_ACCT_ID)
+    - aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin $AWS_ACCT_ID.dkr.ecr.us-east-1.amazonaws.com
     - IMAGE_TAG_PREFIX=otelcolcontrib
     - TAG="$IMAGE_TAG_PREFIX-v$CI_COMMIT_SHORT_SHA"
     - docker pull $BUILD_DD_REGISTRY:$TAG
