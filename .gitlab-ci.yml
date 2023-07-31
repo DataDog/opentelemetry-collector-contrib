@@ -63,7 +63,7 @@ staging-deploy-demo-eks:
   tags: ["runner:docker", "size:large"]
   image: $CI_IMAGE
   dependencies:
-    - build-image-demo
+    - push-image-staging
   rules:
     - if: '$CI_COMMIT_REF_NAME =~ /-staging$/'
   script:
@@ -83,7 +83,7 @@ prod-deploy-demo-eks:
   tags: ["runner:docker", "size:large"]
   image: $CI_IMAGE
   dependencies:
-    - build-image-demo
+    - push-image-demo
   rules:
     - if: '$CI_COMMIT_REF_NAME == "prod"'
   script:
