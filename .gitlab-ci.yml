@@ -10,6 +10,7 @@ variables:
 stages:
   - manaul-jobs
   - build
+  - push
   - staging-deploy
   - prod-deploy
 # =======================================================================
@@ -28,10 +29,26 @@ build-image-main:
   !!merge <<: *build-ci-image
   variables:
     BUILD_REGISTRY: $BUILD_DD_REGISTRY
+.push-image: &push-image
+  stage: push
+  tags: ["runner:docker"]
+  image: $CI_IMAGE
+  dependencies:
+    - build-image-main
+  script:
+    - IMAGE_TAG_PREFIX=otelcolcontrib
+    - TAG="$IMAGE_TAG_PREFIX-v$CI_COMMIT_SHORT_SHA"
+    - docker pull $BUILD_DD_REGISTRY:$TAG
+    - docker tag $BUILD_DD_REGISTRY:$TAG $BUILD_REGISTRY:$TAG
+    - docker push $BUILD_REGISTRY:$TAG
 build-image-demo:
-  !!merge <<: *build-ci-image
+  !!merge <<: *push-image
   variables:
     BUILD_REGISTRY: $BUILD_DEMO_REGISTRY
+build-image-staging:
+  !!merge <<: *push-image
+  variables:
+    BUILD_REGISTRY: $BUILD_SANDBOX_REGISTRY
 build-ci-image:
   stage: manaul-jobs
   when: manual
