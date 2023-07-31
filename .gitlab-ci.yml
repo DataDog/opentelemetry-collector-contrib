@@ -36,6 +36,7 @@ build-image-main:
   dependencies:
     - build-image-main
   script:
+    - eval $(aws ecr get-login --region us-east-1 --no-include-email --registry-ids $AWS_ACCT_ID)
     - IMAGE_TAG_PREFIX=otelcolcontrib
     - TAG="$IMAGE_TAG_PREFIX-v$CI_COMMIT_SHORT_SHA"
     - docker pull $BUILD_DD_REGISTRY:$TAG
@@ -45,10 +46,12 @@ push-image-demo:
   !!merge <<: *push-image
   variables:
     BUILD_REGISTRY: $BUILD_DEMO_REGISTRY
+    AWS_ACCT_ID: 172597598159
 push-image-staging:
   !!merge <<: *push-image
   variables:
     BUILD_REGISTRY: $BUILD_SANDBOX_REGISTRY
+    AWS_ACCT_ID: 601427279990
 build-ci-image:
   stage: manaul-jobs
   when: manual
