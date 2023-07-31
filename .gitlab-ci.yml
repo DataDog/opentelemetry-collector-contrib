@@ -5,6 +5,7 @@ variables:
   RESTORE_CACHE_ATTEMPTS: 2
   BUILD_DD_REGISTRY: registry.ddbuild.io/ci/opentelemetry-collector-contrib
   BUILD_DEMO_REGISTRY: 172597598159.dkr.ecr.us-east-1.amazonaws.com/otel-collector-contrib
+  BUILD_SANDBOX_REGISTRY: 601427279990.dkr.ecr.us-east-1.amazonaws.com/otel-collector-contrib
   DOCKERFILE: ci/Dockerfile
 stages:
   - manaul-jobs
@@ -39,6 +40,26 @@ build-ci-image:
     - TAG=ci-image-2
     - docker build --file ci/Dockerfile.gitlab --tag $BUILD_DD_REGISTRY:$TAG .
     - docker push $BUILD_DD_REGISTRY:$TAG
+staging-deploy-demo-eks:
+  stage: staging-deploy
+  tags: ["runner:docker", "size:large"]
+  image: $CI_IMAGE
+  dependencies:
+    - build-image-demo
+  rules:
+    - if: '$CI_COMMIT_REF_NAME =~ /-staging$/'
+  script:
+    # # For debugging
+    #- aws sts get-caller-identity
+    - >-
+      TEMP_AWS_ACCESS_KEY_ID=$(aws ssm get-parameter --region us-east-1 --name ci.opentelemetry-collector-contrib.sand-eks-deploy-api-key --with-decryption --query Parameter.Value --out text)
+    - >-
+      TEMP_AWS_SECRET_ACCESS_KEY=$(aws ssm get-parameter --region us-east-1 --name ci.opentelemetry-collector-contrib.sand-eks-deploy-access-key --with-decryption --query Parameter.Value --out text)
+    - export AWS_ACCESS_KEY_ID=$TEMP_AWS_ACCESS_KEY_ID
+    - export AWS_SECRET_ACCESS_KEY=$TEMP_AWS_SECRET_ACCESS_KEY
+    # # For debugging
+    # - aws sts get-caller-identity
+    - bash ./ci/scripts/ci-deploy-staging.sh
 prod-deploy-demo-eks:
   stage: prod-deploy
   tags: ["runner:docker", "size:large"]
@@ -47,7 +68,6 @@ prod-deploy-demo-eks:
     - build-image-demo
   rules:
     - if: '$CI_COMMIT_REF_NAME == "prod"'
-    - if: '$CI_COMMIT_REF_NAME =~ /-staging$/'
   script:
     # # For debugging
     #- aws sts get-caller-identity
