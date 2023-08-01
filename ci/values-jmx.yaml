@@ -23,6 +23,11 @@ config:
       endpoint: "opentelemetry-demo-kafka:1099"
       target_system: kafka
       log_level: trace
+    jmx/jvm:
+      jar_path: /opt/opentelemetry-jmx-metrics.jar
+      endpoint: "opentelemetry-demo-kafka:1099"
+      target_system: jvm
+      log_level: trace
     jmx/consumer:
       jar_path: /opt/opentelemetry-jmx-metrics.jar
       endpoint: "opentelemetry-demo-frauddetectionservice:1098"
@@ -50,6 +55,6 @@ config:
   service:
     pipelines:
       metrics:
-        receivers: [jmx, jmx/consumer, jmx/producer, zookeeper]
+        receivers: [jmx, jmx/jvm, jmx/consumer, jmx/producer, zookeeper]
         processors: [batch]
         exporters: [otlp]
