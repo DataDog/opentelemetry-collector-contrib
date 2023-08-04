@@ -21,7 +21,8 @@ install_collector() {
 	helm --debug upgrade "${release_name}" -n "${namespace}" open-telemetry/opentelemetry-collector --install \
 		-f ./ci/values.yaml \
 		-f ./ci/values-staging.yaml \
-		--set-string image.tag="otelcolcontrib-v$CI_COMMIT_SHORT_SHA"
+		--set-string image.tag="otelcolcontrib-v$CI_COMMIT_SHORT_SHA" \
+		--set-string image.repository="601427279990.dkr.ecr.us-east-1.amazonaws.com/otel-collector-contrib"
 
 }
 
