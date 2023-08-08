@@ -12,7 +12,7 @@ set -x
 install_collector() {
 	# Set the namespace and release name
 	release_name="opentelemetry-collector"
-	namespace="otel"
+	namespace="otel-staging"
 
 	# if repo already exists, helm 3+ will skip
 	helm --debug repo add open-telemetry https://open-telemetry.github.io/opentelemetry-helm-charts
