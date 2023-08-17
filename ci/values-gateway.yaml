@@ -23,6 +23,8 @@ resources:
   limits:
     cpu: 256m
     memory: 1Gi
+clusterRole:
+  name: "opentelemetry-collector-gateway"
 presets:
   logsCollection:
     enabled: true
