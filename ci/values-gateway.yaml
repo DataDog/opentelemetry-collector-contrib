@@ -25,6 +25,8 @@ resources:
     memory: 1Gi
 clusterRole:
   name: "opentelemetry-collector-gateway"
+  clusterRoleBinding:
+    name: opentelemetry-collector-gateway
 presets:
   logsCollection:
     enabled: true
