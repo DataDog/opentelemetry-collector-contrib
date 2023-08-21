@@ -4,18 +4,6 @@ image:
   tag: ""
 nodeSelector:
   alpha.eksctl.io/nodegroup-name: ng-5
-extraVolumes:
-  - name: cgroups
-    hostPath:
-      path: /sys/fs/cgroup
-  - name: docker-sock
-    hostPath:
-      path: /var/run/docker.sock
-extraVolumeMounts:
-  - name: cgroups
-    mountPath: /sys/fs/cgroup
-  - name: docker-sock
-    mountPath: /var/run/docker.sock
 securityContext:
   runAsUser: 0
   runAsGroup: 0
@@ -47,12 +35,6 @@ extraEnvs:
         fieldPath: status.podIP
   - name: OTEL_RESOURCE_ATTRIBUTES
     value: "k8s.pod.ip=$(POD_IP)"
-  - name: DD_API_KEY
-    valueFrom:
-      secretKeyRef:
-        name: datadog-secrets
-        key: api-key
-        optional: false
   - name: OTEL_K8S_NAMESPACE
     valueFrom:
       fieldRef:
