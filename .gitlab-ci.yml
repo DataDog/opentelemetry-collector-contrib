@@ -43,28 +43,8 @@ build-image-main:
     - docker push $BUILD_REGISTRY:$TAG
 push-image-demo:
   !!merge <<: *push-image
-.push-image: &push-image
-  stage: push
-  tags: ["runner:docker"]
-  image: $CI_IMAGE
-  dependencies:
-    - build-image-main
-  script:
-    - IMAGE_TAG_PREFIX=otelcolcontrib
-    - TAG="$IMAGE_TAG_PREFIX-v$CI_COMMIT_SHORT_SHA"
-    - docker pull $BUILD_DD_REGISTRY:$TAG
-    - docker tag $BUILD_DD_REGISTRY:$TAG $BUILD_REGISTRY:$TAG
-    - docker push $BUILD_REGISTRY:$TAG
-push-image-demo:
-  !!merge <<: *push-image
   variables:
     BUILD_REGISTRY: $BUILD_DEMO_REGISTRY
-    AWS_ACCT_ID: 172597598159
-push-image-staging:
-  !!merge <<: *push-image
-  variables:
-    BUILD_REGISTRY: $BUILD_SANDBOX_REGISTRY
-    AWS_ACCT_ID: 601427279990
     AWS_ACCT_ID: 172597598159
 push-image-staging:
   !!merge <<: *push-image
