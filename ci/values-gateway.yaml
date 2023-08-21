@@ -40,6 +40,12 @@ extraEnvs:
       fieldRef:
         apiVersion: v1
         fieldPath: metadata.namespace
+  - name: DD_API_KEY
+    valueFrom:
+      secretKeyRef:
+        name: datadog-secrets
+        key: api-key
+        optional: false
 config:
   receivers:
     jaeger: null
