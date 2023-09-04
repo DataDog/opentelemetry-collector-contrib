@@ -99,7 +99,7 @@ staging-deploy-ds-gateway-eks:
     - export AWS_SECRET_ACCESS_KEY=$TEMP_AWS_SECRET_ACCESS_KEY
     # # For debugging
     # - aws sts get-caller-identity
-    - bash ./ci/scripts/ci-deploy-gateway.sh
+    - bash ./ci/scripts/ci-deploy-ds-gateway.sh
 staging-deploy-demo-eks:
   stage: staging-deploy
   tags: ["runner:docker", "size:large"]
