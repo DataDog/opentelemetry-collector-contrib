@@ -10,7 +10,7 @@ require (
 	go.opentelemetry.io/collector/component v0.82.0
 	go.opentelemetry.io/collector/config/confighttp v0.82.0
 	go.opentelemetry.io/collector/config/configtls v0.82.0
-	go.opentelemetry.io/collector/confmap v0.82.0
+	go.opentelemetry.io/collector/confmap v0.84.0
 	go.opentelemetry.io/collector/consumer v0.82.0
 	go.opentelemetry.io/collector/receiver v0.82.0
 	k8s.io/client-go v0.27.4
