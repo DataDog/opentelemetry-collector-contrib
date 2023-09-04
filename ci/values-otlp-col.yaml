@@ -1,0 +1,14 @@
+nodeSelector:
+  alpha.eksctl.io/nodegroup-name: ng-6
+config:
+  exporters:
+    otlp:
+      endpoint: opentelemetry-collector:4317
+  service:
+    pipelines:
+      metrics:
+        exporters: [otlp]
+      traces:
+        exporters: [otlp]
+      logs:
+        exporters: [otlp]
