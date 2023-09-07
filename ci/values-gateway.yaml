@@ -1,5 +1,5 @@
 mode: deployment
-replicaCount: 6
+replicaCount: 3
 nodeSelector:
   alpha.eksctl.io/nodegroup-name: ng-5
 clusterRole:
