@@ -19,6 +19,6 @@ resources:
 config:
   processors:
     batch:
-      send_batch_max_size: 100
+      send_batch_max_size: 50
       send_batch_size: 10
       timeout: 10s

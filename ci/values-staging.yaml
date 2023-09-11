@@ -1,2 +1,8 @@
 nodeSelector:
   alpha.eksctl.io/nodegroup-name: ng-3
+config:
+  processors:
+    batch:
+      send_batch_max_size: 50
+      send_batch_size: 10
+      timeout: 10s
