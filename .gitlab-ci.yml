@@ -13,7 +13,6 @@ stages:
   - push
   - staging-deploy
   - prod-deploy
-  - system-tests
 
 # =======================================================================
 # Build and deploy the images used for CI
