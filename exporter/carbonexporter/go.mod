@@ -9,7 +9,7 @@ require (
 	go.opentelemetry.io/collector/confmap v0.85.0
 	go.opentelemetry.io/collector/exporter v0.85.0
 	go.opentelemetry.io/collector/pdata v1.0.0-rcv0014
-	go.opentelemetry.io/collector/semconv v0.85.0
+	go.opentelemetry.io/collector/semconv v0.86.0
 )
 
 require (
