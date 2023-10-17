@@ -16,7 +16,7 @@ install_collector() {
 
 	# if repo already exists, helm 3+ will skip
 	helm --debug repo add open-telemetry https://open-telemetry.github.io/opentelemetry-helm-charts
-
+	helm list --all-namespaces
 	# --install will run `helm install` if not already present.
 	helm --debug upgrade "${release_name}" -n "${namespace}" open-telemetry/opentelemetry-collector --install \
 		-f ./ci/values.yaml \
