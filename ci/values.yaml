@@ -66,6 +66,7 @@ config:
         http:
           endpoint: 0.0.0.0:4318
   exporters:
+    debug: null
     logging:
       verbosity: detailed
     datadog:
