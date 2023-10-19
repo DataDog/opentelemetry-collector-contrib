@@ -4,6 +4,3 @@ presets:
   logsCollection:
     enabled: false
 useGOMEMLIMIT: true
-resources:
-  limits:
-    memory: 160Mi
