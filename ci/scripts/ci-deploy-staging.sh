@@ -25,9 +25,6 @@ install_collector() {
 		--set-string image.repository="601427279990.dkr.ecr.us-east-1.amazonaws.com/otel-collector-contrib"
 	helm list --all-namespaces
 
-	helm -n ${namespace} uninstall opentelemetry-collector-deployment
-
-
 	if [ "$namespace" == "otel-staging" ]; then
 		install_deployment
 	fi
