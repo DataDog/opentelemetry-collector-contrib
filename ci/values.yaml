@@ -9,6 +9,7 @@ resources:
   limits:
     cpu: 512m
     memory: 2Gi
+useGOMEMLIMIT: true
 presets:
   logsCollection:
     enabled: true
@@ -66,6 +67,8 @@ config:
         http:
           endpoint: 0.0.0.0:4318
   exporters:
+    # Disable debug exporter until we pull change that adds it from upstream
+    debug: null
     logging:
       verbosity: detailed
     datadog:
