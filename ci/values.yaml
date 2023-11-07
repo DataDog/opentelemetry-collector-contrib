@@ -185,7 +185,7 @@ config:
       metrics:
         receivers: [otlp, hostmetrics, prometheus]
         processors: [resourcedetection, k8sattributes, batch]
-        exporters: [datadog]
+        exporters: [datadog, logging]
       traces:
         receivers: [otlp]
         processors: [resourcedetection, k8sattributes, batch]
