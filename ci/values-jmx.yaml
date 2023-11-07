@@ -69,4 +69,4 @@ config:
       metrics:
         receivers: [jmx, jmx/jvm, jmx/consumer, jmx/producer, zookeeper, kafkametrics]
         processors: [batch, resourcedetection/env]
-        exporters: [otlp]
+        exporters: [otlp, logging]
