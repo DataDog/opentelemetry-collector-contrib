@@ -23,7 +23,8 @@ config:
       endpoint: "opentelemetry-demo-kafka:1099"
       target_system: kafka
       log_level: trace
-      resource_attributes: datadog.host.name=kafkaremotehosttest
+      resource_attributes:
+        datadog.host.name: kafkaremotehosttest
     jmx/jvm:
       jar_path: /opt/opentelemetry-jmx-metrics.jar
       endpoint: "opentelemetry-demo-kafka:1099"
