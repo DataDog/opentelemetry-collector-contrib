@@ -14,8 +14,8 @@ extraEnvs:
     value: $(HOST_IP)
   - name: OTEL_EXPORTER_OTLP_ENDPOINT
     value: http://$(OTEL_COLLECTOR_NAME):4317
-  - name: OTEL_RESOURCE_ATTRIBUTES
-    value: kafka_source=deploymentcol
+  # - name: OTEL_RESOURCE_ATTRIBUTES
+  #   value: kafka_source=deploymentcol
 config:
   receivers:
     jmx:
@@ -25,6 +25,7 @@ config:
       log_level: trace
       resource_attributes:
         datadog.host.name: kafkaremotehosttest
+        kafka_source: deploymentcol
     jmx/jvm:
       jar_path: /opt/opentelemetry-jmx-metrics.jar
       endpoint: "opentelemetry-demo-kafka:1099"
