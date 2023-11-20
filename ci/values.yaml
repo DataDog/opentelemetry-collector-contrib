@@ -66,8 +66,8 @@ config:
           endpoint: 0.0.0.0:4317
         http:
           endpoint: 0.0.0.0:4318
-connectors:
-    datadog/connector:
+  connectors:
+      datadog/connector:
   exporters:
     # Disable debug exporter until we pull change that adds it from upstream
     debug: null
