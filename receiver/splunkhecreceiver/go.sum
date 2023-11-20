@@ -150,12 +150,12 @@ go.opentelemetry.io/collector/config/configcompression v0.88.1-0.20231026220224-
 go.opentelemetry.io/collector/config/configcompression v0.88.1-0.20231026220224-6405e152a2d9/go.mod h1:LaavoxZsro5lL7qh1g9DMifG0qixWPEecW18Qr8bpag=
 go.opentelemetry.io/collector/config/confighttp v0.88.1-0.20231026220224-6405e152a2d9 h1:jEEupxkBYPlKo4uA/9s7mrN9d2iZQ5hTPIQpOelxaiw=
 go.opentelemetry.io/collector/config/confighttp v0.88.1-0.20231026220224-6405e152a2d9/go.mod h1:bmzLcdPexlRvI7a+56eGqZOWhMYAMf+F0h+HLzrpv6w=
-go.opentelemetry.io/collector/config/configopaque v0.88.1-0.20231026220224-6405e152a2d9 h1:YwkklGD3FSAp9QAmkFwzjRLxYKdTGp61s0ZuIpFQSyM=
-go.opentelemetry.io/collector/config/configopaque v0.88.1-0.20231026220224-6405e152a2d9/go.mod h1:TPCHaU+QXiEV+JXbgyr6mSErTI9chwQyasDVMdJr3eY=
+go.opentelemetry.io/collector/config/configopaque v0.89.0 h1:Ad6yGcGBHs+J9SNjkedY68JsLZ1vBn4kKzdqKuTCRsE=
+go.opentelemetry.io/collector/config/configopaque v0.89.0/go.mod h1:TPCHaU+QXiEV+JXbgyr6mSErTI9chwQyasDVMdJr3eY=
 go.opentelemetry.io/collector/config/configtelemetry v0.88.1-0.20231026220224-6405e152a2d9 h1:4WPy3qE1lJE1LZE7t1kAj1XSZN85w68JknZO5Uo00vw=
 go.opentelemetry.io/collector/config/configtelemetry v0.88.1-0.20231026220224-6405e152a2d9/go.mod h1:+LAXM5WFMW/UbTlAuSs6L/W72WC+q8TBJt/6z39FPOU=
-go.opentelemetry.io/collector/config/configtls v0.88.1-0.20231026220224-6405e152a2d9 h1:Ez4mdgLXvdusZGu7I4+X2hiXCQP69aAB0LWERwosJmE=
-go.opentelemetry.io/collector/config/configtls v0.88.1-0.20231026220224-6405e152a2d9/go.mod h1:i8X3Zj6ICyTbtIOZrDzgXFkFVGKjFtM6/82SMOXbYHc=
+go.opentelemetry.io/collector/config/configtls v0.89.0 h1:XDeUaTU7LYwnEXz/CSdjbCStJa7n0YR1q0QpK0Vtw9w=
+go.opentelemetry.io/collector/config/configtls v0.89.0/go.mod h1:NlE4elqXoyFfzQvYfzgH6uOU1zNVa+5tt6EIq52TJ9Y=
 go.opentelemetry.io/collector/config/internal v0.88.1-0.20231026220224-6405e152a2d9 h1:11WTkBuGy3QCRXQA6oy9ZJn+wBSEfZ7USnKVTPy9yCY=
 go.opentelemetry.io/collector/config/internal v0.88.1-0.20231026220224-6405e152a2d9/go.mod h1:42VsQ/1kP2qnvzjNi+dfNP+KyCFRADejyrJ8m2GVL3M=
 go.opentelemetry.io/collector/confmap v0.88.1-0.20231026220224-6405e152a2d9 h1:JKFChlNpigR1Q4hZUjDU2sB2VuQ+RigAh7oOQfdcaiQ=
