@@ -66,6 +66,8 @@ config:
           endpoint: 0.0.0.0:4317
         http:
           endpoint: 0.0.0.0:4318
+connectors:
+    datadog/connector:
   exporters:
     # Disable debug exporter until we pull change that adds it from upstream
     debug: null
@@ -183,11 +185,15 @@ config:
           - service: "otel-collector"
     pipelines:
       metrics:
-        receivers: [otlp, hostmetrics, prometheus]
+        receivers: [otlp, hostmetrics, prometheus, datadog/connector]
         processors: [resourcedetection, k8sattributes, batch]
         exporters: [datadog, logging]
       traces:
         receivers: [otlp]
+        processors: [batch]
+        exporters: [datadog/connector]
+      traces/2:
+        receivers: [datadog/connector]
         processors: [resourcedetection, k8sattributes, batch]
         exporters: [datadog, logging]
       logs:
