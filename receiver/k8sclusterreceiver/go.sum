@@ -438,8 +438,8 @@ go.opentelemetry.io/collector/receiver v0.88.1-0.20231026220224-6405e152a2d9 h1:
 go.opentelemetry.io/collector/receiver v0.88.1-0.20231026220224-6405e152a2d9/go.mod h1:3lhOi7CWMwiiolm6d579ZX+pIVwKPCRP+7ScontYOuI=
 go.opentelemetry.io/collector/receiver/otlpreceiver v0.88.1-0.20231026220224-6405e152a2d9 h1:1D133PzpWTOC0EjHwaOKII3RWLshBU8zJK8jPfi8zSw=
 go.opentelemetry.io/collector/receiver/otlpreceiver v0.88.1-0.20231026220224-6405e152a2d9/go.mod h1:GLX0tt49Sv6iDIdAcp6loB2Zm+FNyOgvS1b0cV+RmnU=
-go.opentelemetry.io/collector/semconv v0.88.1-0.20231026220224-6405e152a2d9 h1:iRAs+Zp4jmwVXRNAqgl5x8of2zuFty3QWNSqNNQY0NQ=
-go.opentelemetry.io/collector/semconv v0.88.1-0.20231026220224-6405e152a2d9/go.mod h1:j/8THcqVxFna1FpvA2zYIsUperEtOaRaqoLYIN4doWw=
+go.opentelemetry.io/collector/semconv v0.89.0 h1:Sw+MiI3/oiYIY+ebkanZsOaBxXMx3sqnH1/6NaD4rLQ=
+go.opentelemetry.io/collector/semconv v0.89.0/go.mod h1:j/8THcqVxFna1FpvA2zYIsUperEtOaRaqoLYIN4doWw=
 go.opentelemetry.io/collector/service v0.88.0 h1:KSue2w94Tb2xjenlm+SC2y2g87hdhFJeHMT9pEshKAE=
 go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.45.0 h1:RsQi0qJ2imFfCvZabqzM9cNXBG8k6gXMv1A0cXRmH6A=
 go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.45.0/go.mod h1:vsh3ySueQCiKPxFLvjWC4Z135gIa34TQ/NSqkDTZYUM=
