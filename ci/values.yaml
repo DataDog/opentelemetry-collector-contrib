@@ -1,4 +1,13 @@
 mode: daemonset
+
+extraVolumes:
+ - name: varlogpods
+   hostPath:
+     path: /var/log/pods
+extraVolumeMounts:
+ - name: varlogpods
+   mountPath: /var/log/pods
+
 image:
   repository: 172597598159.dkr.ecr.us-east-1.amazonaws.com/otel-collector-contrib
   tag: ""
@@ -11,10 +20,10 @@ resources:
     memory: 2Gi
 useGOMEMLIMIT: true
 presets:
-  logsCollection:
-    enabled: true
-    includeCollectorLogs: true
-    storeCheckpoints: false
+  # logsCollection:
+  #   enabled: true
+  #   includeCollectorLogs: true
+  #   storeCheckpoints: false
   hostMetrics:
     enabled: true
   kubernetesAttributes:
@@ -43,6 +52,11 @@ extraEnvs:
         fieldPath: metadata.namespace
 config:
   receivers:
+    filelog:
+      include_file_path: true
+      poll_interval: 500ms
+      include:
+        - /var/log/**/*example*/*.log
     jaeger: null
     zipkin: null
     hostmetrics:
@@ -66,8 +80,6 @@ config:
           endpoint: 0.0.0.0:4317
         http:
           endpoint: 0.0.0.0:4318
-  connectors:
-      datadog/connector:
   exporters:
     # Disable debug exporter until we pull change that adds it from upstream
     debug: null
@@ -185,17 +197,14 @@ config:
           - service: "otel-collector"
     pipelines:
       metrics:
-        receivers: [otlp, hostmetrics, prometheus, datadog/connector]
+        receivers: [otlp, hostmetrics, prometheus]
         processors: [resourcedetection, k8sattributes, batch]
-        exporters: [datadog, logging]
+        exporters: [datadog]
       traces:
         receivers: [otlp]
-        processors: [batch]
-        exporters: [datadog/connector]
-      traces/2:
-        receivers: [datadog/connector]
         processors: [resourcedetection, k8sattributes, batch]
-        exporters: [datadog, logging]
+        exporters: [datadog]
       logs:
+        receivers: [filelog]
         processors: [memory_limiter, resourcedetection, k8sattributes, attributes, attributes/kafkasrc, batch]
-        exporters: [datadog, logging]
+        exporters: [datadog]
