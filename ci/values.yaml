@@ -7,7 +7,6 @@ extraVolumes:
 extraVolumeMounts:
  - name: varlogpods
    mountPath: /var/log/pods
-
 image:
   repository: 172597598159.dkr.ecr.us-east-1.amazonaws.com/otel-collector-contrib
   tag: ""
@@ -56,7 +55,7 @@ config:
       include_file_path: true
       poll_interval: 500ms
       include:
-        - /var/log/**/*example*/*.log
+        - /var/log/pods/*/*/*.log
     jaeger: null
     zipkin: null
     hostmetrics:
