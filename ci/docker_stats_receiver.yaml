@@ -1,0 +1,32 @@
+extraVolumes:
+  - name: cgroups
+    hostPath:
+      path: /sys/fs/cgroup
+  - name: docker-sock
+    hostPath:
+      path: /var/run/docker.sock
+
+extraVolumeMounts:
+  - name: cgroups
+    mountPath: /sys/fs/cgroup
+  - name: docker-sock
+    mountPath: /var/run/docker.sock
+
+config:
+  receivers:
+    docker_stats:
+      metrics:
+        container.network.io.usage.rx_packets:
+          enabled: true
+        container.network.io.usage.tx_packets:
+          enabled: true
+        container.cpu.usage.system:
+          enabled: true
+        container.memory.rss:
+          enabled: true
+        container.blockio.io_serviced_recursive:
+          enabled: true
+  service:
+    pipelines:
+      metrics:
+        receivers: [docker_stats]
