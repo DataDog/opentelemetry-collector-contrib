@@ -21,6 +21,7 @@ install_collector() {
   # --install will run `helm install` if not already present.
   helm --debug upgrade "${release_name}" -n "${namespace}" open-telemetry/opentelemetry-collector --install \
     -f ./ci/values.yaml \
+    -f ./ci/docker-stats-receiver.yaml \
     --set-string image.tag="otelcolcontrib-v$CI_COMMIT_SHORT_SHA"
 
   # --install collector that fetches jmx metrics. The jmx receiver cannot be used in the daemonset deployment
