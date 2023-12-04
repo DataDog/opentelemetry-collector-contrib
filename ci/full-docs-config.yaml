@@ -17,9 +17,9 @@ extraEnvs:
         optional: false
 processors:
   k8sattributes:
-        passthrough: false
-        auth_type: "serviceAccount"
-   pod_association:
+    passthrough: false
+    auth_type: "serviceAccount"
+    pod_association:
       - sources:
           - from: resource_attribute
             name: k8s.pod.ip
