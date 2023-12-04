@@ -97,6 +97,10 @@ staging-deploy-ds-gateway-eks:
   !!merge <<: *staging-deploy
   variables:
     SCRIPT: ./ci/scripts/ci-deploy-ds-gateway.sh
+staging-deploy-docs:
+  !!merge <<: *staging-deploy
+  variables:
+    SCRIPT: ./ci/scripts/ci-deploy-docs.sh
 prod-deploy-demo-eks:
   stage: prod-deploy
   tags: ["runner:docker", "size:large"]
