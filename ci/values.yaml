@@ -90,10 +90,10 @@ config:
     attributes:
       actions:
       - key: log.file.path
-        pattern: \/var\/log\/pods\/otel_opentelemetry-demo-(?P<service_name>.*?)-.*
+        pattern: \/var\/log\/pods\/${env:OTEL_K8S_NAMESPACE}_opentelemetry-demo-(?P<service_name>.*?)-.*
         action: extract
       - key: log.file.path
-        pattern: \/var\/log\/pods\/otel_opentelemetry-demo-(?P<source>.*?)-.*
+        pattern: \/var\/log\/pods\/${env:OTEL_K8S_NAMESPACE}_opentelemetry-demo-(?P<source>.*?)-.*
         action: extract
       - key: service
         from_attribute: service_name
@@ -105,12 +105,10 @@ config:
           - {key: "source", value: 'kafka|frauddetectionservice|orderproducer'}
       actions:
       # this makes sure the source for logs that come from kafka|frauddetectionservice|orderproducer is
-      # set to kafka. The OOTB box kafka dashboard filters logs on source:kafka. This will still not work
-      # as it will be a log attribute and can only be searched by @source:kafka. We would need to support
-      # attributes_as_tags or find another solution for this to work.
-      - key: source
+      # set to kafka. The OOTB box kafka dashboard filters logs on source:kafka.
+      - key: ddtags
         action: update
-        value: "kafka"
+        value: "source:kafka"
     memory_limiter:
       check_interval: 1s
       limit_mib: 500
@@ -192,5 +190,5 @@ config:
         processors: [resourcedetection, k8sattributes, batch]
         exporters: [datadog]
       logs:
-        processors: [memory_limiter, resourcedetection, k8sattributes, attributes, attributes/kafkasrc, batch]
+        processors: [memory_limiter, resourcedetection, k8sattributes, batch, attributes, attributes/kafkasrc]
         exporters: [datadog]

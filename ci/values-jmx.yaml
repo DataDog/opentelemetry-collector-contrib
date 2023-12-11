@@ -15,7 +15,7 @@ extraEnvs:
   - name: OTEL_EXPORTER_OTLP_ENDPOINT
     value: http://$(OTEL_COLLECTOR_NAME):4317
   - name: OTEL_RESOURCE_ATTRIBUTES
-    value: kafka_source=deploymentcol
+    value: kafka_source=otelcol
 config:
   receivers:
     jmx:

@@ -12,7 +12,7 @@ RUN clean-apt install make \
 RUN apt-get update && \
 apt-get -y install default-jre-headless
 
-ADD https://github.com/open-telemetry/opentelemetry-java-contrib/releases/download/v1.27.0/opentelemetry-jmx-metrics.jar /opt/opentelemetry-jmx-metrics.jar
+ADD ./ci/opentelemetry-jmx-metrics-1.33.0-alpha-SNAPSHOT.jar /opt/opentelemetry-jmx-metrics.jar
 
 COPY --from=build /src/bin/otelcontribcol_* /otelcol-contrib
 USER 1001

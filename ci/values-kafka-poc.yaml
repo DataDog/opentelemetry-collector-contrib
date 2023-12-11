@@ -1,0 +1,6 @@
+nodeSelector:
+  alpha.eksctl.io/nodegroup-name: kafka-poc-ng
+clusterRole:
+  name: "opentelemetry-collector-kafka"
+  clusterRoleBinding:
+    name: opentelemetry-collector-kafka
