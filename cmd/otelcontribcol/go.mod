@@ -274,9 +274,9 @@ require (
 	github.com/DataDog/gohai v0.0.0-20220718130825-1776f9beb9cc // indirect
 	github.com/DataDog/opentelemetry-mapping-go/pkg/inframetadata v0.8.1 // indirect
 	github.com/DataDog/opentelemetry-mapping-go/pkg/otlp/attributes v0.8.3 // indirect
-	github.com/DataDog/opentelemetry-mapping-go/pkg/otlp/logs v0.8.4-0.20231211164955-f02580472b11 // indirect
+	github.com/DataDog/opentelemetry-mapping-go/pkg/otlp/logs v0.8.3 // indirect
 	// https://github.com/DataDog/opentelemetry-mapping-go/pull/217
-	github.com/DataDog/opentelemetry-mapping-go/pkg/otlp/metrics v0.8.4-0.20231211133225-76db5359f86b // indirect
+	github.com/DataDog/opentelemetry-mapping-go/pkg/otlp/metrics v0.8.4-0.20231211173220-f1232fcbe8fe // indirect
 	github.com/DataDog/opentelemetry-mapping-go/pkg/quantile v0.8.3 // indirect
 	github.com/DataDog/sketches-go v1.4.3 // indirect
 	github.com/DataDog/zstd v1.5.2 // indirect
