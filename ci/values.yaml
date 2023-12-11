@@ -100,14 +100,15 @@ config:
         action: upsert
     attributes/kafkasrc:
       include:
-        match_type: regexp
+        match_type: strict
         attributes:
-          - {key: "source", value: 'kafka|frauddetectionservice|orderproducer'}
+          - key: "source"
+            value: 'kafka'
       actions:
       # this makes sure the source for logs that come from kafka|frauddetectionservice|orderproducer is
       # set to kafka. The OOTB box kafka dashboard filters logs on source:kafka.
       - key: ddtags
-        action: update
+        action: upsert
         value: "source:kafka"
     memory_limiter:
       check_interval: 1s
