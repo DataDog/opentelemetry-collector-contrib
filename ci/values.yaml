@@ -110,6 +110,26 @@ config:
       - key: ddtags
         action: upsert
         value: "source:kafka"
+    attributes/producer:
+      include:
+        match_type: strict
+        attributes:
+          - key: "source"
+            value: 'orderproducer'
+      actions:
+      - key: ddtags
+        action: upsert
+        value: "source:kafka"
+    attributes/consumer:
+      include:
+        match_type: strict
+        attributes:
+          - key: "source"
+            value: 'frauddetectionservice'
+      actions:
+      - key: ddtags
+        action: upsert
+        value: "source:kafka"
     memory_limiter:
       check_interval: 1s
       limit_mib: 500
@@ -191,5 +211,5 @@ config:
         processors: [resourcedetection, k8sattributes, batch]
         exporters: [datadog]
       logs:
-        processors: [memory_limiter, resourcedetection, k8sattributes, batch, attributes, attributes/kafkasrc]
+        processors: [memory_limiter, resourcedetection, k8sattributes, batch, attributes, attributes/kafkasrc, attributes/producer, attributes/consumer]
         exporters: [datadog]
