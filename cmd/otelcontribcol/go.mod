@@ -276,7 +276,7 @@ require (
 	github.com/DataDog/opentelemetry-mapping-go/pkg/otlp/attributes v0.8.3 // indirect
 	github.com/DataDog/opentelemetry-mapping-go/pkg/otlp/logs v0.8.3 // indirect
 	// https://github.com/DataDog/opentelemetry-mapping-go/pull/217
-	github.com/DataDog/opentelemetry-mapping-go/pkg/otlp/metrics v0.8.4-0.20231213105518-c2f57f7c62cc // indirect
+	github.com/DataDog/opentelemetry-mapping-go/pkg/otlp/metrics v0.8.4-0.20231214123256-444347fef3bf // indirect
 	github.com/DataDog/opentelemetry-mapping-go/pkg/quantile v0.8.3 // indirect
 	github.com/DataDog/sketches-go v1.4.3 // indirect
 	github.com/DataDog/zstd v1.5.2 // indirect
