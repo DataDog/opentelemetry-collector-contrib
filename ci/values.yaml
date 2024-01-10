@@ -64,9 +64,6 @@ config:
         disk:
         load:
         memory:
-          metrics:
-            system.memory.limit:
-              enabled: true
         network:
         processes:
     otlp:
