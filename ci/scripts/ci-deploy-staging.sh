@@ -27,9 +27,9 @@ install_collector() {
 	helm --debug upgrade "${release_name}" -n "${namespace}" open-telemetry/opentelemetry-collector --install \
 		-f ./ci/values.yaml \
 		--set-string image.tag="otelcolcontrib-v$CI_COMMIT_SHORT_SHA" \
-		--set-string image.repository="601427279990.dkr.ecr.us-east-1.amazonaws.com/otel-collector-contrib" \
 		--set clusterRole.name="${clusterRole}" \
 		--set clusterRole.clusterRoleBinding.name="${clusterRole}"
+		# --set-string image.repository="601427279990.dkr.ecr.us-east-1.amazonaws.com/otel-collector-contrib" \
 		# --set nodeSelector.alpha\\.eksctl\\.io/nodegroup-name="${nodegroup}" \
 		# --set mode="${mode}" \
 		# --set replicaCount="${replicaCount}" \
@@ -73,6 +73,7 @@ clusterArn="${clusterArn}"
 aws eks --region us-east-1 update-kubeconfig --name "${clusterName}"
 kubectl config use-context "${clusterArn}"
 
+# temporary
 if [ "$namespace" == "otel" ]; then
 	install_collector
 fi
