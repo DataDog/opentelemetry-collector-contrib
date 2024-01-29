@@ -100,7 +100,12 @@ staging-deploy-gateway-eks:
 staging-deploy-ds-gateway-eks:
   !!merge <<: *staging-deploy
   variables:
-    SCRIPT: ./ci/scripts/ci-deploy-ds-gateway.sh
+    SCRIPT: ./ci/scripts/ci-deploy-staging.sh
+    NAMESPACE: otel-ds-gateway
+    NODE_GROUP: ng-6
+    MODE: deployment
+    REPLICA_COUNT: 3
+    CLUSTER_ROLE: opentelemetry-collector-ds-gateway
 
 # DEPLOY COLLECTOR PROD 
 prod-deploy-demo-eks:
