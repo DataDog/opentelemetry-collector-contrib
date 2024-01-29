@@ -13,6 +13,8 @@ nodegroup=$NODE_GROUP
 mode=$MODE
 replicaCount=$REPLICA_COUNT
 clusterRole=$CLUSTER_ROLE
+clusterName=$CLUSTER_NAME
+clusterArn=$CLUSTER_ARN
 
 install_collector() {
 	release_name="opentelemetry-collector"
@@ -64,8 +66,8 @@ install_deployment() {
 }
 
 ###########################################################################################################
-clusterName="dd-otel"
-clusterArn="arn:aws:eks:us-east-1:601427279990:cluster/${clusterName}"
+clusterName="${clusterName}"
+clusterArn="${clusterArn}"
 
 aws eks --region us-east-1 update-kubeconfig --name "${clusterName}"
 kubectl config use-context "${clusterArn}"

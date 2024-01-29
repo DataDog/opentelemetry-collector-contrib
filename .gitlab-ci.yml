@@ -4,6 +4,10 @@ variables:
   BUILD_DD_REGISTRY: registry.ddbuild.io/ci/opentelemetry-collector-contrib
   BUILD_DEMO_REGISTRY: 172597598159.dkr.ecr.us-east-1.amazonaws.com/otel-collector-contrib
   BUILD_SANDBOX_REGISTRY: 601427279990.dkr.ecr.us-east-1.amazonaws.com/otel-collector-contrib
+  SANDBOX_CLUSTER_NAME: dd-otel
+  DEMO_CLUSER_NAME: otel-demo
+  SANDBOX_CLUSTER_ARN: "arn:aws:eks:us-east-1:601427279990:cluster/dd-otel"
+  DEMO_CLUSTER_ARN: "arn:aws:eks:us-east-1:172597598159:cluster/otel-demo"
 
 # BUILD STAGES
 stages:
@@ -80,6 +84,8 @@ push-collector-image-staging:
 staging-deploy-demo-eks:
   !!merge <<: *staging-deploy
   variables:
+    CLUSTER_NAME: $SANDBOX_CLUSTER_NAME
+    CLUSTER_ARN: $SANDBOX_CLUSTER_ARN
     SCRIPT: ./ci/scripts/ci-deploy-staging.sh
     NAMESPACE: otel-staging
     NODE_GROUP: ng-3
@@ -90,6 +96,8 @@ staging-deploy-demo-eks:
 staging-deploy-gateway-eks:
   !!merge <<: *staging-deploy
   variables:
+    CLUSTER_NAME: $SANDBOX_CLUSTER_NAME
+    CLUSTER_ARN: $SANDBOX_CLUSTER_ARN
     SCRIPT: ./ci/scripts/ci-deploy-staging.sh
     NAMESPACE: otel-gateway
     NODE_GROUP: ng-5
@@ -100,6 +108,8 @@ staging-deploy-gateway-eks:
 staging-deploy-ds-gateway-eks:
   !!merge <<: *staging-deploy
   variables:
+    CLUSTER_NAME: $SANDBOX_CLUSTER_NAME
+    CLUSTER_ARN: $SANDBOX_CLUSTER_ARN
     SCRIPT: ./ci/scripts/ci-deploy-staging.sh
     NAMESPACE: otel-ds-gateway
     NODE_GROUP: ng-6
@@ -130,6 +140,8 @@ staging-deploy-ds-gateway-eks:
 prod-deploy-eks:
   !!merge <<: *prod-deploy-demo-eks
   variables:
+    CLUSTER_NAME: $DEMO_CLUSTER_NAME
+    CLUSTER_ARN: $DEMO_CLUSTER_ARN
     SCRIPT: ./ci/scripts/ci-deploy-staging.sh
     NAMESPACE: otel
     NODE_GROUP: 
