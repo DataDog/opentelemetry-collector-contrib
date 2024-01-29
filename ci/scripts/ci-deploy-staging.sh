@@ -32,7 +32,6 @@ install_collector() {
 		--set clusterRole.name="${clusterRole}" \
 		--set clusterRole.clusterRoleBinding.name="${clusterRole}"
 
-
 	# only deploy otlp col for otel-ds-gateway
 	if [ "$namespace" == "otel-ds-gateway" ]; then
 		install_ds_otlp

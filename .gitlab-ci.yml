@@ -75,7 +75,7 @@ push-collector-image-staging:
       TEMP_AWS_SECRET_ACCESS_KEY=$(aws ssm get-parameter --region us-east-1 --name ci.opentelemetry-collector-contrib.sand-eks-deploy-access-key --with-decryption --query Parameter.Value --out text)
     - export AWS_ACCESS_KEY_ID=$TEMP_AWS_ACCESS_KEY_ID
     - export AWS_SECRET_ACCESS_KEY=$TEMP_AWS_SECRET_ACCESS_KEY
-    - bash $SCRIPT $NAMESPACE $VALUES
+    - bash $SCRIPT
 #env:otel-staging
 staging-deploy-demo-eks:
   !!merge <<: *staging-deploy
@@ -108,14 +108,16 @@ staging-deploy-ds-gateway-eks:
     CLUSTER_ROLE: opentelemetry-collector-ds-gateway
 
 # DEPLOY COLLECTOR PROD 
-prod-deploy-demo-eks:
+.prod-deploy-demo-eks: &prod-deploy-demo-eks
   stage: prod-deploy
   tags: ["runner:docker", "size:large"]
   image: $CI_IMAGE
   dependencies:
     - push-collector-image-demo
   rules:
-    - if: '$CI_COMMIT_REF_NAME == "prod"'
+    # changing to staging for testing purposes.
+    - if: '$CI_COMMIT_REF_NAME =~ /-staging$/'
+    # - if: '$CI_COMMIT_REF_NAME == "prod"'
   script:
     - >-
       TEMP_AWS_ACCESS_KEY_ID=$(aws ssm get-parameter --region us-east-1 --name ci.opentelemetry-collector-contrib.eks_access_key --with-decryption --query Parameter.Value --out text)
@@ -123,4 +125,14 @@ prod-deploy-demo-eks:
       TEMP_AWS_SECRET_ACCESS_KEY=$(aws ssm get-parameter --region us-east-1 --name ci.opentelemetry-collector-contrib.eks_secret_access_key --with-decryption --query Parameter.Value --out text)
     - export AWS_ACCESS_KEY_ID=$TEMP_AWS_ACCESS_KEY_ID
     - export AWS_SECRET_ACCESS_KEY=$TEMP_AWS_SECRET_ACCESS_KEY
-    - bash ./ci/scripts/ci-deploy-demo.sh
+    - bash $SCRIPT
+#env:otel
+prod-deploy-eks:
+  !!merge <<: *prod-deploy-demo-eks
+  variables:
+    SCRIPT: ./ci/scripts/ci-deploy-staging.sh
+    NAMESPACE: otel
+    NODE_GROUP: 
+    MODE: daemonset
+    REPLICA_COUNT: 1
+    CLUSTER_ROLE: opentelemetry-collector
