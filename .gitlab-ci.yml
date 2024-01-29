@@ -32,7 +32,7 @@ build-ci-image:
     - TAG="$IMAGE_TAG_PREFIX-v$CI_COMMIT_SHORT_SHA"
     - docker build --file ci/Dockerfile --tag $BUILD_REGISTRY:$TAG --label target=staging .
     - docker push $BUILD_REGISTRY:$TAG
-build-image-main:
+build-collector-image-main:
   !!merge <<: *build-collector-image
   variables:
     BUILD_REGISTRY: $BUILD_DD_REGISTRY
@@ -43,7 +43,7 @@ build-image-main:
   tags: ["runner:docker"]
   image: $CI_IMAGE
   dependencies:
-    - build-image-main
+    - build-collector-image-main
   script:
     - IMAGE_TAG_PREFIX=otelcolcontrib
     - TAG="$IMAGE_TAG_PREFIX-v$CI_COMMIT_SHORT_SHA"
@@ -82,14 +82,20 @@ staging-deploy-demo-eks:
   variables:
     SCRIPT: ./ci/scripts/ci-deploy-staging.sh
     NAMESPACE: otel-staging
-    VALUES: ./ci/values-staging.yaml
+    NODE_GROUP: ng-3
+    MODE: daemonset
+    REPLICA_COUNT: 1
+    CLUSTER_ROLE: opentelemetry-collector
 #env:otel-gateway
 staging-deploy-gateway-eks:
   !!merge <<: *staging-deploy
   variables:
     SCRIPT: ./ci/scripts/ci-deploy-staging.sh
     NAMESPACE: otel-gateway
-    VALUES: ./ci/values-gateway.yaml
+    NODE_GROUP: ng-5
+    MODE: deployment
+    REPLICA_COUNT: 3
+    CLUSTER_ROLE: opentelemetry-collector-gateway
 #env:otel-ds-gateway
 staging-deploy-ds-gateway-eks:
   !!merge <<: *staging-deploy

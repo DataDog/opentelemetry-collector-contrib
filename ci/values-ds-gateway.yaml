@@ -6,6 +6,3 @@ clusterRole:
   name: "opentelemetry-collector-ds-gateway"
   clusterRoleBinding:
     name: opentelemetry-collector-ds-gateway
-presets:
-  logsCollection:
-    enabled: true
