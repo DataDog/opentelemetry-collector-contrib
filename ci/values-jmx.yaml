@@ -50,7 +50,7 @@ config:
         - topics
         - consumers
   exporters:
-    logging:
+    debug:
       verbosity: detailed
     otlp:
       endpoint: ${env:OTEL_EXPORTER_OTLP_ENDPOINT}
