@@ -206,7 +206,6 @@ require (
 	go.opentelemetry.io/collector/consumer v0.94.1
 	go.opentelemetry.io/collector/exporter v0.94.1
 	go.opentelemetry.io/collector/exporter/debugexporter v0.94.1
-	go.opentelemetry.io/collector/exporter/loggingexporter v0.94.1
 	go.opentelemetry.io/collector/exporter/otlpexporter v0.94.1
 	go.opentelemetry.io/collector/exporter/otlphttpexporter v0.94.1
 	go.opentelemetry.io/collector/extension v0.94.1

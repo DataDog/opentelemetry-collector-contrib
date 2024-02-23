@@ -123,9 +123,6 @@ func TestDefaultExporters(t *testing.T) {
 			exporter: "debug",
 		},
 		{
-			exporter: "logging",
-		},
-		{
 			exporter: "opencensus",
 			getConfigFn: func() component.Config {
 				cfg := expFactories["opencensus"].CreateDefaultConfig().(*opencensusexporter.Config)
