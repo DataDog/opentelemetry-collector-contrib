@@ -19,7 +19,6 @@ import (
 	"go.opentelemetry.io/collector/pdata/pmetric"
 	"go.opentelemetry.io/collector/pdata/ptrace"
 	"go.opentelemetry.io/collector/processor"
-	"go.opentelemetry.io/collector/processor/processorhelper"
 	semconv "go.opentelemetry.io/collector/semconv/v1.13.0"
 	"go.opentelemetry.io/otel/metric"
 	"go.uber.org/zap"
@@ -45,6 +44,8 @@ var (
 	defaultPeerAttributes = []string{
 		semconv.AttributeDBName, semconv.AttributeNetSockPeerAddr, semconv.AttributeNetPeerName, semconv.AttributeRPCService, semconv.AttributeNetSockPeerName, semconv.AttributeNetPeerName, semconv.AttributeHTTPURL, semconv.AttributeHTTPTarget,
 	}
+
+	defaultDatabaseNameAttribute = semconv.AttributeDBName
 )
 
 type metricSeries struct {
@@ -84,6 +85,10 @@ type serviceGraphConnector struct {
 	shutdownCh chan any
 }
 
+func customMetricName(name string) string {
+	return "connector/" + metadata.Type.String() + "/" + name
+}
+
 func newConnector(set component.TelemetrySettings, config component.Config) *serviceGraphConnector {
 	pConfig := config.(*Config)
 
@@ -107,20 +112,24 @@ func newConnector(set component.TelemetrySettings, config component.Config) *ser
 		pConfig.VirtualNodePeerAttributes = defaultPeerAttributes
 	}
 
+	if pConfig.DatabaseNameAttribute == "" {
+		pConfig.DatabaseNameAttribute = defaultDatabaseNameAttribute
+	}
+
 	meter := metadata.Meter(set)
 
 	droppedSpan, _ := meter.Int64Counter(
-		processorhelper.BuildCustomMetricName(metadata.Type, "dropped_spans"),
+		customMetricName("dropped_spans"),
 		metric.WithDescription("Number of spans dropped when trying to add edges"),
 		metric.WithUnit("1"),
 	)
 	totalEdges, _ := meter.Int64Counter(
-		processorhelper.BuildCustomMetricName(metadata.Type, "total_edges"),
+		customMetricName("total_edges"),
 		metric.WithDescription("Total number of unique edges"),
 		metric.WithUnit("1"),
 	)
 	expiredEdges, _ := meter.Int64Counter(
-		processorhelper.BuildCustomMetricName(metadata.Type, "expired_edges"),
+		customMetricName("expired_edges"),
 		metric.WithDescription("Number of edges that expired before finding its matching span"),
 		metric.WithUnit("1"),
 	)
@@ -286,7 +295,7 @@ func (p *serviceGraphConnector) aggregateMetrics(ctx context.Context, td ptrace.
 
 						// A database request will only have one span, we don't wait for the server
 						// span but just copy details from the client span
-						if dbName, ok := findAttributeValue(semconv.AttributeDBName, rAttributes, span.Attributes()); ok {
+						if dbName, ok := findAttributeValue(p.config.DatabaseNameAttribute, rAttributes, span.Attributes()); ok {
 							e.ConnectionType = store.Database
 							e.ServerService = dbName
 							e.ServerLatencySec = spanDuration(span)

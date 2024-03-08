@@ -28,6 +28,7 @@ func createDefaultConfig() component.Config {
 	httpCfg.Headers = map[string]configopaque.String{
 		"Content-Type": "application/x-www-form-urlencoded",
 	}
+	httpCfg.Timeout = defaultMaxSearchWaitTime
 
 	// Default ScraperController settings
 	scfg := scraperhelper.NewDefaultScraperControllerSettings(metadata.Type)
@@ -35,7 +36,9 @@ func createDefaultConfig() component.Config {
 	scfg.Timeout = defaultMaxSearchWaitTime
 
 	return &Config{
-		ClientConfig:              httpCfg,
+		IdxEndpoint:               httpCfg,
+		SHEndpoint:                httpCfg,
+		CMEndpoint:                httpCfg,
 		ScraperControllerSettings: scfg,
 		MetricsBuilderConfig:      metadata.DefaultMetricsBuilderConfig(),
 	}
@@ -58,7 +61,7 @@ func createMetricsReceiver(
 	cfg := baseCfg.(*Config)
 	splunkScraper := newSplunkMetricsScraper(params, cfg)
 
-	scraper, err := scraperhelper.NewScraper(metadata.Type,
+	scraper, err := scraperhelper.NewScraper(metadata.Type.String(),
 		splunkScraper.scrape,
 		scraperhelper.WithStart(splunkScraper.start))
 	if err != nil {

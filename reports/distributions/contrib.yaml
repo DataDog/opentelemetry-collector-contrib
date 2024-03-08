@@ -25,7 +25,6 @@ components:
         - dataset
         - dynatrace
         - elasticsearch
-        - f5cloud
         - file
         - googlecloud
         - googlecloudpubsub
@@ -54,6 +53,7 @@ components:
         - tencentcloud_logservice
         - zipkin
     extension:
+        - ack
         - asapclient
         - awsproxy
         - basicauth
@@ -66,7 +66,6 @@ components:
         - headers_setter
         - health_check
         - host_observer
-        - http_forwarder
         - jaegerremotesampling
         - k8s_observer
         - oauth2client
@@ -90,7 +89,6 @@ components:
         - resourcedetection
         - routing
         - span
-        - spanmetrics
         - sumologic
         - tail_sampling
         - transform
@@ -118,7 +116,6 @@ components:
         - docker_stats
         - elasticsearch
         - expvar
-        - file
         - filelog
         - filestats
         - flinkmetrics
@@ -148,6 +145,7 @@ components:
         - nsxt
         - opencensus
         - oracledb
+        - otelarrow
         - otlpjsonfile
         - podman_stats
         - postgresql

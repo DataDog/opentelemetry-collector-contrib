@@ -136,7 +136,7 @@ func TestWithDNSResolverNoEndpoints(t *testing.T) {
 	require.NoError(t, err)
 
 	// test
-	e := p.Endpoint([]byte{128, 128, 0, 0})
+	_, e, _ := p.exporterAndEndpoint([]byte{128, 128, 0, 0})
 
 	// verify
 	assert.Equal(t, "", e)
@@ -243,7 +243,7 @@ func TestRemoveExtraExporters(t *testing.T) {
 func TestAddMissingExporters(t *testing.T) {
 	// prepare
 	cfg := simpleConfig()
-	exporterFactory := exporter.NewFactory("otlp", func() component.Config {
+	exporterFactory := exporter.NewFactory(component.MustNewType("otlp"), func() component.Config {
 		return &otlpexporter.Config{}
 	}, exporter.WithTraces(func(
 		_ context.Context,
@@ -277,7 +277,7 @@ func TestFailedToAddMissingExporters(t *testing.T) {
 	// prepare
 	cfg := simpleConfig()
 	expectedErr := errors.New("some expected error")
-	exporterFactory := exporter.NewFactory("otlp", func() component.Config {
+	exporterFactory := exporter.NewFactory(component.MustNewType("otlp"), func() component.Config {
 		return &otlpexporter.Config{}
 	}, exporter.WithTraces(func(
 		_ context.Context,
@@ -376,19 +376,19 @@ func TestFailedExporterInRing(t *testing.T) {
 
 	// test
 	// this trace ID will reach the endpoint-2 -- see the consistent hashing tests for more info
-	_, err = p.Exporter(p.Endpoint([]byte{128, 128, 0, 0}))
+	_, _, err = p.exporterAndEndpoint([]byte{128, 128, 0, 0})
 
 	// verify
 	assert.Error(t, err)
 
 	// test
 	// this service name will reach the endpoint-2 -- see the consistent hashing tests for more info
-	_, err = p.Exporter(p.Endpoint([]byte("get-recommendations-1")))
+	_, _, err = p.exporterAndEndpoint([]byte("get-recommendations-1"))
 
 	// verify
 	assert.Error(t, err)
 }
 
-func newNopMockExporter() component.Component {
-	return mockComponent{}
+func newNopMockExporter() *wrappedExporter {
+	return newWrappedExporter(mockComponent{})
 }
