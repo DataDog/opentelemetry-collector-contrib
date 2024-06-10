@@ -236,7 +236,7 @@ config:
       traces:
         receivers: [otlp]
         processors: [resourcedetection, k8sattributes, transform, batch]
-        exporters: [datadog/connector]
+        exporters: [datadog/connector, debug]
       traces/sampled:
         receivers: [datadog/connector]
         processors: [probabilistic_sampler, batch]
