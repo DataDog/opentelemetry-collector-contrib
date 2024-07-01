@@ -9,43 +9,52 @@ set -euo pipefail
 IFS=$'\n\t'
 set -x
 namespace=$NAMESPACE
-values=$VALUES
+nodegroup=$NODE_GROUP
+mode=$MODE
+replicaCount=$REPLICA_COUNT
+clusterRole=$CLUSTER_ROLE
+clusterName=$CLUSTER_NAME
+clusterArn=$CLUSTER_ARN
 
 install_collector() {
 	release_name="opentelemetry-collector"
 
-	# if repo already exists, helm 3+ will skip
+	# Add open-telemetry helm repo (if repo already exists, helm 3+ will skip)
 	helm --debug repo add open-telemetry https://open-telemetry.github.io/opentelemetry-helm-charts
 	helm repo update open-telemetry
-	# --install will run `helm install` if not already present.
+
+	# deploy collector via helm
 	helm --debug upgrade "${release_name}" -n "${namespace}" open-telemetry/opentelemetry-collector --install \
 		-f ./ci/values.yaml \
-		-f "${values}" \
 		--set-string image.tag="otelcolcontrib-v$CI_COMMIT_SHORT_SHA" \
-		--set-string image.repository="601427279990.dkr.ecr.us-east-1.amazonaws.com/otel-collector-contrib"
-	helm list --all-namespaces
+		--set clusterRole.name="${clusterRole}" \
+		--set clusterRole.clusterRoleBinding.name="${clusterRole}"
+		--set-string image.repository="601427279990.dkr.ecr.us-east-1.amazonaws.com/otel-collector-contrib" \
+		--set nodeSelector.alpha\\.eksctl\\.io/nodegroup-name="${nodegroup}" \
+		--set mode="${mode}" \
+		--set replicaCount="${replicaCount}" \
 
-	if [ "$namespace" == "otel-staging" ]; then
-		install_deployment
+
+	# only deploy otlp col for otel-ds-gateway
+	if [ "$namespace" == "otel-ds-gateway" ]; then
+		install_ds_otlp
 	fi
 }
 
-install_deployment() {
-	release_name_deployment="opentelemetry-collector-deployment"
+install_ds_otlp() {
+	release_name="opentelemetry-collector-ds"
 
-	# --install collector that fetches jmx metrics. The jmx receiver cannot be used in the daemonset deployment
-	# as this would lead to duplicate metrics.
-	helm --debug upgrade "${release_name_deployment}" -n "${namespace}" open-telemetry/opentelemetry-collector --install \
-		-f ./ci/values-jmx.yaml \
+	# daemonset with otlp exporter
+	helm --debug upgrade "${release_name}" -n "${namespace}" open-telemetry/opentelemetry-collector --install \
+		-f ./ci/values.yaml \
+		-f ./ci/values-otlp-col.yaml \
 		--set-string image.tag="otelcolcontrib-v$CI_COMMIT_SHORT_SHA" \
-		--set-string image.repository="601427279990.dkr.ecr.us-east-1.amazonaws.com/otel-collector-contrib" \
-		--set nodeSelector.alpha\\.eksctl\\.io/nodegroup-name=ng-3
-
+		--set-string image.repository="601427279990.dkr.ecr.us-east-1.amazonaws.com/otel-collector-contrib"
 }
 
 ###########################################################################################################
-clusterName="dd-otel"
-clusterArn="arn:aws:eks:us-east-1:601427279990:cluster/${clusterName}"
+clusterName="${clusterName}"
+clusterArn="${clusterArn}"
 
 aws eks --region us-east-1 update-kubeconfig --name "${clusterName}"
 kubectl config use-context "${clusterArn}"
