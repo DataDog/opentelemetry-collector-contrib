@@ -28,7 +28,7 @@ install_collector() {
 		-f ./ci/values.yaml \
 		--set-string image.tag="otelcolcontrib-v$CI_COMMIT_SHORT_SHA" \
 		--set clusterRole.name="${clusterRole}" \
-		--set clusterRole.clusterRoleBinding.name="${clusterRole}"
+		--set clusterRole.clusterRoleBinding.name="${clusterRole}" \
 		--set-string image.repository="601427279990.dkr.ecr.us-east-1.amazonaws.com/otel-collector-contrib" \
 		--set nodeSelector.alpha\\.eksctl\\.io/nodegroup-name="${nodegroup}" \
 		--set mode="${mode}" \

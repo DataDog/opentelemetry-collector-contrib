@@ -12,7 +12,6 @@ set -x
 install_collector() {
   # Set the namespace and release name
   release_name="opentelemetry-collector"
-  release_name_deployment="opentelemetry-collector-deployment"
   namespace="otel"
 
   # if repo already exists, helm 3+ will skip
