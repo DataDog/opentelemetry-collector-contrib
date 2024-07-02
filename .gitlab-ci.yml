@@ -5,9 +5,9 @@ variables:
   BUILD_DEMO_REGISTRY: 172597598159.dkr.ecr.us-east-1.amazonaws.com/otel-collector-contrib
   BUILD_SANDBOX_REGISTRY: 601427279990.dkr.ecr.us-east-1.amazonaws.com/otel-collector-contrib
   SANDBOX_CLUSTER_NAME: dd-otel
-  DEMO_CLUSTER_NAME: otel-demo
+  DEMO_CLUSTER_NAME: prod-eks-otel-a-us-east-1
   SANDBOX_CLUSTER_ARN: "arn:aws:eks:us-east-1:601427279990:cluster/dd-otel"
-  DEMO_CLUSTER_ARN: "arn:aws:eks:us-east-1:172597598159:cluster/otel-demo"
+  DEMO_CLUSTER_ARN: "arn:aws:eks:us-east-1:172597598159:cluster/prod-eks-otel-a-us-east-1"
 
 # BUILD STAGES
 stages:
