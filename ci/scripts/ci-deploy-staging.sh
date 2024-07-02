@@ -23,17 +23,20 @@ install_collector() {
 	helm --debug repo add open-telemetry https://open-telemetry.github.io/opentelemetry-helm-charts
 	helm repo update open-telemetry
 
-	# deploy collector via helm
-	helm --debug upgrade "${release_name}" -n "${namespace}" open-telemetry/opentelemetry-collector --install \
-		-f ./ci/values.yaml \
-		--set-string image.tag="otelcolcontrib-v$CI_COMMIT_SHORT_SHA" \
-		--set clusterRole.name="${clusterRole}" \
-		--set clusterRole.clusterRoleBinding.name="${clusterRole}" \
-		--set-string image.repository="601427279990.dkr.ecr.us-east-1.amazonaws.com/otel-collector-contrib" \
-		--set nodeSelector.alpha\\.eksctl\\.io/nodegroup-name="${nodegroup}" \
-		--set mode="${mode}" \
-		--set replicaCount="${replicaCount}" \
+    helm_cmd="helm --debug upgrade ${release_name} -n ${namespace} open-telemetry/opentelemetry-collector --install \
+        -f ./ci/values.yaml \
+        --set-string image.tag=otelcolcontrib-v$CI_COMMIT_SHORT_SHA \
+        --set clusterRole.name=${clusterRole} \
+        --set clusterRole.clusterRoleBinding.name=${clusterRole} \
+        --set-string image.repository=601427279990.dkr.ecr.us-east-1.amazonaws.com/otel-collector-contrib \
+        --set mode=${mode} \
+        --set replicaCount=${replicaCount}"
 
+    if [ -n "$nodegroup" ]; then
+        helm_cmd+=" --set nodeSelector.alpha\\.eksctl\\.io/nodegroup-name=${nodegroup}"
+    fi
+
+	eval $helm_cmd
 
 	# only deploy otlp col for otel-ds-gateway
 	if [ "$namespace" == "otel-ds-gateway" ]; then
