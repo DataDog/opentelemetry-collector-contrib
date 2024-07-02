@@ -102,6 +102,10 @@ config:
         - key: service
           from_attribute: service_name
           action: upsert
+    attributes/trace:
+        - key: mack.cluster.test
+          action: insert
+          value: juillet
     transform:
       metric_statements: &statements
         - context: resource
@@ -235,11 +239,11 @@ config:
         exporters: [datadog]
       traces:
         receivers: [otlp]
-        processors: [resourcedetection, k8sattributes, transform, batch]
+        processors: [resourcedetection, k8sattributes, transform, attributes/trace, batch]
         exporters: [datadog/connector]
       traces/sampled:
         receivers: [datadog/connector]
-        processors: [probabilistic_sampler, batch]
+        processors: [probabilistic_sampler, attributes/trace, batch]
         exporters: [datadog]
       logs:
         processors: [memory_limiter, resourcedetection, k8sattributes, attributes, attributes/kafkasrc, transform, batch]
