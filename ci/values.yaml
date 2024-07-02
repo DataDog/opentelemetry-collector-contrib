@@ -103,6 +103,7 @@ config:
           from_attribute: service_name
           action: upsert
     attributes/trace:
+      actions:
         - key: mack.cluster.test
           action: insert
           value: juillet
