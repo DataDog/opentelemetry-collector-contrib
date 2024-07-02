@@ -33,7 +33,7 @@ install_collector() {
         --set replicaCount=${replicaCount}"
 
     if [ -n "$nodegroup" ]; then
-        helm_cmd+=" --set nodeSelector.alpha\\.eksctl\\.io/nodegroup-name=${nodegroup}"
+        helm_cmd+="\ --set nodeSelector.alpha\\.eksctl\\.io/nodegroup-name=${nodegroup}"
     fi
 
 	eval $helm_cmd
