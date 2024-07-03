@@ -7,7 +7,7 @@ clusterRole:
 config:
   exporters:
     otlp:
-      endpoint: opentelemetry-collector:4317
+      endpoint: opentelemetry-collector:4318
       tls:
         insecure: true
   service:
