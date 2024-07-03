@@ -93,6 +93,8 @@ staging-deploy:
     MODE: daemonset
     REPLICA_COUNT: 1
     CLUSTER_ROLE: opentelemetry-collector
+    REGISTRY: $BUILD_SANDBOX_REGISTRY
+
 #env:otel-gateway
 staging-deploy-gateway:
   !!merge <<: *staging-deploy
@@ -104,6 +106,8 @@ staging-deploy-gateway:
     MODE: deployment
     REPLICA_COUNT: 3
     CLUSTER_ROLE: opentelemetry-collector-gateway
+    REGISTRY: $BUILD_SANDBOX_REGISTRY
+
 #env:otel-ds-gateway
 staging-deploy-ds-gateway:
   !!merge <<: *staging-deploy
@@ -115,6 +119,7 @@ staging-deploy-ds-gateway:
     MODE: deployment
     REPLICA_COUNT: 3
     CLUSTER_ROLE: opentelemetry-collector-ds-gateway
+    REGISTRY: $BUILD_SANDBOX_REGISTRY
 
 # DEPLOY COLLECTOR PROD 
 .prod-deploy: &prod-deploy-demo-eks
@@ -146,3 +151,4 @@ prod-deploy:
     MODE: daemonset
     REPLICA_COUNT: 1
     CLUSTER_ROLE: opentelemetry-collector
+    REGISTRY: $BUILD_DEMO_REGISTRY
