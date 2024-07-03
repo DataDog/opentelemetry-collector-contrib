@@ -8,6 +8,8 @@ variables:
   DEMO_CLUSTER_NAME: prod-eks-otel-a-us-east-1
   SANDBOX_CLUSTER_ARN: "arn:aws:eks:us-east-1:601427279990:cluster/dd-otel"
   DEMO_CLUSTER_ARN: "arn:aws:eks:us-east-1:172597598159:cluster/prod-eks-otel-a-us-east-1"
+  DEPLOY_SCRIPT: "./ci/scripts/ci-deploy.sh"
+
 
 # BUILD STAGES
 stages:
@@ -79,14 +81,13 @@ push-collector-image-staging:
       TEMP_AWS_SECRET_ACCESS_KEY=$(aws ssm get-parameter --region us-east-1 --name ci.opentelemetry-collector-contrib.sand-eks-deploy-access-key --with-decryption --query Parameter.Value --out text)
     - export AWS_ACCESS_KEY_ID=$TEMP_AWS_ACCESS_KEY_ID
     - export AWS_SECRET_ACCESS_KEY=$TEMP_AWS_SECRET_ACCESS_KEY
-    - bash $SCRIPT
+    - bash $DEPLOY_SCRIPT
 #env:otel-staging
 staging-deploy:
   !!merge <<: *staging-deploy
   variables:
     CLUSTER_NAME: $SANDBOX_CLUSTER_NAME
     CLUSTER_ARN: $SANDBOX_CLUSTER_ARN
-    SCRIPT: ./ci/scripts/ci-deploy-staging.sh
     NAMESPACE: otel-staging
     NODE_GROUP: ng-3
     MODE: daemonset
@@ -98,7 +99,6 @@ staging-deploy-gateway:
   variables:
     CLUSTER_NAME: $SANDBOX_CLUSTER_NAME
     CLUSTER_ARN: $SANDBOX_CLUSTER_ARN
-    SCRIPT: ./ci/scripts/ci-deploy-staging.sh
     NAMESPACE: otel-gateway
     NODE_GROUP: ng-5
     MODE: deployment
@@ -110,7 +110,6 @@ staging-deploy-ds-gateway:
   variables:
     CLUSTER_NAME: $SANDBOX_CLUSTER_NAME
     CLUSTER_ARN: $SANDBOX_CLUSTER_ARN
-    SCRIPT: ./ci/scripts/ci-deploy-staging.sh
     NAMESPACE: otel-ds-gateway
     NODE_GROUP: ng-6
     MODE: deployment
@@ -135,14 +134,13 @@ staging-deploy-ds-gateway:
       TEMP_AWS_SECRET_ACCESS_KEY=$(aws ssm get-parameter --region us-east-1 --name ci.opentelemetry-collector-contrib.eks_secret_access_key --with-decryption --query Parameter.Value --out text)
     - export AWS_ACCESS_KEY_ID=$TEMP_AWS_ACCESS_KEY_ID
     - export AWS_SECRET_ACCESS_KEY=$TEMP_AWS_SECRET_ACCESS_KEY
-    - bash $SCRIPT
+    - bash $DEPLOY_SCRIPT
 #env:otel
 prod-deploy:
   !!merge <<: *prod-deploy-demo-eks
   variables:
     CLUSTER_NAME: $DEMO_CLUSTER_NAME
     CLUSTER_ARN: $DEMO_CLUSTER_ARN
-    SCRIPT: ./ci/scripts/ci-deploy-staging.sh
     NAMESPACE: otel
     NODE_GROUP: 
     MODE: daemonset
