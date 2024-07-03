@@ -240,7 +240,7 @@ config:
       traces/sampled:
         receivers: [datadog/connector]
         processors: [probabilistic_sampler, batch]
-        exporters: [datadog]
+        exporters: [datadog, debug]
       logs:
         processors: [memory_limiter, resourcedetection, k8sattributes, attributes, attributes/kafkasrc, transform, batch]
         exporters: [datadog]

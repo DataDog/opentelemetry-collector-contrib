@@ -31,7 +31,6 @@ install_collector() {
 		--set-string image.tag=otelcolcontrib-v$CI_COMMIT_SHORT_SHA \
         --set clusterRole.name=${clusterRole} \
         --set clusterRole.clusterRoleBinding.name=${clusterRole} \
-        --set-string image.repository=${clusterArn} \
         --set mode=${mode} \
         --set replicaCount=${replicaCount}"
 
