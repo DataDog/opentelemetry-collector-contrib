@@ -54,7 +54,7 @@ install_ds_otlp() {
 		-f ./ci/values.yaml \
 		-f ./ci/values-otlp-col.yaml \
 		--set-string image.tag="otelcolcontrib-v$CI_COMMIT_SHORT_SHA" \
-		--set-string image.repository="601427279990.dkr.ecr.us-east-1.amazonaws.com/otel-collector-contrib"
+		--set-string image.repository=${registry}
 }
 
 ###########################################################################################################
