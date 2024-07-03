@@ -26,8 +26,8 @@ install_collector() {
 	helm repo update open-telemetry
 
     helm_cmd="helm --debug upgrade ${release_name} -n ${namespace} open-telemetry/opentelemetry-collector --install \
-        -f ./ci/values.yaml ${registry}\
-        --set-string image.repository= \
+        -f ./ci/values.yaml \
+        --set-string image.repository=${registry} \
 		--set-string image.tag=otelcolcontrib-v$CI_COMMIT_SHORT_SHA \
         --set clusterRole.name=${clusterRole} \
         --set clusterRole.clusterRoleBinding.name=${clusterRole} \
