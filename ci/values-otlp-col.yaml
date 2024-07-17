@@ -7,18 +7,29 @@ clusterRole:
 config:
   exporters:
     otlp:
-      endpoint: opentelemetry-collector:4317
+      endpoint: opentelemetry-collector.otel-ds-gateway.svc.cluster.local:4317
       tls:
         insecure: true
+  processors:
+    k8sattributes:
+      passthrough: false
+      auth_type: "serviceAccount"
   service:
     pipelines:
       metrics:
-        exporters: [otlp]
+        receivers: [otlp]
+        processors: [k8sattributes, batch]
+        exporters: [datadog]
       traces:
-        exporters: [datadog/connector]
+        receivers: [otlp]
+        processors: [k8sattributes, batch]
+        exporters: [otlp]
       traces/sampled:
-        exporters: [otlp, debug]
+        receivers: []
+        processors: []
+        exporters: []
       logs:
+        processors: [k8sattributes, batch]
         exporters: [otlp]
 resources:
   limits:
