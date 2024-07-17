@@ -12,22 +12,28 @@ config:
         insecure: true
   processors:
     k8sattributes:
-      passthrough: false
+      passthrough: true
       auth_type: "serviceAccount"
+  receivers:
+    otlp/2:
+      protocols:
+        grpc:
+          endpoint: 0.0.0.0:1234
   service:
     pipelines:
       metrics:
         receivers: [otlp]
         processors: [k8sattributes, batch]
-        exporters: [datadog]
+        exporters: [otlp]
       traces:
         receivers: [otlp]
         processors: [k8sattributes, batch]
         exporters: [otlp]
+      # hack to disable this pipeline. otlp/2 does not receive data.
       traces/sampled:
-        receivers: []
+        receivers: [otlp/2]
         processors: []
-        exporters: []
+        exporters: [otlp]
       logs:
         processors: [k8sattributes, batch]
         exporters: [otlp]
