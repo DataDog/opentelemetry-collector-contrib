@@ -17,7 +17,7 @@ config:
       traces:
         exporters: [datadog/connector]
       traces/sampled:
-        exporters: [otlp]
+        exporters: [otlp, debug]
       logs:
         exporters: [otlp]
 resources:
