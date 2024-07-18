@@ -130,8 +130,7 @@ staging-deploy-ds-gateway:
     - push-collector-image-demo
   rules:
     # changing to staging for testing purposes.
-    - if: '$CI_COMMIT_REF_NAME =~ /-staging$/'
-    # - if: '$CI_COMMIT_REF_NAME == "prod"'
+    - if: '$CI_COMMIT_REF_NAME == "prod"'
   script:
     - >-
       TEMP_AWS_ACCESS_KEY_ID=$(aws ssm get-parameter --region us-east-1 --name ci.opentelemetry-collector-contrib.eks_access_key --with-decryption --query Parameter.Value --out text)
