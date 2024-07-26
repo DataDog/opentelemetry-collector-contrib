@@ -9,6 +9,7 @@ variables:
   DOCKERFILE: ci/Dockerfile
 stages:
   - manaul-jobs
+  - e2e
   - build
   - push
   - staging-deploy
