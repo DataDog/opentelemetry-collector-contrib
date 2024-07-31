@@ -61,8 +61,8 @@ push-image-agent-qa:
     branch: main
     strategy: depend
   variables:
-    IMG_SOURCES: $BUILD_DD_REGISTRY:$TAG
-    IMG_DESTINATIONS: otel-collector-contrib:$TAG
+    IMG_SOURCES: $BUILD_DD_REGISTRY:otelcolcontrib-v${CI_COMMIT_SHORT_SHA}
+    IMG_DESTINATIONS: otel-collector-contrib:${CI_COMMIT_SHORT_SHA}
     IMG_REGISTRIES: agent-qa
   
 build-ci-image:
