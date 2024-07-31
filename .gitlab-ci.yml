@@ -52,6 +52,19 @@ push-image-staging:
   variables:
     BUILD_REGISTRY: $BUILD_SANDBOX_REGISTRY
     AWS_ACCT_ID: 601427279990
+
+push-image-agent-qa:
+  stage: push
+  needs: ['build-image-main']
+  trigger:
+    project: DataDog/public-images
+    branch: main
+    strategy: depend
+  variables:
+    IMG_SOURCES: $BUILD_DD_REGISTRY:$TAG
+    IMG_DESTINATIONS: otel-collector-contrib:$TAG
+    IMG_REGISTRIES: agent-qa
+  
 build-ci-image:
   stage: manaul-jobs
   when: manual
