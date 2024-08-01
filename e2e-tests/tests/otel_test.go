@@ -61,16 +61,16 @@ func (v *otelSuite) TestExecute() {
 	}
 	assert.EventuallyWithT(v.T(), func(t *assert.CollectT) {
 		metricsName, err := v.Env().FakeIntake.Client().GetMetricNames()
-		assert.NoError(v.T(), err)
+		assert.NoError(t, err)
 		fmt.Printf("metriiiics: %v", metricsName)
 		logs, err := v.Env().FakeIntake.Client().FilterLogs("")
 		for _, l := range logs {
 			fmt.Printf("logs	: %v", l.Tags)
 		}
 
-		assert.NoError(v.T(), err)
-		assert.NotEmpty(v.T(), metricsName)
-		assert.NotEmpty(v.T(), logs)
+		assert.NoError(t, err)
+		assert.NotEmpty(t, metricsName)
+		assert.NotEmpty(t, logs)
 
 	}, 1*time.Minute, 10*time.Second)
 

@@ -160,6 +160,7 @@ prod-deploy-demo-eks:
     E2E_PRIVATE_KEY_PATH: /tmp/agent-qa-ssh-key
     E2E_KEY_PAIR_NAME: ci.open-elemetry-collector-contrib
     E2E_OUTPUT_DIR: $CI_PROJECT_DIR/e2e-output
+    E2E_PULUMI_VERBOSE_PROGRESS_STREAMS: true
   script:
     - cd e2e-tests && go test $TARGETS/... -v timeout 0 --args -docker_secret $(aws ecr get-login-password)
 
@@ -167,6 +168,6 @@ new-e2e-otel-collector:
   extends: .new_e2e_template
   needs: ['push-image-agent-qa']
   variables:
-    TARGETS: ./
+    TARGETS: ./tests
     TEAM: otel
 
