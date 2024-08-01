@@ -114,7 +114,9 @@ func RunFunc(ctx *pulumi.Context, env *Kubernetes, params *ProvisionerParams) er
 	}
 	fi.Export(ctx, &env.FakeIntake.FakeintakeOutput)
 
-	otelCollector, err := helm.NewOtelCollector(&awsEnv, "otel-collector", otelparams.WithPulumiResourceOptions(pulumi.Provider(kubeProvider)), otelparams.WithFakeintake(fi))
+	otelOptions := []otelparams.Option{otelparams.WithPulumiResourceOptions(pulumi.Provider(kubeProvider)), otelparams.WithFakeintake(fi)}
+	otelOptions = append(otelOptions, params.otelOptions...)
+	otelCollector, err := helm.NewOtelCollector(&awsEnv, "otel-collector", otelOptions...)
 	if err != nil {
 		return err
 	}
@@ -155,7 +157,10 @@ func LocalRunFunc(ctx *pulumi.Context, env *Kubernetes, params *ProvisionerParam
 	}
 	fakeintake.Export(ctx, &env.FakeIntake.FakeintakeOutput)
 
-	otelCollector, err := helm.NewOtelCollector(&localEnv, "otel-collector", otelparams.WithPulumiResourceOptions(pulumi.Provider(kubeProvider)), otelparams.WithFakeintake(fakeintake))
+	otelOptions := []otelparams.Option{otelparams.WithPulumiResourceOptions(pulumi.Provider(kubeProvider)), otelparams.WithFakeintake(fakeintake)}
+	otelOptions = append(otelOptions, params.otelOptions...)
+
+	otelCollector, err := helm.NewOtelCollector(&localEnv, "otel-collector", otelOptions...)
 	if err != nil {
 		return err
 	}

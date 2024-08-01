@@ -48,7 +48,7 @@ imagePullSecrets:
 
 	return components.NewComponent(e, resourceName, func(comp *otelcomp.OtelCollector) error {
 
-		_, err := helm.NewInstallation(e, helm.InstallArgs{
+		release, err := helm.NewInstallation(e, helm.InstallArgs{
 			RepoURL:     "https://open-telemetry.github.io/opentelemetry-helm-charts",
 			ChartName:   "opentelemetry-collector",
 			Namespace:   "default",
@@ -57,7 +57,7 @@ imagePullSecrets:
 		}, pulumiResourceOpts...)
 
 		comp.LabelSelectors = pulumi.Map{
-			"app.kubernetes.io/name": pulumi.String("otel-collector"),
+			"app.kubernetes.io/name": release.Name,
 		}
 
 		return err
