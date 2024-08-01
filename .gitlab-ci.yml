@@ -14,9 +14,9 @@ variables:
   TEST_INFRA_DEFINITIONS_BUILDIMAGES: b02a714d7de7
 stages:
   - manaul-jobs
-  - e2e
   - build
   - push
+  - e2e
   - staging-deploy
   - prod-deploy
 
@@ -68,7 +68,7 @@ push-image-agent-qa:
     strategy: depend
   variables:
     IMG_SOURCES: $BUILD_DD_REGISTRY:otelcolcontrib-v${CI_COMMIT_SHORT_SHA}
-    IMG_DESTINATIONS: otel-collector-contrib:${CI_COMMIT_SHORT_SHA}
+    IMG_DESTINATIONS: otel-collector-contrib:${CI_PIPELINE_ID}-${CI_COMMIT_SHORT_SHA}
     IMG_REGISTRIES: agent-qa
   
 build-ci-image:
@@ -154,16 +154,19 @@ prod-deploy-demo-eks:
     KUBERNETES_MEMORY_REQUEST: 12Gi
     KUBERNETES_MEMORY_LIMIT: 16Gi
     KUBERNETES_CPU_REQUEST: 6
+    E2E_PIPELINE_ID: $CI_PIPELINE_ID
+    E2E_COMMIT_SHORT_SHA: $CI_COMMIT_SHORT_SHA
     E2E_PUBLIC_KEY_PATH: /tmp/agent-qa-ssh-key.pub
     E2E_PRIVATE_KEY_PATH: /tmp/agent-qa-ssh-key
     E2E_KEY_PAIR_NAME: ci.open-elemetry-collector-contrib
     E2E_OUTPUT_DIR: $CI_PROJECT_DIR/e2e-output
   script:
-    - cd e2e-tests && go test $TARGETS/... -v timeout 0
+    - cd e2e-tests && go test $TARGETS/... -v timeout 0 --args -docker_secret $(aws ecr get-login-password)
 
-# new-e2e-otel-collector:
-#   extends: .new_e2e_template
-#   variables:
-#     TARGETS: ./
-#     TEAM: otel
+new-e2e-otel-collector:
+  extends: .new_e2e_template
+  needs: ['push-image-agent-qa']
+  variables:
+    TARGETS: ./
+    TEAM: otel
 

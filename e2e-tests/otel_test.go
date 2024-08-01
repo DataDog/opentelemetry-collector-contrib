@@ -9,10 +9,12 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"os"
 	"testing"
 
 	"github.com/DataDog/datadog-agent/test/new-e2e/pkg/runner"
 	otelcollector "github.com/DataDog/opentelemetry-collector-contrib/e2e-tests/otel-collector"
+	"github.com/DataDog/opentelemetry-collector-contrib/e2e-tests/otel-collector/otelparams"
 
 	"github.com/DataDog/datadog-agent/test/new-e2e/pkg/e2e"
 	"github.com/stretchr/testify/assert"
@@ -33,11 +35,24 @@ func TestVMSuite(t *testing.T) {
 	extraParams.Set("ddagent:imagePullPassword", *dockerSecret, true)
 	extraParams.Set("ddagent:imagePullUsername", "AWS", false)
 
-	suiteParams := []e2e.SuiteOption{e2e.WithProvisioner(otelcollector.Provisioner(otelcollector.WithOTelOptions(), otelcollector.WithExtraParams(extraParams)))}
+	otelOptions := []otelparams.Option{}
+	// Use image built in the CI
+	pipelineID, ok1 := os.LookupEnv("E2E_PIPELINE_ID")
+	commitSHA, ok2 := os.LookupEnv("E2E_COMMIT_SHORT_SHA")
+	if ok1 && ok2 {
+		values := fmt.Sprintf(`
+image:
+  tag: %s-%s
+`, pipelineID, commitSHA)
+		otelOptions = append(otelOptions, otelparams.WithHelmValues(values))
+	}
+
+	suiteParams := []e2e.SuiteOption{e2e.WithProvisioner(otelcollector.Provisioner(otelcollector.WithOTelOptions(otelOptions...), otelcollector.WithExtraParams(extraParams)))}
 
 	e2e.Run(t, &otelSuite{}, suiteParams...)
 }
 
+// TODO write a test that actually test something
 func (v *otelSuite) TestExecute() {
 	res, _ := v.Env().KubernetesCluster.Client().CoreV1().Pods("default").List(context.TODO(), v1.ListOptions{})
 	for _, pod := range res.Items {
@@ -53,7 +68,6 @@ func (v *otelSuite) TestExecute() {
 
 	assert.NoError(v.T(), err)
 	fmt.Printf("logs: %v", lo)
-	// assert.Equal(v.T(), 1, len(res.Items))
 
 	assert.Equal(v.T(), 1, len(res.Items))
 }
