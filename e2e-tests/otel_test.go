@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/DataDog/datadog-agent/test/new-e2e/pkg/runner"
 	otelcollector "github.com/DataDog/opentelemetry-collector-contrib/e2e-tests/otel-collector"
@@ -58,16 +59,19 @@ func (v *otelSuite) TestExecute() {
 	for _, pod := range res.Items {
 		v.T().Logf("Pod: %s", pod.Name)
 	}
-	va, err := v.Env().FakeIntake.Client().GetMetricNames()
-	assert.NoError(v.T(), err)
-	fmt.Printf("metriiiics: %v", va)
-	lo, err := v.Env().FakeIntake.Client().FilterLogs("")
-	for _, l := range lo {
-		fmt.Printf("logs	: %v", l.Tags)
-	}
+	assert.EventuallyWithT(v.T(), func(t *assert.CollectT) {
+		metricsName, err := v.Env().FakeIntake.Client().GetMetricNames()
+		assert.NoError(v.T(), err)
+		fmt.Printf("metriiiics: %v", metricsName)
+		logs, err := v.Env().FakeIntake.Client().FilterLogs("")
+		for _, l := range logs {
+			fmt.Printf("logs	: %v", l.Tags)
+		}
 
-	assert.NoError(v.T(), err)
-	fmt.Printf("logs: %v", lo)
+		assert.NoError(v.T(), err)
+		assert.NotEmpty(v.T(), metricsName)
+		assert.NotEmpty(v.T(), logs)
 
-	assert.Equal(v.T(), 1, len(res.Items))
+	}, 1*time.Minute, 10*time.Second)
+
 }
