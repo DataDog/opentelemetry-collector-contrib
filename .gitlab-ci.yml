@@ -158,7 +158,7 @@ prod-deploy-demo-eks:
     E2E_COMMIT_SHORT_SHA: $CI_COMMIT_SHORT_SHA
     E2E_PUBLIC_KEY_PATH: /tmp/agent-qa-ssh-key.pub
     E2E_PRIVATE_KEY_PATH: /tmp/agent-qa-ssh-key
-    E2E_KEY_PAIR_NAME: ci.open-elemetry-collector-contrib
+    E2E_KEY_PAIR_NAME: ci.open-telemetry-collector-contrib
     E2E_OUTPUT_DIR: $CI_PROJECT_DIR/e2e-output
     E2E_PULUMI_VERBOSE_PROGRESS_STREAMS: true
   script:

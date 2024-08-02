@@ -7,6 +7,7 @@ package e2etests
 
 import (
 	"context"
+	_ "embed"
 	"flag"
 	"fmt"
 	"os"
@@ -25,6 +26,9 @@ import (
 // TODO: Can be improved. On datadog-agent we use python code to run the e2e tests and pass the docker secret as an env variable
 var dockerSecret *string = flag.String("docker_secret", "", "Docker secret to use for the tests")
 
+//go:embed config.yaml
+var otelConfig string
+
 type otelSuite struct {
 	e2e.BaseSuite[otelcollector.Kubernetes]
 }
@@ -36,7 +40,7 @@ func TestVMSuite(t *testing.T) {
 	extraParams.Set("ddagent:imagePullPassword", *dockerSecret, true)
 	extraParams.Set("ddagent:imagePullUsername", "AWS", false)
 
-	otelOptions := []otelparams.Option{}
+	otelOptions := []otelparams.Option{otelparams.WithOTelConfig(otelConfig)}
 	// Use image built in the CI
 	pipelineID, ok1 := os.LookupEnv("E2E_PIPELINE_ID")
 	commitSHA, ok2 := os.LookupEnv("E2E_COMMIT_SHORT_SHA")

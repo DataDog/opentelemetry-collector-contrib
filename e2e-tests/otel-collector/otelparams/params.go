@@ -1,6 +1,9 @@
 package otelparams
 
 import (
+	"fmt"
+
+	"github.com/DataDog/test-infra-definitions/common/utils"
 	"github.com/DataDog/test-infra-definitions/components/datadog/fakeintake"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 )
@@ -42,4 +45,12 @@ func WithFakeintake(fakeintake *fakeintake.Fakeintake) Option {
 		p.Fakeintake = fakeintake
 		return nil
 	}
+}
+
+func WithOTelConfig(config string) Option {
+	values := fmt.Sprintf(`
+config:
+%s
+`, utils.IndentMultilineString(config, 2))
+	return WithHelmValues(values)
 }
