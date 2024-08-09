@@ -199,7 +199,7 @@ prod-deploy:
 
 new-e2e-otel-collector:
   extends: .new_e2e_template
-  needs: ['push-image-agent-qa']
+  needs: ['push-collector-image-agent-qa']
   variables:
     TARGETS: ./tests
     TEAM: otel
