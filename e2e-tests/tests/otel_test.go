@@ -155,9 +155,7 @@ func (s *otelSuite) createTelemetrygenJob(ctx context.Context, telemetry string,
 	var ttlSecondsAfterFinished int32 = 0 //nolint:revive // We want to see this is explicitly set to 0
 	var backOffLimit int32 = 4
 
-	s.T().Log("OTelCollectorOutput.labelselectors", s.Env().OTelCollector.OTelCollectorOutput.LabelSelectors)
-	s.T().Log("labelselectors", s.Env().OTelCollector.LabelSelectors)
-	otlpEndpoint := fmt.Sprintf("%v:4317", s.Env().OTelCollector.LabelSelectors["app"])
+	otlpEndpoint := fmt.Sprintf("%v:4317", s.Env().OTelCollector.LabelSelectors["app.kubernetes.io/name"])
 	s.T().Log("otlpEndpoint", otlpEndpoint)
 	jobSpec := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
