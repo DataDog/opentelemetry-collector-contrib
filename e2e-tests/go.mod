@@ -3,12 +3,14 @@ module github.com/DataDog/opentelemetry-collector-contrib/e2e-tests
 go 1.22.4
 
 require (
+	github.com/DataDog/datadog-agent/test/fakeintake v0.57.0-devel.0.20240809183524-3ecb6c03fbb8
 	github.com/DataDog/datadog-agent/test/new-e2e v0.57.0-devel.0.20240809183524-3ecb6c03fbb8
 	github.com/DataDog/test-infra-definitions v0.0.0-20240808172947-94712f9a273b
 	github.com/pulumi/pulumi-kubernetes/sdk/v4 v4.13.1
 	github.com/pulumi/pulumi/sdk/v3 v3.126.0
 	github.com/stretchr/testify v1.9.0
 	gopkg.in/yaml.v3 v3.0.1
+	k8s.io/api v0.30.2
 	k8s.io/apimachinery v0.30.2
 )
 
@@ -20,7 +22,6 @@ require (
 	github.com/DataDog/datadog-agent/pkg/proto v0.56.0-rc.3 // indirect
 	github.com/DataDog/datadog-agent/pkg/util/optional v0.56.0-rc.3 // indirect
 	github.com/DataDog/datadog-agent/pkg/util/scrubber v0.56.0-rc.3 // indirect
-	github.com/DataDog/datadog-agent/test/fakeintake v0.57.0-devel.0.20240809183524-3ecb6c03fbb8 // indirect
 	github.com/DataDog/datadog-api-client-go/v2 v2.27.0 // indirect
 	github.com/DataDog/mmh3 v0.0.0-20200805151601-30884ca2197a // indirect
 	github.com/DataDog/zstd v1.5.2 // indirect
@@ -187,7 +188,6 @@ require (
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
-	k8s.io/api v0.30.2 // indirect
 	k8s.io/client-go v0.30.2 // indirect
 	k8s.io/klog/v2 v2.120.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20240228011516-70dd3763d340 // indirect

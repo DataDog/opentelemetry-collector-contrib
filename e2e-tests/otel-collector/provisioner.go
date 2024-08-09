@@ -7,17 +7,18 @@ import (
 	"github.com/DataDog/datadog-agent/test/new-e2e/pkg/e2e"
 	"github.com/DataDog/datadog-agent/test/new-e2e/pkg/runner"
 	"github.com/DataDog/datadog-agent/test/new-e2e/pkg/utils/optional"
-	"github.com/DataDog/opentelemetry-collector-contrib/e2e-tests/otel-collector/helm"
-	"github.com/DataDog/opentelemetry-collector-contrib/e2e-tests/otel-collector/otelparams"
 	"github.com/DataDog/test-infra-definitions/common/utils"
 	fakeintakeComp "github.com/DataDog/test-infra-definitions/components/datadog/fakeintake"
 	kubeComp "github.com/DataDog/test-infra-definitions/components/kubernetes"
 	"github.com/DataDog/test-infra-definitions/resources/aws"
 	"github.com/DataDog/test-infra-definitions/resources/local"
 	"github.com/DataDog/test-infra-definitions/scenarios/aws/ec2"
-	fakeintake "github.com/DataDog/test-infra-definitions/scenarios/aws/fakeintake"
+	"github.com/DataDog/test-infra-definitions/scenarios/aws/fakeintake"
 	"github.com/pulumi/pulumi-kubernetes/sdk/v4/go/kubernetes"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
+
+	"github.com/DataDog/opentelemetry-collector-contrib/e2e-tests/otel-collector/helm"
+	"github.com/DataDog/opentelemetry-collector-contrib/e2e-tests/otel-collector/otelparams"
 )
 
 const (
@@ -124,7 +125,7 @@ func RunFunc(ctx *pulumi.Context, env *Kubernetes, params *ProvisionerParams) er
 		return err
 	}
 
-	otelCollector.Export(ctx, &env.OtelCollector.OTelCollectorOutput)
+	otelCollector.Export(ctx, &env.OTelCollector.OTelCollectorOutput)
 
 	return nil
 }
@@ -168,6 +169,6 @@ func LocalRunFunc(ctx *pulumi.Context, env *Kubernetes, params *ProvisionerParam
 		return err
 	}
 
-	otelCollector.Export(ctx, &env.OtelCollector.OTelCollectorOutput)
+	otelCollector.Export(ctx, &env.OTelCollector.OTelCollectorOutput)
 	return nil
 }
