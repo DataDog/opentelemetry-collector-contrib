@@ -7,23 +7,22 @@ import (
 	_ "embed"
 	"fmt"
 
-	otelcomp "github.com/DataDog/opentelemetry-collector-contrib/e2e-tests/otel-collector/component"
-	"github.com/DataDog/opentelemetry-collector-contrib/e2e-tests/otel-collector/otelparams"
-
-	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
-	"gopkg.in/yaml.v3"
-
 	"github.com/DataDog/test-infra-definitions/common/config"
 	"github.com/DataDog/test-infra-definitions/components"
 	"github.com/DataDog/test-infra-definitions/components/datadog/agent"
 	"github.com/DataDog/test-infra-definitions/components/datadog/fakeintake"
 	"github.com/DataDog/test-infra-definitions/resources/helm"
+	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
+	"gopkg.in/yaml.v3"
+
+	otelcomp "github.com/DataDog/opentelemetry-collector-contrib/e2e-tests/otel-collector/component"
+	"github.com/DataDog/opentelemetry-collector-contrib/e2e-tests/otel-collector/otelparams"
 )
 
 //go:embed values.yaml
 var values string
 
-func NewOtelCollector(e config.Env, resourceName string, opts ...otelparams.Option) (*otelcomp.OtelCollector, error) {
+func NewOTelCollector(e config.Env, resourceName string, opts ...otelparams.Option) (*otelcomp.OTelCollector, error) {
 	params, err := otelparams.NewParams(opts...)
 	if err != nil {
 		return nil, err
@@ -49,7 +48,7 @@ imagePullSecrets:
 	valuesYAML = append(valuesYAML, params.HelmValues...)
 	pulumiResourceOpts := append(params.PulumiResourceOptions, pulumi.DependsOn([]pulumi.Resource{secret}))
 
-	return components.NewComponent(e, resourceName, func(comp *otelcomp.OtelCollector) error {
+	return components.NewComponent(e, resourceName, func(comp *otelcomp.OTelCollector) error {
 
 		release, err := helm.NewInstallation(e, helm.InstallArgs{
 			RepoURL:     "https://open-telemetry.github.io/opentelemetry-helm-charts",

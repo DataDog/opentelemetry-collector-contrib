@@ -8,17 +8,17 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 )
 
-type OtelCollector struct {
+type OTelCollector struct {
 	pulumi.ResourceState
 	components.Component
 	LabelSelectors pulumi.Map `pulumi:"labelSelectors"`
 }
 
-func (c *OtelCollector) Export(ctx *pulumi.Context, out *OtelCollectorOutput) error {
+func (c *OTelCollector) Export(ctx *pulumi.Context, out *OTelCollectorOutput) error {
 	return components.Export(ctx, c, out)
 }
 
-type OtelCollectorOutput struct {
+type OTelCollectorOutput struct {
 	components.JSONImporter
 	LabelSelectors map[string]string `json:"labelSelectors"`
 }

@@ -16,5 +16,5 @@ type Kubernetes struct {
 }
 
 type OtelCollector struct {
-	otelcomp.OtelCollectorOutput
+	otelcomp.OTelCollectorOutput
 }
