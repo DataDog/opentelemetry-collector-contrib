@@ -70,9 +70,8 @@ push-collector-image-staging:
   !!merge <<: *push-collector-image
   variables:
     BUILD_REGISTRY: $BUILD_SANDBOX_REGISTRY
-
 push-collector-image-agent-qa:
-  stage: push
+  stage: push-collector-image
   needs: ['build-collector-image-main']
   trigger:
     project: DataDog/public-images
