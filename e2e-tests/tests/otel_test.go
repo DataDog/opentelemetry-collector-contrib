@@ -17,6 +17,7 @@ import (
 	"github.com/DataDog/datadog-agent/test/new-e2e/pkg/e2e"
 	"github.com/DataDog/datadog-agent/test/new-e2e/pkg/runner"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -54,32 +55,21 @@ image:
 `, pipelineID, commitSHA)
 		otelOptions = append(otelOptions, otelparams.WithHelmValues(values))
 	}
-
 	suiteParams := []e2e.SuiteOption{e2e.WithProvisioner(otelcollector.Provisioner(otelcollector.WithOTelOptions(otelOptions...), otelcollector.WithExtraParams(extraParams)))}
-
 	e2e.Run(t, &otelSuite{}, suiteParams...)
 }
 
-// TODO write a test that actually test something
-func (v *otelSuite) TestExecute() {
-	res, _ := v.Env().KubernetesCluster.Client().CoreV1().Pods("default").List(context.TODO(), v1.ListOptions{})
-	for _, pod := range res.Items {
-		v.T().Logf("Pod: %s", pod.Name)
-	}
-	assert.EventuallyWithT(v.T(), func(t *assert.CollectT) {
-		metricsName, err := v.Env().FakeIntake.Client().GetMetricNames()
-		assert.NoError(t, err)
-		fmt.Printf("metriiiics: %v", metricsName)
-		logs, err := v.Env().FakeIntake.Client().FilterLogs("")
-		for _, l := range logs {
-			fmt.Printf("logs	: %v", l.Tags)
+func (s *otelSuite) TestCollectorReady() {
+	s.T().Log("Waiting for collector pod startup")
+	assert.EventuallyWithT(s.T(), func(t *assert.CollectT) {
+		res, _ := s.Env().KubernetesCluster.Client().CoreV1().Pods("default").List(context.TODO(), v1.ListOptions{})
+		for _, pod := range res.Items {
+			for _, containerStatus := range append(pod.Status.InitContainerStatuses, pod.Status.ContainerStatuses...) {
+				assert.Truef(t, containerStatus.Ready, "Container %s of pod %s isn’t ready", containerStatus.Name, pod.Name)
+				assert.Zerof(t, containerStatus.RestartCount, "Container %s of pod %s has restarted", containerStatus.Name, pod.Name)
+			}
 		}
-
-		assert.NoError(t, err)
-		assert.NotEmpty(t, metricsName)
-		assert.NotEmpty(t, logs)
-
-	}, 1*time.Minute, 10*time.Second)
+	}, 2*time.Minute, 10*time.Second)
 }
 
 func (s *otelSuite) TestOTLPTraces() {
@@ -91,23 +81,27 @@ func (s *otelSuite) TestOTLPTraces() {
 	s.T().Log("Starting telemetrygen")
 	s.createTelemetrygenJob(ctx, "traces", []string{"--service", service, "--traces", fmt.Sprint(numTraces)})
 
+	var traces []*aggregator.TracePayload
+	var err error
 	s.T().Log("Waiting for traces")
-	s.EventuallyWithT(func(c *assert.CollectT) {
-		traces, err := s.Env().FakeIntake.Client().GetTraces()
+	require.EventuallyWithT(s.T(), func(c *assert.CollectT) {
+		traces, err = s.Env().FakeIntake.Client().GetTraces()
 		assert.NoError(c, err)
 		assert.NotEmpty(c, traces)
-		trace := traces[0]
-		assert.Equal(c, "none", trace.Env)
-		assert.NotEmpty(c, trace.TracerPayloads)
-		tp := trace.TracerPayloads[0]
-		assert.NotEmpty(c, tp.Chunks)
-		assert.NotEmpty(c, tp.Chunks[0].Spans)
-		spans := tp.Chunks[0].Spans
-		for _, sp := range spans {
-			assert.Equal(c, service, sp.Service)
-			assert.Equal(c, "telemetrygen", sp.Meta["otel.library.name"])
-		}
 	}, 2*time.Minute, 10*time.Second)
+
+	require.NotEmpty(s.T(), traces)
+	trace := traces[0]
+	assert.Equal(s.T(), "none", trace.Env)
+	require.NotEmpty(s.T(), trace.TracerPayloads)
+	tp := trace.TracerPayloads[0]
+	require.NotEmpty(s.T(), tp.Chunks)
+	require.NotEmpty(s.T(), tp.Chunks[0].Spans)
+	spans := tp.Chunks[0].Spans
+	for _, sp := range spans {
+		assert.Equal(s.T(), service, sp.Service)
+		assert.Equal(s.T(), "telemetrygen", sp.Meta["otel.library.name"])
+	}
 }
 
 func (s *otelSuite) TestOTLPMetrics() {
@@ -121,7 +115,7 @@ func (s *otelSuite) TestOTLPMetrics() {
 	s.createTelemetrygenJob(ctx, "metrics", []string{"--metrics", fmt.Sprint(numMetrics), "--otlp-attributes", serviceAttribute})
 
 	s.T().Log("Waiting for metrics")
-	s.EventuallyWithT(func(c *assert.CollectT) {
+	require.EventuallyWithT(s.T(), func(c *assert.CollectT) {
 		serviceTag := "service:" + service
 		metrics, err := s.Env().FakeIntake.Client().FilterMetrics("gen", fakeintake.WithTags[*aggregator.MetricSeries]([]string{serviceTag}))
 		assert.NoError(c, err)
@@ -140,23 +134,25 @@ func (s *otelSuite) TestOTLPLogs() {
 	s.T().Log("Starting telemetrygen")
 	s.createTelemetrygenJob(ctx, "logs", []string{"--logs", fmt.Sprint(numLogs), "--otlp-attributes", serviceAttribute, "--body", logBody})
 
+	var logs []*aggregator.Log
+	var err error
 	s.T().Log("Waiting for logs")
-	s.EventuallyWithT(func(c *assert.CollectT) {
-		logs, err := s.Env().FakeIntake.Client().FilterLogs(service)
+	require.EventuallyWithT(s.T(), func(c *assert.CollectT) {
+		logs, err = s.Env().FakeIntake.Client().FilterLogs(service)
 		assert.NoError(c, err)
 		assert.NotEmpty(c, logs)
-		for _, log := range logs {
-			assert.Contains(c, log.Message, logBody)
-		}
 	}, 2*time.Minute, 10*time.Second)
+
+	require.NotEmpty(s.T(), logs)
+	for _, log := range logs {
+		assert.Contains(s.T(), log.Message, logBody)
+	}
 }
 
 func (s *otelSuite) createTelemetrygenJob(ctx context.Context, telemetry string, options []string) {
-	var ttlSecondsAfterFinished int32 = 0 //nolint:revive // We want to see this is explicitly set to 0
+	var ttlSecondsAfterFinished int32 = 60 //nolint:revive // We want to see this is explicitly set to 0
 	var backOffLimit int32 = 4
 
-	otlpEndpoint := fmt.Sprintf("%v:4317", s.Env().OTelCollector.LabelSelectors["app.kubernetes.io/name"])
-	s.T().Log("otlpEndpoint", otlpEndpoint)
 	jobSpec := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("telemetrygen-job-%v", telemetry),
@@ -168,9 +164,13 @@ func (s *otelSuite) createTelemetrygenJob(ctx context.Context, telemetry string,
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{
 						{
+							Env: []corev1.EnvVar{{
+								Name:      "HOST_IP",
+								ValueFrom: &corev1.EnvVarSource{FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.hostIP"}},
+							}},
 							Name:    "telemetrygen-job",
 							Image:   "ghcr.io/open-telemetry/opentelemetry-collector-contrib/telemetrygen:latest",
-							Command: append([]string{"/telemetrygen", telemetry, "--otlp-endpoint", otlpEndpoint, "--otlp-insecure"}, options...),
+							Command: append([]string{"/telemetrygen", telemetry, "--otlp-endpoint", "$(HOST_IP):4317", "--otlp-insecure"}, options...),
 						},
 					},
 					RestartPolicy: corev1.RestartPolicyNever,
@@ -181,5 +181,5 @@ func (s *otelSuite) createTelemetrygenJob(ctx context.Context, telemetry string,
 	}
 
 	_, err := s.Env().KubernetesCluster.Client().BatchV1().Jobs("default").Create(ctx, jobSpec, metav1.CreateOptions{})
-	assert.NoError(s.T(), err, "Could not properly start job")
+	require.NoError(s.T(), err, "Could not properly start job")
 }
