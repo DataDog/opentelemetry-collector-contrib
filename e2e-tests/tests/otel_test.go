@@ -150,7 +150,7 @@ func (s *otelSuite) TestOTLPLogs() {
 }
 
 func (s *otelSuite) createTelemetrygenJob(ctx context.Context, telemetry string, options []string) {
-	var ttlSecondsAfterFinished int32 = 60 //nolint:revive // We want to see this is explicitly set to 0
+	var ttlSecondsAfterFinished int32 = 0 //nolint:revive // We want to see this is explicitly set to 0
 	var backOffLimit int32 = 4
 
 	jobSpec := &batchv1.Job{
