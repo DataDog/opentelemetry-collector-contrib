@@ -13,7 +13,6 @@ import (
 	"github.com/DataDog/test-infra-definitions/components/datadog/fakeintake"
 	"github.com/DataDog/test-infra-definitions/resources/helm"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
-	"gopkg.in/yaml.v3"
 
 	otelcomp "github.com/DataDog/opentelemetry-collector-contrib/e2e-tests/otel-collector/component"
 	"github.com/DataDog/opentelemetry-collector-contrib/e2e-tests/otel-collector/otelparams"
@@ -68,28 +67,19 @@ imagePullSecrets:
 
 func buildFakeintakeValues(fakeintake *fakeintake.Fakeintake) pulumi.AssetOutput {
 	return fakeintake.URL.ApplyT(func(url string) (pulumi.Asset, error) {
-		defaultValues := map[string]interface{}{
-			"config": map[string]interface{}{
-				"exporters": map[string]interface{}{
-					"datadog": map[string]interface{}{
-						"metrics": map[string]interface{}{
-							"endpoint": url,
-						},
-						"traces": map[string]interface{}{
-							"endpoint": url,
-						},
-						"logs": map[string]interface{}{
-							"endpoint": url,
-						},
-					},
-				},
-			},
-		}
-		valuesYAML, err := yaml.Marshal(defaultValues)
-		if err != nil {
-			return nil, err
-		}
-		return pulumi.NewStringAsset(string(valuesYAML)), nil
+		defaultValuesYAML := fmt.Sprintf(`
+config:
+  exporters:
+    datadog:
+      metrics:
+        endpoint: %[1]s
+      traces:
+        endpoint: %[1]s
+      logs:
+        endpoint: %[1]s
+`, url)
+
+		return pulumi.NewStringAsset(string(defaultValuesYAML)), nil
 
 	}).(pulumi.AssetOutput)
 }
