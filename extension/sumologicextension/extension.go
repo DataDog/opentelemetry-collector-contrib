@@ -24,6 +24,7 @@ import (
 	ps "github.com/mitchellh/go-ps"
 	"github.com/shirou/gopsutil/v4/host"
 	"go.opentelemetry.io/collector/component"
+	"go.opentelemetry.io/collector/component/componenttest"
 	"go.opentelemetry.io/collector/config/confighttp"
 	"go.opentelemetry.io/collector/extension/auth"
 	"go.opentelemetry.io/collector/featuregate"
@@ -296,7 +297,7 @@ func (se *SumologicExtension) getHTTPClient(
 	httpClient, err := httpClientSettings.ToClient(
 		ctx,
 		se.host,
-		component.TelemetrySettings{},
+		componenttest.NewNopTelemetrySettings(),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("couldn't create HTTP client: %w", err)
@@ -458,8 +459,8 @@ func (se *SumologicExtension) registerCollector(ctx context.Context, collectorNa
 	defer res.Body.Close()
 
 	if res.StatusCode < 200 || res.StatusCode >= 400 {
-		return se.handleRegistrationError(res)
-	} else if res.StatusCode == 301 {
+		return credentials.CollectorCredentials{}, se.handleRegistrationError(res)
+	} else if res.StatusCode == http.StatusMovedPermanently {
 		// Use the URL from Location header for subsequent requests.
 		u := strings.TrimSuffix(res.Header.Get("Location"), "/")
 		se.SetBaseURL(u)
@@ -487,17 +488,17 @@ func (se *SumologicExtension) registerCollector(ctx context.Context, collectorNa
 
 // handleRegistrationError handles the collector registration errors and returns
 // appropriate error for backoff handling and logging purposes.
-func (se *SumologicExtension) handleRegistrationError(res *http.Response) (credentials.CollectorCredentials, error) { // nolint: unparam
+func (se *SumologicExtension) handleRegistrationError(res *http.Response) error {
 	var errResponse api.ErrorResponsePayload
 	if err := json.NewDecoder(res.Body).Decode(&errResponse); err != nil {
 		var buff bytes.Buffer
 		if _, errCopy := io.Copy(&buff, res.Body); errCopy != nil {
-			return credentials.CollectorCredentials{}, fmt.Errorf(
+			return fmt.Errorf(
 				"failed to read the collector registration response body, status code: %d, err: %w",
 				res.StatusCode, errCopy,
 			)
 		}
-		return credentials.CollectorCredentials{}, fmt.Errorf(
+		return fmt.Errorf(
 			"failed to decode collector registration response body: %s, status code: %d, err: %w",
 			buff.String(), res.StatusCode, err,
 		)
@@ -510,14 +511,14 @@ func (se *SumologicExtension) handleRegistrationError(res *http.Response) (crede
 	)
 
 	// Return unrecoverable error for 4xx status codes except 429
-	if res.StatusCode >= 400 && res.StatusCode < 500 && res.StatusCode != 429 {
-		return credentials.CollectorCredentials{}, backoff.Permanent(fmt.Errorf(
+	if res.StatusCode >= 400 && res.StatusCode < 500 && res.StatusCode != http.StatusTooManyRequests {
+		return backoff.Permanent(fmt.Errorf(
 			"failed to register the collector, got HTTP status code: %d",
 			res.StatusCode,
 		))
 	}
 
-	return credentials.CollectorCredentials{}, fmt.Errorf(
+	return fmt.Errorf(
 		"failed to register the collector, got HTTP status code: %d", res.StatusCode,
 	)
 }
@@ -603,7 +604,6 @@ func (se *SumologicExtension) heartbeatLoop() {
 						zap.String(collectorNameField, colCreds.Credentials.CollectorName),
 						zap.String(collectorIDField, colCreds.Credentials.CollectorID),
 					)
-
 				} else {
 					se.logger.Error("Heartbeat error", zap.Error(err))
 				}
@@ -617,7 +617,6 @@ func (se *SumologicExtension) heartbeatLoop() {
 				timer.Reset(se.conf.HeartBeatInterval)
 			case <-se.closeChan:
 			}
-
 		}
 	}
 }

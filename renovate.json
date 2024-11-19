@@ -5,7 +5,7 @@
       "dependencies"
     ],
     "constraints": {
-      "go": "1.21.0"
+      "go": "1.22.0"
     },
     "schedule": ["every tuesday"],
     "extends": ["config:recommended"],
@@ -69,13 +69,18 @@
       },
       {
         "matchManagers": ["gomod"],
-        "matchSourceUrlPrefixes": ["https://go.opentelemetry.io/build-tools"],
+        "matchPackagePrefixes": ["go.opentelemetry.io/build-tools"],
         "groupName": "All go.opentelemetry.io/build-tools packages"
       },
       {
         "matchManagers": ["gomod"],
         "matchSourceUrlPrefixes": ["https://go.opentelemetry.io/otel"],
         "groupName": "All go.opentelemetry.io/otel packages"
+      },
+      {
+        "matchManagers": ["gomod"],
+        "matchPackagePrefixes": ["cloud.google.com/go"],
+        "groupName": "All cloud.google.com/go packages"
       },
       {
         "matchManagers": ["gomod"],
@@ -103,8 +108,8 @@
       }
     ],
     "ignoreDeps": [
-      "github.com/mattn/go-ieproxy",
-      "github.com/DataDog/datadog-agent/pkg/trace/exportable"
+      "github.com/DataDog/datadog-agent/pkg/trace/exportable",
+      "github.com/datadog/datadog-api-client-go/v2"
     ],
     "prConcurrentLimit": 200,
     "suppressNotifications": ["prEditedNotification"]

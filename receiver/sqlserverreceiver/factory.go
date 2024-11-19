@@ -43,11 +43,15 @@ func setupQueries(cfg *Config) []string {
 		queries = append(queries, getSQLServerDatabaseIOQuery(cfg.InstanceName))
 	}
 
-	if cfg.MetricsBuilderConfig.Metrics.SqlserverResourcePoolDiskThrottledReadRate.Enabled ||
+	if cfg.MetricsBuilderConfig.Metrics.SqlserverBatchRequestRate.Enabled ||
+		cfg.MetricsBuilderConfig.Metrics.SqlserverPageBufferCacheHitRatio.Enabled ||
+		cfg.MetricsBuilderConfig.Metrics.SqlserverResourcePoolDiskThrottledReadRate.Enabled ||
 		cfg.MetricsBuilderConfig.Metrics.SqlserverResourcePoolDiskThrottledWriteRate.Enabled ||
 		cfg.MetricsBuilderConfig.Metrics.SqlserverLockWaitRate.Enabled ||
-		cfg.MetricsBuilderConfig.Metrics.SqlserverProcessesBlocked.Enabled {
-
+		cfg.MetricsBuilderConfig.Metrics.SqlserverProcessesBlocked.Enabled ||
+		cfg.MetricsBuilderConfig.Metrics.SqlserverBatchSQLRecompilationRate.Enabled ||
+		cfg.MetricsBuilderConfig.Metrics.SqlserverBatchSQLCompilationRate.Enabled ||
+		cfg.MetricsBuilderConfig.Metrics.SqlserverUserConnectionCount.Enabled {
 		queries = append(queries, getSQLServerPerformanceCounterQuery(cfg.InstanceName))
 	}
 
@@ -115,15 +119,14 @@ func setupScrapers(params receiver.Settings, cfg *Config) ([]scraperhelper.Scrap
 
 	var opts []scraperhelper.ScraperControllerOption
 	for _, sqlScraper := range sqlServerScrapers {
-		scraper, err := scraperhelper.NewScraper(metadata.Type.String(), sqlScraper.Scrape,
+		scraper, err := scraperhelper.NewScraperWithoutType(sqlScraper.Scrape,
 			scraperhelper.WithStart(sqlScraper.Start),
 			scraperhelper.WithShutdown(sqlScraper.Shutdown))
-
 		if err != nil {
 			return nil, err
 		}
 
-		opt := scraperhelper.AddScraper(scraper)
+		opt := scraperhelper.AddScraperWithType(metadata.Type, scraper)
 		opts = append(opts, opt)
 	}
 

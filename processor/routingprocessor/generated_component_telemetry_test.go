@@ -7,11 +7,14 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/metric"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata/metricdatatest"
 
 	"go.opentelemetry.io/collector/component"
+	"go.opentelemetry.io/collector/component/componenttest"
+	"go.opentelemetry.io/collector/config/configtelemetry"
 	"go.opentelemetry.io/collector/processor"
 	"go.opentelemetry.io/collector/processor/processortest"
 )
@@ -22,11 +25,20 @@ type componentTestTelemetry struct {
 }
 
 func (tt *componentTestTelemetry) NewSettings() processor.Settings {
-	settings := processortest.NewNopSettings()
-	settings.MeterProvider = tt.meterProvider
-	settings.ID = component.NewID(component.MustNewType("routing"))
+	set := processortest.NewNopSettings()
+	set.ID = component.NewID(component.MustNewType("routing"))
+	set.TelemetrySettings = tt.newTelemetrySettings()
+	return set
+}
 
-	return settings
+func (tt *componentTestTelemetry) newTelemetrySettings() component.TelemetrySettings {
+	set := componenttest.NewNopTelemetrySettings()
+	set.MeterProvider = tt.meterProvider
+	set.MetricsLevel = configtelemetry.LevelDetailed
+	set.LeveledMeterProvider = func(_ configtelemetry.Level) metric.MeterProvider {
+		return tt.meterProvider
+	}
+	return set
 }
 
 func setupTestTelemetry() componentTestTelemetry {

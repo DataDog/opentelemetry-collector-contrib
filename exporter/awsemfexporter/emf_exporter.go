@@ -29,8 +29,8 @@ const (
 	outputDestinationStdout     = "stdout"
 
 	// AppSignals EMF config
-	appSignalsMetricNamespace    = "AppSignals"
-	appSignalsLogGroupNamePrefix = "/aws/appsignals/"
+	appSignalsMetricNamespace    = "ApplicationSignals"
+	appSignalsLogGroupNamePrefix = "/aws/application-signals/"
 )
 
 type emfExporter struct {
@@ -136,7 +136,6 @@ func (emf *emfExporter) pushMetricsData(_ context.Context, md pmetric.Metrics) e
 				fmt.Println(*putLogEvent.InputLogEvent.Message)
 			}
 		} else if strings.EqualFold(outputDestination, outputDestinationCloudWatch) {
-
 			emfPusher := emf.getPusher(putLogEvent.StreamKey)
 			if emfPusher != nil {
 				returnError := emfPusher.AddLogEntry(putLogEvent)
@@ -167,7 +166,6 @@ func (emf *emfExporter) pushMetricsData(_ context.Context, md pmetric.Metrics) e
 }
 
 func (emf *emfExporter) getPusher(key cwlogs.StreamKey) cwlogs.Pusher {
-
 	var ok bool
 	if _, ok = emf.pusherMap[key]; !ok {
 		emf.pusherMap[key] = cwlogs.NewPusher(key, emf.retryCnt, *emf.svcStructuredLog, emf.config.logger)

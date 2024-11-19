@@ -7,6 +7,124 @@ If you are looking for user-facing changes, check out [CHANGELOG.md](./CHANGELOG
 
 <!-- next version -->
 
+## v0.114.0
+
+### 🛑 Breaking changes 🛑
+
+- `pkg/stanza`: Changed signature of `emit.Callback` function in `pkg/stanza/fileconsumer/emit` package by introducing `emit.Token` struct that encapsulates the token's body and attributes. (#36260)
+
+### 💡 Enhancements 💡
+
+- `pkg/datadog`: Expose an API `TranslatorFromConfig` that creates a new metrics translator (#36300)
+  This is only code refactor and has no user-facing impact
+
+## v0.113.0
+
+### 🛑 Breaking changes 🛑
+
+- `testbed`: `scenarios.createConfigYaml()` and `utils.CreateConfigYaml()` functions now take processor configs as a struct slice argument instead of `map[string]string`. (#33003)
+  - This is to preserve processor order. `ProcessorNameAndConfigBody` is the newly created struct.
+  
+
+### 💡 Enhancements 💡
+
+- `receiver/prometheusremotewrite`: Implement body unmarshaling for Prometheus Remote Write requests (#35624)
+  Warning - The HTTP Server still doesn't do anything. It's just a placeholder for now.
+
+## v0.112.0
+
+### 🛑 Breaking changes 🛑
+
+- `pkg/translator/jaeger`: Remove error from method signature as it always returns nil (#35560)
+
+### 🚀 New components 🚀
+
+- `pkg/status`: Refactors the extension/healthcheckv2extension/internal/status into pkg/status (#34692)
+
+### 💡 Enhancements 💡
+
+- `pkg/translator/prometheusremotewrite`: add FromMetricsV2 (#33661)
+  The public function is partially implemented and not ready for use
+- `receiver/prometheusremotewrite`: Add HTTP Server to handler Prometheus Remote Write requests (#35535)
+  Warning - The HTTP Server still doesn't do anything. It's just a placeholder for now.
+
+## v0.111.0
+
+### 💡 Enhancements 💡
+
+- `opampsupervisor`: Pass config structure instead of file path when using NewSupervisor function (#34379)
+
+## v0.110.0
+
+### 🛑 Breaking changes 🛑
+
+- `all`: TimeoutSettings/QueueSettings fields in various Config structs are no longer embedded (#35158)
+  Structs in which .TimeoutSettings is no longer embedded:
+  * carbonexporter.Config
+  * googlecloudpubsubreceiver.Config
+  Structs in which .TimeoutSettings and .QueueSettings are no longer embedded:
+  * alertmanagerexporter.Config
+  * googlecloudexporter.Config
+  * googlemanagedprometheusexporter.Config
+  * otelarrowexporter.Config
+  
+
+### 🚩 Deprecations 🚩
+
+- `datadogexporter`: The datadog exporter config has been deprecated in favor of the new `datadog/config` package. The new package is shared between the Datadog exporter and the Datadog Connector.
+ (#35067)
+  The new `datadog/config` package is a shared module for Datadog exporter configuration. The module is shared between the Datadog exporter and the Datadog Connector.
+  
+
+### 💡 Enhancements 💡
+
+- `pkg/datadog`: Create a new module for Datadog exporter configuration.
+ (#35067)
+  This change introduces a new module for Datadog exporter configuration. The module is shared between the Datadog exporter and the Datadog Connector.
+  
+- `kafkaexporter`: Add option to supply destination topic through context. (#34503, #34432)
+
+## v0.109.0
+
+### 🛑 Breaking changes 🛑
+
+- `pkg/ottl`: Change the OTTL grammar to support expressing statements context via path names (#29017)
+  The `ottl.Path` interface requires a new method: `Context() string`
+- `prometheusreceiver`: Move the TargetAllocator configuration struct to an internal directory (#33146)
+
+### 💡 Enhancements 💡
+
+- `pkg/ottl`: Add support for localized time parsing into the coreinternal/timeutils (#32977)
+- `googlecloudmonitoringreceiver`: Enhancing the Google Cloud monitoring receiver to establish a client connection, scrape GCP Cloud Metrics, and transform them into an OpenTelemetry compatible format for pipeline processing. (#33762)
+  - Implements client connection to Google Cloud Monitoring API.
+  - Scrapes timeseries data based on configured metrics.
+  - Converts the data into OpenTelemetry format for use in the pipeline.
+  
+
+## v0.108.0
+
+### 🛑 Breaking changes 🛑
+
+- `pkg/stanza/operator/input/windows`: Change type name from `EvtRpcLogin` to `EvtRPCLogin`. (#34656)
+
+## v0.107.0
+
+### 🚀 New components 🚀
+
+- `googlecloudmonitoringreceiver`: Adding new component - [Google Cloud monitoring](https://cloud.google.com/monitoring/api/metrics_gcp) receiver to fetch GCP Cloud Metrics and transform to OpenTelemetry compatible format. (#33762)
+
+### 💡 Enhancements 💡
+
+- `internal/grpcutil`: Add internal/grpcutil package with gRPC-specified timeout parsing (#33688)
+- `pmetrictest`: Add support for histogram comparison options (#34521)
+- `kafkaexporter`: add an ability to partition logs based on resource attributes. (#33229)
+
+## v0.106.1
+
+## v0.106.0
+
+## v0.105.0
+
 ## v0.104.0
 
 ### 🛑 Breaking changes 🛑

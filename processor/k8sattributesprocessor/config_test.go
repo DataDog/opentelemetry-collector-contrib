@@ -6,11 +6,13 @@ package k8sattributesprocessor
 import (
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/confmap/confmaptest"
+	"go.opentelemetry.io/collector/featuregate"
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/k8sconfig"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/k8sattributesprocessor/internal/kube"
@@ -21,8 +23,9 @@ func TestLoadConfig(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		id       component.ID
-		expected component.Config
+		id            component.ID
+		expected      component.Config
+		disallowRegex bool
 	}{
 		{
 			id: component.NewID(metadata.Type),
@@ -32,6 +35,7 @@ func TestLoadConfig(t *testing.T) {
 				Extract: ExtractConfig{
 					Metadata: enabledAttributes(),
 				},
+				WaitForMetadataTimeout: 10 * time.Second,
 			},
 		},
 		{
@@ -103,6 +107,7 @@ func TestLoadConfig(t *testing.T) {
 						{Name: "jaeger-collector"},
 					},
 				},
+				WaitForMetadataTimeout: 10 * time.Second,
 			},
 		},
 		{
@@ -125,10 +130,38 @@ func TestLoadConfig(t *testing.T) {
 						{Name: "jaeger-collector"},
 					},
 				},
+				WaitForMetadataTimeout: 10 * time.Second,
+			},
+		},
+		{
+			id: component.NewIDWithName(metadata.Type, "deprecated-regex"),
+			expected: &Config{
+				APIConfig:   k8sconfig.APIConfig{AuthType: k8sconfig.AuthTypeKubeConfig},
+				Passthrough: false,
+				Extract: ExtractConfig{
+					Metadata: enabledAttributes(),
+					Annotations: []FieldExtractConfig{
+						{Regex: "field=(?P<value>.+)", From: "pod"},
+					},
+					Labels: []FieldExtractConfig{
+						{Regex: "field=(?P<value>.+)", From: "pod"},
+					},
+				},
+				Exclude: ExcludeConfig{
+					Pods: []ExcludePodConfig{
+						{Name: "jaeger-agent"},
+						{Name: "jaeger-collector"},
+					},
+				},
+				WaitForMetadataTimeout: 10 * time.Second,
 			},
 		},
 		{
 			id: component.NewIDWithName(metadata.Type, "too_many_sources"),
+		},
+		{
+			id:            component.NewIDWithName(metadata.Type, "deprecated-regex"),
+			disallowRegex: true,
 		},
 		{
 			id: component.NewIDWithName(metadata.Type, "bad_keys_labels"),
@@ -176,6 +209,12 @@ func TestLoadConfig(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.id.String(), func(t *testing.T) {
+			if tt.disallowRegex {
+				require.NoError(t, featuregate.GlobalRegistry().Set(disallowFieldExtractConfigRegex.ID(), true))
+				t.Cleanup(func() {
+					require.NoError(t, featuregate.GlobalRegistry().Set(disallowFieldExtractConfigRegex.ID(), false))
+				})
+			}
 			cm, err := confmaptest.LoadConf(filepath.Join("testdata", "config.yaml"))
 			require.NoError(t, err)
 
