@@ -1,0 +1,39 @@
+
+targets:
+#  - ./cmd/otelcontribcol
+  - ./exporter/datadogexporter
+  - ./connector/datadogconnector
+  - ./internal/datadog
+#  - ./cmd/configschema
+  - ./receiver/datadogreceiver
+  - .
+replace:
+  - from: github.com/DataDog/opentelemetry-mapping-go/pkg/otlp/metrics
+    to: ../opentelemetry-mapping-go/pkg/otlp/metrics/
+  - from: github.com/DataDog/opentelemetry-mapping-go/pkg/otlp/attributes
+    to: ../opentelemetry-mapping-go/pkg/otlp/attributes/
+  - from: github.com/DataDog/datadog-agent/pkg/trace
+    to: ../../../dd/datadog-agent/pkg/trace/
+  - from: github.com/DataDog/datadog-agent/pkg/util/option
+    to: ../../../dd/datadog-agent/pkg/util/option/
+  - from: github.com/DataDog/datadog-agent/pkg/util/compression
+    to: ../../../dd/datadog-agent/pkg/util/compression/
+  - from: github.com/DataDog/datadog-agent/comp/serializer/metricscompression
+    to: ../../../dd/datadog-agent/comp/serializer/metricscompression/
+  - from: github.com/DataDog/datadog-agent/pkg/util/log
+    to: ../../../dd/datadog-agent/pkg/util/log
+  - from: github.com/DataDog/datadog-agent/pkg/config/model
+    to: ../../../dd/datadog-agent/pkg/config/model
+
+  - from: github.com/DataDog/datadog-agent/pkg/proto
+    to: ../../../dd/datadog-agent/pkg/proto
+  - from: github.com/DataDog/datadog-agent/pkg/serializer
+    to: ../../../dd/datadog-agent/pkg/serializer
+  - from: github.com/DataDog/datadog-agent/comp/forwarder/defaultforwarder
+    to: ../../../dd/datadog-agent/comp/forwarder/defaultforwarder
+  - from: github.com/DataDog/datadog-agent/comp/forwarder/orchestrator/orchestratorinterface
+    to: ../../../dd/datadog-agent/comp/forwarder/orchestrator/orchestratorinterface
+  - from: github.com/DataDog/datadog-agent/comp/otelcol/otlp/components/exporter/serializerexporter
+    to: ../../../dd/datadog-agent/comp/otelcol/otlp/components/exporter/serializerexporter
+  - from: github.com/DataDog/datadog-agent/comp/serializer/compression
+    to: ../../../dd/datadog-agent/comp/serializer/compression

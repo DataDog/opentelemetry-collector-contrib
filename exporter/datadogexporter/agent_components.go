@@ -4,14 +4,33 @@
 package datadogexporter // import "github.com/open-telemetry/opentelemetry-collector-contrib/exporter/datadogexporter"
 
 import (
+	"context"
+	"fmt"
+	//"fmt"
 	"runtime"
 	"strings"
 
 	coreconfig "github.com/DataDog/datadog-agent/comp/core/config"
 	corelog "github.com/DataDog/datadog-agent/comp/core/log/def"
+	"github.com/DataDog/datadog-agent/comp/forwarder/defaultforwarder"
+	"github.com/DataDog/datadog-agent/comp/forwarder/orchestrator/orchestratorinterface"
+	metricscompression "github.com/DataDog/datadog-agent/comp/serializer/metricscompression/def"
+	metricscompressionfx "github.com/DataDog/datadog-agent/comp/serializer/metricscompression/fx-otel"
+	"github.com/DataDog/datadog-agent/pkg/serializer"
+	"github.com/DataDog/datadog-agent/pkg/util/compression"
+	"github.com/DataDog/opentelemetry-mapping-go/pkg/otlp/attributes/source"
+	"go.uber.org/fx"
+	"go.uber.org/fx/fxevent"
+	"go.uber.org/zap"
+
+	//"github.com/DataDog/datadog-agent/comp/forwarder/defaultforwarder"
+	//compression "github.com/DataDog/datadog-agent/comp/trace/compression/def"
 	pkgconfigmodel "github.com/DataDog/datadog-agent/pkg/config/model"
 	pkgconfigsetup "github.com/DataDog/datadog-agent/pkg/config/setup"
+	//"github.com/DataDog/datadog-agent/pkg/serializer"
 	"go.opentelemetry.io/collector/component"
+	//"go.uber.org/fx"
+	//"go.uber.org/fx/fxevent"
 )
 
 func newLogComponent(set component.TelemetrySettings) corelog.Component {
@@ -51,4 +70,77 @@ func newConfigComponent(set component.TelemetrySettings, cfg *Config) coreconfig
 	logsPipelines := min(4, runtime.GOMAXPROCS(0))
 	pkgconfig.Set("logs_config.pipelines", logsPipelines, pkgconfigmodel.SourceDefault)
 	return pkgconfig
+}
+
+func newMetricSerializer(set component.TelemetrySettings, cfg *Config, sourceProvider source.Provider) (*serializer.Serializer, error) {
+	var f defaultforwarder.Component
+	var c coreconfig.Component
+	var s *serializer.Serializer
+	app := fx.New(
+		fx.WithLogger(func(log *zap.Logger) fxevent.Logger {
+			return &fxevent.ZapLogger{Logger: log}
+		}),
+		fx.Supply(set.Logger),
+		fx.Supply(set),
+		fx.Supply(cfg),
+		fx.Provide(newLogComponent),
+		fx.Provide(newConfigComponent),
+
+		//fx.Provide(func(c coreconfig.Component, l corelog.Component) (defaultforwarder.Params, error) {
+		//	return defaultforwarder.NewParams()	, nil
+		//}),
+		fx.Provide(func(c defaultforwarder.Component) (defaultforwarder.Forwarder, error) {
+			return defaultforwarder.Forwarder(c), nil
+		}),
+		// this is the hostname argument for serializer.NewSerializer
+		// this should probably be wrapped by a type
+		fx.Provide(func() string {
+			s, err := sourceProvider.Source(context.TODO())
+			if err != nil {
+				return ""
+			}
+			return s.Identifier
+		}),
+		fx.Provide(newOrchestratorinterfaceimpl),
+		fx.Provide(serializer.NewSerializer),
+		//fx.Provide(strategy.NewZlibStrategy),
+		// this doesn't let us switch impls.........
+		metricscompressionfx.Module(),
+		fx.Provide(func(c metricscompression.Component) compression.Compressor {
+			return c
+		}),
+		//fx.Provide(func(s *strategy.ZlibStrategy) compression.Component {
+		//	return s
+		//}),
+		defaultforwarder.Module(defaultforwarder.NewParams()),
+		fx.Populate(&f),
+		fx.Populate(&c),
+		fx.Populate(&s),
+	)
+	fmt.Printf("### done with app\n")
+	if err := app.Err(); err != nil {
+		return nil, err
+	}
+	go func() {
+		forwarder := f.(*defaultforwarder.DefaultForwarder)
+		err := forwarder.Start()
+		if err != nil {
+			fmt.Printf("### error starting forwarder: %s\n", err)
+		}
+	}()
+	return s, nil
+}
+
+type orchestratorinterfaceimpl struct {
+	f defaultforwarder.Forwarder
+}
+
+func newOrchestratorinterfaceimpl(f defaultforwarder.Forwarder) orchestratorinterface.Component {
+	return &orchestratorinterfaceimpl{
+		f: f,
+	}
+}
+
+func (o *orchestratorinterfaceimpl) Get() (defaultforwarder.Forwarder, bool) {
+	return o.f, true
 }

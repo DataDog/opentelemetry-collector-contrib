@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/DataDog/datadog-agent/comp/otelcol/otlp/components/exporter/serializerexporter"
 	"github.com/DataDog/datadog-agent/pkg/trace/config"
 	"github.com/DataDog/datadog-api-client-go/v2/api/datadogV2"
 	"github.com/DataDog/opentelemetry-mapping-go/pkg/inframetadata"
@@ -52,6 +53,7 @@ type metricsExporter struct {
 	ctx              context.Context
 	client           *zorkian.Client
 	metricsAPI       *datadogV2.MetricsApi
+	serializerExporter *serializerexporter.Exporter
 	tr               *otlpmetrics.Translator
 	scrubber         scrub.Scrubber
 	retrier          *clientutil.Retrier
@@ -110,6 +112,13 @@ func newMetricsExporter(
 			cfg.ClientConfig)
 		go func() { errchan <- clientutil.ValidateAPIKey(ctx, string(cfg.API.Key), params.Logger, apiClient) }()
 		exporter.metricsAPI = datadogV2.NewMetricsApi(apiClient)
+	} else if isMetricExportSerializerEnabled() {
+		ser, err := newMetricSerializer(params.TelemetrySettings, cfg, sourceProvider)
+		if err != nil {
+			return nil, err
+		}
+		serializer := ser
+		print(serializer)
 	} else {
 		client := clientutil.CreateZorkianClient(string(cfg.API.Key), cfg.Metrics.TCPAddrConfig.Endpoint)
 		client.ExtraHeader["User-Agent"] = clientutil.UserAgent(params.BuildInfo)
@@ -223,6 +232,8 @@ func (exp *metricsExporter) PushMetricsData(ctx context.Context, md pmetric.Metr
 			})
 			errs = append(errs, experr)
 		}
+	} else if isMetricExportSerializerEnabled() {
+
 	} else {
 		var ms []zorkian.Metric
 		ms, sl = consumer.(*metrics.ZorkianConsumer).All(exp.getPushTime(), exp.params.BuildInfo, tags)

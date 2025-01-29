@@ -88,10 +88,11 @@ func TestNewExporter(t *testing.T) {
 }
 
 func Test_metricsExporter_PushMetricsData(t *testing.T) {
-	if !isMetricExportV2Enabled() {
-		require.NoError(t, enableNativeMetricExport())
-		t.Cleanup(func() { require.NoError(t, enableZorkianMetricExport()) })
-	}
+	//if !isMetricExportV2Enabled() {
+	//	require.NoError(t, enableNativeMetricExport())
+	//	t.Cleanup(func() { require.NoError(t, enableZorkianMetricExport()) })
+	//}
+	require.NoError(t, enableMetricExportSerializer())
 	attrs := map[string]string{
 		conventions.AttributeDeploymentEnvironment: "dev",
 		"custom_attribute":                         "custom_value",

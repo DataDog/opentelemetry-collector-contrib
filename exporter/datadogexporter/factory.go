@@ -53,6 +53,12 @@ var metricExportNativeClientFeatureGate = featuregate.GlobalRegistry().MustRegis
 	featuregate.WithRegisterDescription("When enabled, metric export in datadogexporter uses native Datadog client APIs instead of Zorkian APIs."),
 )
 
+var metricExportSerializerClientFeatureGate = featuregate.GlobalRegistry().MustRegister(
+	"exporter.datadogexporter.metricexportserializerclient",
+	featuregate.StageAlpha,
+	featuregate.WithRegisterDescription("When enabled, metric export in datadogexporter uses the serializer exporter from the Datadog Agent."),
+)
+
 // noAPMStatsFeatureGate causes the trace consumer to skip APM stats computation.
 var noAPMStatsFeatureGate = featuregate.GlobalRegistry().MustRegister(
 	"exporter.datadogexporter.DisableAPMStats",
@@ -63,6 +69,10 @@ var noAPMStatsFeatureGate = featuregate.GlobalRegistry().MustRegister(
 // isMetricExportV2Enabled returns true if metric export in datadogexporter uses native Datadog client APIs, false if it uses Zorkian APIs
 func isMetricExportV2Enabled() bool {
 	return metricExportNativeClientFeatureGate.IsEnabled()
+}
+
+func isMetricExportSerializerEnabled() bool {
+	return metricExportSerializerClientFeatureGate.IsEnabled()
 }
 
 func isLogsAgentExporterEnabled() bool {
@@ -77,6 +87,17 @@ func enableNativeMetricExport() error {
 // enableZorkianMetricExport switches metric export to call Zorkian APIs instead of native Datadog APIs.
 func enableZorkianMetricExport() error {
 	return featuregate.GlobalRegistry().Set(metricExportNativeClientFeatureGate.ID(), false)
+}
+
+func enableMetricExportSerializer() error {
+	if err := featuregate.GlobalRegistry().Set(metricExportSerializerClientFeatureGate.ID(), true); err != nil {
+		return err
+	}
+	// set native to false
+	if err := featuregate.GlobalRegistry().Set(metricExportNativeClientFeatureGate.ID(), false); err != nil {
+		return err
+	}
+	return nil
 }
 
 func consumeResource(metadataReporter *inframetadata.Reporter, res pcommon.Resource, logger *zap.Logger) {
