@@ -14,11 +14,16 @@ import (
 	corelog "github.com/DataDog/datadog-agent/comp/core/log/def"
 	"github.com/DataDog/datadog-agent/comp/forwarder/defaultforwarder"
 	"github.com/DataDog/datadog-agent/comp/forwarder/orchestrator/orchestratorinterface"
+	"github.com/DataDog/datadog-agent/comp/otelcol/otlp/components/exporter/serializerexporter"
 	metricscompression "github.com/DataDog/datadog-agent/comp/serializer/metricscompression/def"
 	metricscompressionfx "github.com/DataDog/datadog-agent/comp/serializer/metricscompression/fx-otel"
 	"github.com/DataDog/datadog-agent/pkg/serializer"
 	"github.com/DataDog/datadog-agent/pkg/util/compression"
+	"github.com/DataDog/opentelemetry-mapping-go/pkg/otlp/attributes"
 	"github.com/DataDog/opentelemetry-mapping-go/pkg/otlp/attributes/source"
+	otlpmetrics "github.com/DataDog/opentelemetry-mapping-go/pkg/otlp/metrics"
+	"go.opentelemetry.io/collector/exporter"
+	"go.opentelemetry.io/collector/exporter/exporterhelper"
 	"go.uber.org/fx"
 	"go.uber.org/fx/fxevent"
 	"go.uber.org/zap"
@@ -31,6 +36,8 @@ import (
 	"go.opentelemetry.io/collector/component"
 	//"go.uber.org/fx"
 	//"go.uber.org/fx/fxevent"
+
+	datadogconfig "github.com/open-telemetry/opentelemetry-collector-contrib/pkg/datadog/config"
 )
 
 func newLogComponent(set component.TelemetrySettings) corelog.Component {
@@ -89,6 +96,7 @@ func newMetricSerializer(set component.TelemetrySettings, cfg *Config, sourcePro
 		//fx.Provide(func(c coreconfig.Component, l corelog.Component) (defaultforwarder.Params, error) {
 		//	return defaultforwarder.NewParams()	, nil
 		//}),
+		// casts the defaultforwarder.Component to a defaultforwarder.Forwarder
 		fx.Provide(func(c defaultforwarder.Component) (defaultforwarder.Forwarder, error) {
 			return defaultforwarder.Forwarder(c), nil
 		}),
@@ -106,6 +114,7 @@ func newMetricSerializer(set component.TelemetrySettings, cfg *Config, sourcePro
 		//fx.Provide(strategy.NewZlibStrategy),
 		// this doesn't let us switch impls.........
 		metricscompressionfx.Module(),
+		// casts the metricscompression.Component to a compression.Compressor
 		fx.Provide(func(c metricscompression.Component) compression.Compressor {
 			return c
 		}),
@@ -143,4 +152,59 @@ func newOrchestratorinterfaceimpl(f defaultforwarder.Forwarder) orchestratorinte
 
 func (o *orchestratorinterfaceimpl) Get() (defaultforwarder.Forwarder, bool) {
 	return o.f, true
+}
+
+func newSerializerExporter(s serializer.Serializer, set exporter.Settings, cfg *Config, statsOut chan []byte) (*serializerexporter.Exporter, error) {
+	hostGetter := func(_ context.Context) (string, error) {
+		return "", nil
+	}
+	// todo(ankit) quadruple check all these settings
+	exporterConfig := &serializerexporter.ExporterConfig{
+		Metrics: serializerexporter.MetricsConfig{
+			Metrics: datadogconfig.MetricsConfig{
+				DeltaTTL: cfg.Metrics.DeltaTTL,
+				ExporterConfig: datadogconfig.MetricsExporterConfig{
+					ResourceAttributesAsTags:           cfg.Metrics.ExporterConfig.ResourceAttributesAsTags,
+					InstrumentationScopeMetadataAsTags: cfg.Metrics.ExporterConfig.InstrumentationScopeMetadataAsTags,
+				},
+				HistConfig: datadogconfig.HistogramConfig{
+					Mode: cfg.Metrics.HistConfig.Mode,
+				},
+			},
+		},
+	}
+	exporterConfig.QueueConfig = cfg.QueueSettings
+	exporterConfig.TimeoutConfig = exporterhelper.TimeoutConfig{
+		Timeout: cfg.Timeout,
+	}
+
+	// TODO: Ideally the attributes translator would be created once and reused
+	// across all signals. This would need unifying the logsagent and serializer
+	// exporters into a single exporter.
+	attributesTranslator, err := attributes.NewTranslator(set.TelemetrySettings)
+	if err != nil {
+		return nil, err
+	}
+
+	fmt.Printf("### created attributes translator\n")
+	newExp, err := serializerexporter.NewExporter(set.TelemetrySettings, attributesTranslator, &s, exporterConfig, &tagEnricher{}, hostGetter, statsOut)
+	if err != nil {
+		return nil, err
+	}
+
+	return newExp, nil
+}
+
+type tagEnricher struct{}
+
+func (t *tagEnricher) SetCardinality(_ string) (err error) {
+	return nil
+}
+
+// Enrich of a given dimension.
+func (t *tagEnricher) Enrich(_ context.Context, extraTags []string, dimensions *otlpmetrics.Dimensions) []string {
+	enrichedTags := make([]string, 0, len(extraTags)+len(dimensions.Tags()))
+	enrichedTags = append(enrichedTags, extraTags...)
+	enrichedTags = append(enrichedTags, dimensions.Tags()...)
+	return enrichedTags
 }

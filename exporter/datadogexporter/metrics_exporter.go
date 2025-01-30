@@ -117,8 +117,11 @@ func newMetricsExporter(
 		if err != nil {
 			return nil, err
 		}
-		serializer := ser
-		print(serializer)
+		serializerExporter, err := newSerializerExporter(*ser, params, cfg, statsOut)
+		if err != nil {
+			return nil, err
+		}
+		exporter.serializerExporter = serializerExporter
 	} else {
 		client := clientutil.CreateZorkianClient(string(cfg.API.Key), cfg.Metrics.TCPAddrConfig.Endpoint)
 		client.ExtraHeader["User-Agent"] = clientutil.UserAgent(params.BuildInfo)
