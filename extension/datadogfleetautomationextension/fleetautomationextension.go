@@ -20,7 +20,6 @@ import (
 	"github.com/DataDog/datadog-agent/comp/forwarder/defaultforwarder"
 	"github.com/DataDog/datadog-agent/pkg/serializer"
 	"github.com/DataDog/datadog-agent/pkg/util/compression"
-	"github.com/DataDog/datadog-agent/pkg/util/compression/selector"
 	"github.com/DataDog/datadog-agent/pkg/util/uuid"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/extension/datadogfleetautomationextension/internal/metadata"
 )
@@ -53,7 +52,7 @@ func (e *fleetAutomationExtension) NotifyConfig(_ context.Context, conf *confmap
 	e.telemetry.Logger.Info("Received new collector configuration")
 	e.printCollectorConfig()
 	var c otelMetadata
-	err := e.collectorConfig.Unmarshal(c)
+	err := e.collectorConfig.Unmarshal(&c)
 	if err != nil {
 		e.telemetry.Logger.Error("Failed to unmarshal collector configuration", zap.Error(err))
 	}
@@ -63,6 +62,7 @@ func (e *fleetAutomationExtension) NotifyConfig(_ context.Context, conf *confmap
 		Metadata:  c,
 		UUID:      uuid.GetUUID(),
 	}
+	e.telemetry.Logger.Info("Sending fleet automation payload to Datadog backend with:", zap.String("hostname", p.Hostname), zap.Int64("timestamp", p.Timestamp), zap.Any("metadata", p.Metadata), zap.String("uuid", p.UUID))
 	err = e.serializer.SendMetadata(&p)
 	if err != nil {
 		e.telemetry.Logger.Error("Failed to send fleet automation payload to Datadog backend", zap.Error(err))
@@ -83,12 +83,19 @@ func (e *fleetAutomationExtension) printCollectorConfig() {
 // Start starts the extension via the component interface.
 func (e *fleetAutomationExtension) Start(_ context.Context, _ component.Host) error {
 	e.telemetry.Logger.Info("Started Datadog Fleet Automation extension")
+	if e.forwarder != nil {
+		err := e.forwarder.Start()
+		if err != nil {
+			e.telemetry.Logger.Error("Failed to start forwarder", zap.Error(err))
+		}
+	}
 	return nil
 }
 
 // Shutdown stops the extension via the component interface.
 func (e *fleetAutomationExtension) Shutdown(_ context.Context) error {
 	e.telemetry.Logger.Info("Stopped Datadog Fleet Automation extension")
+	e.forwarder.Stop()
 	return nil
 }
 
@@ -96,9 +103,9 @@ func newExtension(config *Config, telemetry component.TelemetrySettings) *fleetA
 	cfg := newConfigComponent(telemetry, config)
 	log := newLogComponent(telemetry)
 	// Initialize forwarder, compressor, and serializer components to forward OTel Inventory to REDAPL backend
-	forwarder := defaultforwarder.NewDefaultForwarder(cfg, log, defaultforwarder.NewOptions(cfg, log, nil))
-	compressor := selector.NewCompressor(compression.NoneKind, 0)
-	serializer := serializer.NewSerializer(forwarder, nil, compressor, cfg, metadata.Type.String())
+	forwarder := newForwarder(cfg, log)
+	compressor := newCompressor()
+	serializer := newSerializer(forwarder, compressor, cfg)
 	return &fleetAutomationExtension{
 		extensionConfig: config,
 		telemetry:       telemetry,

@@ -6,15 +6,23 @@
 package datadogfleetautomationextension
 
 import (
+	"fmt"
 	"runtime"
 	"strings"
 
 	"go.opentelemetry.io/collector/component"
 
+	"github.com/DataDog/datadog-agent/comp/core/config"
 	coreconfig "github.com/DataDog/datadog-agent/comp/core/config"
 	corelog "github.com/DataDog/datadog-agent/comp/core/log/def"
+	log "github.com/DataDog/datadog-agent/comp/core/log/def"
+	"github.com/DataDog/datadog-agent/comp/forwarder/defaultforwarder"
 	pkgconfigmodel "github.com/DataDog/datadog-agent/pkg/config/model"
 	pkgconfigsetup "github.com/DataDog/datadog-agent/pkg/config/setup"
+	"github.com/DataDog/datadog-agent/pkg/serializer"
+	"github.com/DataDog/datadog-agent/pkg/util/compression"
+	"github.com/DataDog/datadog-agent/pkg/util/compression/selector"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/extension/datadogfleetautomationextension/internal/metadata"
 )
 
 func newLogComponent(set component.TelemetrySettings) corelog.Component {
@@ -24,10 +32,25 @@ func newLogComponent(set component.TelemetrySettings) corelog.Component {
 	return zlog
 }
 
+func newForwarder(cfg config.Component, log log.Component) *defaultforwarder.DefaultForwarder {
+	fmt.Println("forwarder api_key: ", string(cfg.GetString("api_key")))
+	keysPerDomain := map[string][]string{cfg.GetString("site"): {string(cfg.GetString("api_key"))}}
+	return defaultforwarder.NewDefaultForwarder(cfg, log, defaultforwarder.NewOptions(cfg, log, keysPerDomain))
+}
+
+func newCompressor() compression.Compressor {
+	return selector.NewCompressor(compression.NoneKind, 0)
+}
+
+func newSerializer(fwd *defaultforwarder.DefaultForwarder, cmp compression.Compressor, cfg config.Component) *serializer.Serializer {
+	return serializer.NewSerializer(fwd, nil, cmp, cfg, metadata.Type.String())
+}
+
 func newConfigComponent(set component.TelemetrySettings, cfg *Config) coreconfig.Component {
 	pkgconfig := pkgconfigmodel.NewConfig("DD", "DD", strings.NewReplacer(".", "_"))
 
 	// Set the API Key
+	fmt.Println("cfg api_key: ", string(cfg.API.Key))
 	pkgconfig.Set("api_key", string(cfg.API.Key), pkgconfigmodel.SourceFile)
 	pkgconfig.Set("site", cfg.API.Site, pkgconfigmodel.SourceFile)
 	pkgconfig.Set("logs_enabled", true, pkgconfigmodel.SourceDefault)
@@ -53,5 +76,7 @@ func newConfigComponent(set component.TelemetrySettings, cfg *Config) coreconfig
 	pkgconfig.Set("enable_payloads.events", true, pkgconfigmodel.SourceDefault)
 	pkgconfig.Set("enable_payloads.json_to_v1_intake", true, pkgconfigmodel.SourceDefault)
 	pkgconfig.Set("enable_sketch_stream_payload_serialization", true, pkgconfigmodel.SourceDefault)
+	pkgconfig.Set("forwarder_apikey_validation_interval", 60, pkgconfigmodel.SourceDefault)
+	pkgconfig.Set("forwarder_num_workers", 1, pkgconfigmodel.SourceDefault)
 	return pkgconfig
 }

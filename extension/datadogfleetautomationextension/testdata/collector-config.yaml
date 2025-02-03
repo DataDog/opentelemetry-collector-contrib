@@ -1,0 +1,25 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+      http:
+exporters:
+  datadog:
+    api:
+      key: ${env:DD_API_KEY}
+  debug:
+processors:
+  batch:
+    timeout: 10s
+extensions:
+  datadogfleetautomation:
+    api: 
+      key: ${env:DD_API_KEY}
+      site: datadoghq.com
+service:
+  extensions: [datadogfleetautomation]
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [debug]
