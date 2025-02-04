@@ -34,7 +34,7 @@ func newLogComponent(set component.TelemetrySettings) corelog.Component {
 
 func newForwarder(cfg config.Component, log log.Component) *defaultforwarder.DefaultForwarder {
 	fmt.Println("forwarder api_key: ", string(cfg.GetString("api_key")))
-	keysPerDomain := map[string][]string{cfg.GetString("site"): {string(cfg.GetString("api_key"))}}
+	keysPerDomain := map[string][]string{"https://api." + cfg.GetString("site"): {string(cfg.GetString("api_key"))}}
 	return defaultforwarder.NewDefaultForwarder(cfg, log, defaultforwarder.NewOptions(cfg, log, keysPerDomain))
 }
 
