@@ -51,18 +51,41 @@ func (e *fleetAutomationExtension) NotifyConfig(_ context.Context, conf *confmap
 	e.collectorConfig = conf
 	e.telemetry.Logger.Info("Received new collector configuration")
 	e.printCollectorConfig()
-	var c otelMetadata
-	err := e.collectorConfig.Unmarshal(&c)
+
+	configMap := e.collectorConfig.ToStringMap()
+	configJSON, err := json.MarshalIndent(configMap, "", "  ")
 	if err != nil {
-		e.telemetry.Logger.Error("Failed to unmarshal collector configuration", zap.Error(err))
+		e.telemetry.Logger.Error("Failed to marshal collector config", zap.Error(err))
+		return nil
 	}
+
+	fullConfig := string(configJSON)
+	jsonStructure := otelMetadata{
+		"enabled":                            true,
+		"version":                            "1.0.0",
+		"extension_version":                  "1.0.0",
+		"command":                            "otelcol",
+		"description":                        "foo bar",
+		"provided_configuration":             "provided configuration string here",
+		"runtime_override_configuration":     "runtime override configuration string here",
+		"environment_variable_configuration": "",
+		"full_configuration":                 fullConfig,
+	}
+	jsonBytes, err := json.MarshalIndent(jsonStructure, "", "  ")
+	if err != nil {
+		e.telemetry.Logger.Error("Failed to marshal JSON structure", zap.Error(err))
+		return nil
+	}
+
+	e.telemetry.Logger.Info("JSON Structure: ", zap.String("json", string(jsonBytes)))
+
 	p := Payload{
 		Hostname:  metadata.Type.String(),
 		Timestamp: time.Now().UnixNano(),
-		Metadata:  c,
+		Metadata:  jsonStructure,
 		UUID:      uuid.GetUUID(),
 	}
-	e.telemetry.Logger.Info("Sending fleet automation payload to Datadog backend with:", zap.String("hostname", p.Hostname), zap.Int64("timestamp", p.Timestamp), zap.Any("metadata", p.Metadata), zap.String("uuid", p.UUID))
+	e.telemetry.Logger.Info("Sending fleet automation payload to Datadog backend with:", zap.Any("metadata", p.Metadata))
 	err = e.serializer.SendMetadata(&p)
 	if err != nil {
 		e.telemetry.Logger.Error("Failed to send fleet automation payload to Datadog backend", zap.Error(err))
