@@ -10,7 +10,7 @@ require (
 	github.com/DataDog/datadog-agent/pkg/config/setup v0.62.1
 	github.com/DataDog/datadog-agent/pkg/serializer v0.64.0-devel
 	github.com/DataDog/datadog-agent/pkg/util/compression v0.64.0-devel
-	github.com/DataDog/datadog-agent/pkg/util/uuid v0.62.1
+	github.com/DataDog/datadog-agent/pkg/util/uuid v0.64.0-devel.0.20250204171248-049f218d24a4
 	github.com/open-telemetry/opentelemetry-collector-contrib/pkg/datadog v0.118.0
 	github.com/stretchr/testify v1.10.0
 	go.opentelemetry.io/collector/component v0.118.0
@@ -51,7 +51,7 @@ require (
 	github.com/DataDog/datadog-agent/pkg/telemetry v0.62.1 // indirect
 	github.com/DataDog/datadog-agent/pkg/util/backoff v0.62.1 // indirect
 	github.com/DataDog/datadog-agent/pkg/util/buf v0.62.1 // indirect
-	github.com/DataDog/datadog-agent/pkg/util/cache v0.62.1 // indirect
+	github.com/DataDog/datadog-agent/pkg/util/cache v0.64.0-devel.0.20250204171248-049f218d24a4 // indirect
 	github.com/DataDog/datadog-agent/pkg/util/common v0.62.1 // indirect
 	github.com/DataDog/datadog-agent/pkg/util/defaultpaths v0.62.1 // indirect
 	github.com/DataDog/datadog-agent/pkg/util/executable v0.62.1 // indirect
@@ -184,9 +184,4 @@ require (
 	google.golang.org/protobuf v1.36.3 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-)
-
-replace (
-	github.com/DataDog/datadog-agent/pkg/util/cache => /Users/john.peterson/dd/datadog-agent/pkg/util/cache
-	github.com/DataDog/datadog-agent/pkg/util/uuid => /Users/john.peterson/dd/datadog-agent/pkg/util/uuid
 )

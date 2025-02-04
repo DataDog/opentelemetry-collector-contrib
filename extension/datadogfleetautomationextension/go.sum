@@ -72,6 +72,8 @@ github.com/DataDog/datadog-agent/pkg/util/backoff v0.62.1 h1:CnQQ/hMzVqovb0V/+77
 github.com/DataDog/datadog-agent/pkg/util/backoff v0.62.1/go.mod h1:PkqJNc8VRNlPSEI2swL5QEDokp1zZSH9fscpweP2bFQ=
 github.com/DataDog/datadog-agent/pkg/util/buf v0.62.1 h1:oggn7PlUD3J/RjCjvwasOJc8icCUAsQIBGLoVHdqa8c=
 github.com/DataDog/datadog-agent/pkg/util/buf v0.62.1/go.mod h1:OcQvkoNJ5wqaoic2rOjVVxWNpcj090Q3vluhVEuZG6Q=
+github.com/DataDog/datadog-agent/pkg/util/cache v0.64.0-devel.0.20250204171248-049f218d24a4 h1:jLxQRxt0jdIrB5Wh4X5ZFU1hueuA708WDUSCb+keGRQ=
+github.com/DataDog/datadog-agent/pkg/util/cache v0.64.0-devel.0.20250204171248-049f218d24a4/go.mod h1:RqhuvcwD9O5jkddvN1mNNX0PzQtDtzQ2cSzxyPqVwso=
 github.com/DataDog/datadog-agent/pkg/util/common v0.62.1 h1:L/grVCXEB8fRxiosiYGBwl52KjXz4Vr/ZJiD4tEBJrY=
 github.com/DataDog/datadog-agent/pkg/util/common v0.62.1/go.mod h1:xXcoveS8r2RW9knFX9AZSNMjHs5gdeeo0isyvRJJiCk=
 github.com/DataDog/datadog-agent/pkg/util/compression v0.64.0-devel h1:pKx5dfkCCBQ50bDEpxCluyutjj5jXF7MvmceUI0afFk=
@@ -110,6 +112,8 @@ github.com/DataDog/datadog-agent/pkg/util/system/socket v0.62.1 h1:scQLd7whhdZVf
 github.com/DataDog/datadog-agent/pkg/util/system/socket v0.62.1/go.mod h1:deRttPNBpw92UxlJSLk+pARlY7Pxn5bu0NQSMykA9y0=
 github.com/DataDog/datadog-agent/pkg/util/testutil v0.62.1 h1:RiGFoglml3S1DkmDNv90IrXS/+WKhbAtFl05S7oFfwU=
 github.com/DataDog/datadog-agent/pkg/util/testutil v0.62.1/go.mod h1:y1l7iTMENfjfgV4L3a5RtsMiQAVeu6B/0SEo6A8XDFQ=
+github.com/DataDog/datadog-agent/pkg/util/uuid v0.64.0-devel.0.20250204171248-049f218d24a4 h1:fgZJN4D1+Jeeddio50WpHpMOlv+MhTfu7JDPdguCGNo=
+github.com/DataDog/datadog-agent/pkg/util/uuid v0.64.0-devel.0.20250204171248-049f218d24a4/go.mod h1:pMtMGlBuAErPsVyfSFpf7cBnPa8Q0GNeMUgnyNnrmMk=
 github.com/DataDog/datadog-agent/pkg/util/winutil v0.62.1 h1:5epw3WlcXr7hYGqvol8p6qGYPynaBpYu4jet8ZUqjeQ=
 github.com/DataDog/datadog-agent/pkg/util/winutil v0.62.1/go.mod h1:QHD7ZZcuxBmvaCoBiS4+FavDJkJrqoNenm1IFFMMwfQ=
 github.com/DataDog/datadog-agent/pkg/version v0.62.1 h1:BJVsUlm2KLWiCtmcRD8L8MYf4U0s3EGyUOoTnZKh9Gs=
