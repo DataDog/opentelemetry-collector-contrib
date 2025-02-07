@@ -6,7 +6,6 @@
 package datadogfleetautomationextension
 
 import (
-	"fmt"
 	"runtime"
 	"strings"
 
@@ -33,7 +32,7 @@ func newLogComponent(set component.TelemetrySettings) corelog.Component {
 }
 
 func newForwarder(cfg config.Component, log log.Component) *defaultforwarder.DefaultForwarder {
-	fmt.Println("forwarder api_key: ", string(cfg.GetString("api_key")))
+	// fmt.Println("forwarder api_key: ", string(cfg.GetString("api_key")))
 	keysPerDomain := map[string][]string{"https://api." + cfg.GetString("site"): {string(cfg.GetString("api_key"))}}
 	return defaultforwarder.NewDefaultForwarder(cfg, log, defaultforwarder.NewOptions(cfg, log, keysPerDomain))
 }
@@ -50,7 +49,7 @@ func newConfigComponent(set component.TelemetrySettings, cfg *Config) coreconfig
 	pkgconfig := pkgconfigmodel.NewConfig("DD", "DD", strings.NewReplacer(".", "_"))
 
 	// Set the API Key
-	fmt.Println("cfg api_key: ", string(cfg.API.Key))
+	// fmt.Println("cfg api_key: ", string(cfg.API.Key))
 	pkgconfig.Set("api_key", string(cfg.API.Key), pkgconfigmodel.SourceFile)
 	pkgconfig.Set("site", cfg.API.Site, pkgconfigmodel.SourceFile)
 	pkgconfig.Set("logs_enabled", true, pkgconfigmodel.SourceDefault)
@@ -78,5 +77,6 @@ func newConfigComponent(set component.TelemetrySettings, cfg *Config) coreconfig
 	pkgconfig.Set("enable_sketch_stream_payload_serialization", true, pkgconfigmodel.SourceDefault)
 	pkgconfig.Set("forwarder_apikey_validation_interval", 60, pkgconfigmodel.SourceDefault)
 	pkgconfig.Set("forwarder_num_workers", 1, pkgconfigmodel.SourceDefault)
+	pkgconfig.Set("logging_frequency", 1, pkgconfigmodel.SourceDefault)
 	return pkgconfig
 }
