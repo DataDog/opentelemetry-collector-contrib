@@ -28,5 +28,5 @@ func createDefaultConfig() component.Config {
 }
 
 func create(_ context.Context, set extension.Settings, cfg component.Config) (extension.Extension, error) {
-	return newExtension(cfg.(*Config), set.TelemetrySettings), nil
+	return newExtension(cfg.(*Config), set), nil
 }
