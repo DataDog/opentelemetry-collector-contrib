@@ -46,7 +46,6 @@ type fleetAutomationExtension struct {
 	agentMetadataPayload AgentMetadata
 	otelMetadataPayload  OtelMetadata
 	hostMetadataPayload  HostMetadata
-	agentInfoPayload     AgentInfo
 
 	httpServer *http.Server
 }
@@ -168,23 +167,9 @@ func (e *fleetAutomationExtension) NotifyConfig(_ context.Context, conf *confmap
 		FeatureUSMIstioEnabled:                 false,
 		ECSFargateTaskARN:                      "",
 		ECSFargateClusterName:                  "",
-		Hostname:                               metadata.Type.String(),
+		Hostname:                               metadata.Type.String() + "-6",
 		FleetPoliciesApplied:                   make([]string, 0),
 	}
-
-	// ap := agentPayload{
-	// 	Hostname:  metadata.Type.String(),
-	// 	Timestamp: time.Now().UnixNano(),
-	// 	Metadata:  e.agentMetadataPayload,
-	// 	UUID:      uuid.GetUUID(),
-	// }
-	// jsonString, _ := json.Marshal(ap)
-	// fmt.Println("jsonString: ", jsonString)
-	// e.telemetry.Logger.Info("Sending agent payload to Datadog backend with:", zap.Any("metadata", ap))
-	// err = e.serializer.SendMetadata(&ap)
-	// if err != nil {
-	// 	e.telemetry.Logger.Error("Failed to send agent payload to Datadog backend", zap.Error(err))
-	// }
 
 	moduleJSON, err := json.MarshalIndent(e.moduleInfo, "", "  ")
 	var providedModules string
@@ -237,26 +222,25 @@ func (e *fleetAutomationExtension) handleMetadata(w http.ResponseWriter, r *http
 	e.mu.RLock()
 	defer e.mu.RUnlock()
 	mp := metadataPayload{
-		Hostname:  metadata.Type.String(),
+		Hostname:  metadata.Type.String() + "-6",
 		Timestamp: time.Now().UnixNano(),
 		Metadata:  e.hostMetadataPayload,
 		UUID:      uuid.GetUUID(),
 	}
 	ap := agentPayload{
-		Hostname:  metadata.Type.String(),
+		Hostname:  metadata.Type.String() + "-6",
 		Timestamp: time.Now().UnixNano(),
 		Metadata:  e.agentMetadataPayload,
 		UUID:      uuid.GetUUID(),
 	}
 	p := payload{
-		Hostname:  metadata.Type.String(),
+		Hostname:  metadata.Type.String() + "-6",
 		Timestamp: time.Now().UnixNano(),
 		Metadata:  e.otelMetadataPayload,
 		UUID:      uuid.GetUUID(),
 	}
 
-	e.serializer.SendMetadata(&e.agentInfoPayload)
-	e.serializer.SendMetadata(&mp)
+	// e.serializer.SendMetadata(&mp)
 	e.serializer.SendMetadata(&ap)
 	e.serializer.SendMetadata(&p)
 
@@ -279,44 +263,6 @@ func (e *fleetAutomationExtension) handleMetadata(w http.ResponseWriter, r *http
 		w.Write(jsonData)
 	}
 
-}
-
-// func (e *fleetAutomationExtension) printCollectorConfig() {
-// 	configMap := e.collectorConfig.ToStringMap()
-// 	configJSON, err := json.MarshalIndent(configMap, "", "  ")
-// 	if err != nil {
-// 		e.telemetry.Logger.Error(err.Error())
-// 		return
-// 	}
-// 	e.telemetry.Logger.Info("Collector Configuration: ", zap.String("config", string(configJSON)))
-// }
-
-// PrintModuleInfo logs the ModuleInfo using the provided zap logger.
-func (e *fleetAutomationExtension) printModuleInfo() {
-	e.telemetry.Logger.Info("ModuleInfo - Receivers:")
-	for k, v := range e.moduleInfo.Receiver {
-		e.telemetry.Logger.Info("Receiver", zap.String("type", k.String()), zap.String("module", v))
-	}
-
-	e.telemetry.Logger.Info("ModuleInfo - Processors:")
-	for k, v := range e.moduleInfo.Processor {
-		e.telemetry.Logger.Info("Processor", zap.String("type", k.String()), zap.String("module", v))
-	}
-
-	e.telemetry.Logger.Info("ModuleInfo - Exporters:")
-	for k, v := range e.moduleInfo.Exporter {
-		e.telemetry.Logger.Info("Exporter", zap.String("type", k.String()), zap.String("module", v))
-	}
-
-	e.telemetry.Logger.Info("ModuleInfo - Extensions:")
-	for k, v := range e.moduleInfo.Extension {
-		e.telemetry.Logger.Info("Extension", zap.String("type", k.String()), zap.String("module", v))
-	}
-
-	e.telemetry.Logger.Info("ModuleInfo - Connectors:")
-	for k, v := range e.moduleInfo.Connector {
-		e.telemetry.Logger.Info("Connector", zap.String("type", k.String()), zap.String("module", v))
-	}
 }
 
 // Start starts the extension via the component interface.
@@ -343,6 +289,7 @@ func (e *fleetAutomationExtension) Start(_ context.Context, _ component.Host) er
 	}()
 
 	// Create a ticker that triggers every 5 minutes
+	// TODO: Let user specify interval in config?
 	ticker := time.NewTicker(5 * time.Minute)
 	done := make(chan bool)
 
@@ -359,25 +306,6 @@ func (e *fleetAutomationExtension) Start(_ context.Context, _ component.Host) er
 			}
 		}
 	}()
-
-	err := json.Unmarshal([]byte(sampleHostPayload), &e.agentInfoPayload)
-	if err != nil {
-		e.telemetry.Logger.Error("Failed to unmarshal sample host payload", zap.Error(err))
-	}
-	e.agentInfoPayload.APIKey = string(e.extensionConfig.API.Key)
-	e.agentInfoPayload.UUID = uuid.GetUUID()
-
-	e.agentInfoPayload.InstallMethod.Tool = e.buildInfo.Command
-	e.agentInfoPayload.InstallMethod.InstallerVersion = e.buildInfo.Version
-	e.agentInfoPayload.InstallMethod.ToolVersion = e.buildInfo.Version
-
-	// marshalled, err := json.MarshalIndent(e.agentInfo, "", "  ")
-	// if err != nil {
-	// 	panic(err)
-	// }
-	// fmt.Println(string(marshalled))
-
-	// e.serializer.SendMetadata(&e.agentInfo)
 
 	e.telemetry.Logger.Info("HTTP Server started on port 8088")
 
