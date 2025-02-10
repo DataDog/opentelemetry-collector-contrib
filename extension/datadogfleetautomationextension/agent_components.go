@@ -78,5 +78,9 @@ func newConfigComponent(set component.TelemetrySettings, cfg *Config) coreconfig
 	pkgconfig.Set("forwarder_apikey_validation_interval", 60, pkgconfigmodel.SourceDefault)
 	pkgconfig.Set("forwarder_num_workers", 1, pkgconfigmodel.SourceDefault)
 	pkgconfig.Set("logging_frequency", 1, pkgconfigmodel.SourceDefault)
+	pkgconfig.Set("forwarder_backoff_factor", 2, pkgconfigmodel.SourceDefault)
+	pkgconfig.Set("forwarder_backoff_base", 2, pkgconfigmodel.SourceDefault)
+	pkgconfig.Set("forwarder_backoff_max", 64, pkgconfigmodel.SourceDefault)
+	pkgconfig.Set("forwarder_recovery_interval", 2, pkgconfigmodel.SourceDefault)
 	return pkgconfig
 }
