@@ -100,7 +100,7 @@ const sampleHostPayload = `{
   "uuid": "",
   "internalHostname": "datadogfleetautomation",
   "os": "darwin",
-  "agent-flavor": "collector",
+  "agent-flavor": "agent",
   "python": "3.12.6 (main, Jan 23 2025, 09:32:07) [GCC 12.3.0]",
   "systemStats": {
     "cpuCores": 1,
@@ -135,7 +135,7 @@ const sampleHostPayload = `{
       "UTC"
     ],
     "socket-fqdn": "",
-    "ec2-hostname": "",
+    "ec2-hostname": "datadogfleetautomation",
     "hostname": "datadogfleetautomation",
     "host_aliases": [],
     "instance-id": "",
