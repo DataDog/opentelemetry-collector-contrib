@@ -8,7 +8,6 @@ package datadogfleetautomationextension
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"strings"
 	"sync"
@@ -47,6 +46,7 @@ type fleetAutomationExtension struct {
 	agentMetadataPayload AgentMetadata
 	otelMetadataPayload  OtelMetadata
 	hostMetadataPayload  HostMetadata
+	agentInfoPayload     AgentInfo
 
 	httpServer *http.Server
 }
@@ -63,7 +63,7 @@ func (e *fleetAutomationExtension) NotifyConfig(_ context.Context, conf *confmap
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	e.printModuleInfo()
+	// e.printModuleInfo()
 
 	e.collectorConfig = conf
 	e.telemetry.Logger.Info("Received new collector configuration")
@@ -101,7 +101,7 @@ func (e *fleetAutomationExtension) NotifyConfig(_ context.Context, conf *confmap
 		CloudProvider:                "AWS",
 		CloudProviderSource:          "DMI",
 		CloudProviderAccountID:       "aws_account_id",
-		CloudProviderHostID:          "i-abcedf",
+		CloudProviderHostID:          "32809141302",
 		HypervisorGuestUUID:          "ec24ce06-9ac4-42df-9c10-14772aeb06d7",
 		DMIProductUUID:               "ec24ce06-9ac4-42df-9c10-14772aeb06d7",
 		DMIAssetTag:                  "i-abcedf",
@@ -125,7 +125,7 @@ func (e *fleetAutomationExtension) NotifyConfig(_ context.Context, conf *confmap
 	e.agentMetadataPayload = AgentMetadata{
 		AgentVersion:                           "7.69.0",
 		AgentStartupTimeMs:                     1738781602921,
-		AgentFlavor:                            "collector",
+		AgentFlavor:                            "agent",
 		ConfigAPMDDUrl:                         "",
 		ConfigSite:                             e.extensionConfig.API.Site,
 		ConfigLogsDDUrl:                        "",
@@ -172,20 +172,28 @@ func (e *fleetAutomationExtension) NotifyConfig(_ context.Context, conf *confmap
 		FleetPoliciesApplied:                   make([]string, 0),
 	}
 
-	ap := agentPayload{
-		Hostname:  metadata.Type.String(),
-		Timestamp: time.Now().UnixNano(),
-		Metadata:  e.agentMetadataPayload,
-		UUID:      uuid.GetUUID(),
-	}
+	// ap := agentPayload{
+	// 	Hostname:  metadata.Type.String(),
+	// 	Timestamp: time.Now().UnixNano(),
+	// 	Metadata:  e.agentMetadataPayload,
+	// 	UUID:      uuid.GetUUID(),
+	// }
 	// jsonString, _ := json.Marshal(ap)
 	// fmt.Println("jsonString: ", jsonString)
-	e.telemetry.Logger.Info("Sending agent payload to Datadog backend with:", zap.Any("metadata", ap))
-	err = e.serializer.SendMetadata(&ap)
-	if err != nil {
-		e.telemetry.Logger.Error("Failed to send agent payload to Datadog backend", zap.Error(err))
-	}
+	// e.telemetry.Logger.Info("Sending agent payload to Datadog backend with:", zap.Any("metadata", ap))
+	// err = e.serializer.SendMetadata(&ap)
+	// if err != nil {
+	// 	e.telemetry.Logger.Error("Failed to send agent payload to Datadog backend", zap.Error(err))
+	// }
 
+	moduleJSON, err := json.MarshalIndent(e.moduleInfo, "", "  ")
+	var providedModules string
+	if err != nil {
+		e.telemetry.Logger.Error("Failed to marshal module info", zap.Error(err))
+		providedModules = ""
+	} else {
+		providedModules = string(moduleJSON)
+	}
 	fullConfig := string(configJSON)
 	e.otelMetadataPayload = OtelMetadata{
 		Enabled:                          true,
@@ -193,7 +201,7 @@ func (e *fleetAutomationExtension) NotifyConfig(_ context.Context, conf *confmap
 		ExtensionVersion:                 e.version,
 		Command:                          e.buildInfo.Command,
 		Description:                      "OSS Collector with Datadog Fleet Automation Extension",
-		ProvidedConfiguration:            "",
+		ProvidedConfiguration:            providedModules,
 		RuntimeOverrideConfiguration:     "",
 		EnvironmentVariableConfiguration: "",
 		FullConfiguration:                fullConfig,
@@ -206,20 +214,25 @@ func (e *fleetAutomationExtension) NotifyConfig(_ context.Context, conf *confmap
 
 	// e.telemetry.Logger.Info("JSON Structure: ", zap.String("json", string(jsonBytes)))
 
-	p := payload{
-		Hostname:  metadata.Type.String(),
-		Timestamp: time.Now().UnixNano(),
-		Metadata:  e.otelMetadataPayload,
-		UUID:      uuid.GetUUID(),
-	}
-	e.telemetry.Logger.Info("Sending fleet automation payload to Datadog backend with:", zap.Any("metadata", p))
-	err = e.serializer.SendMetadata(&p)
-	if err != nil {
-		e.telemetry.Logger.Error("Failed to send fleet automation payload to Datadog backend", zap.Error(err))
-	}
+	// p := payload{
+	// 	Hostname:  metadata.Type.String(),
+	// 	Timestamp: time.Now().UnixNano(),
+	// 	Metadata:  e.otelMetadataPayload,
+	// 	UUID:      uuid.GetUUID(),
+	// }
+	// e.telemetry.Logger.Info("Sending fleet automation payload to Datadog backend with:", zap.Any("metadata", p))
+	// err = e.serializer.SendMetadata(&p)
+	// if err != nil {
+	// 	e.telemetry.Logger.Error("Failed to send fleet automation payload to Datadog backend", zap.Error(err))
+	// }
+
+	go e.handleMetadata(nil, nil)
+
 	return nil
 }
 
+// handleMetadata writes the metadata payloads to the response writer.
+// It also sends these payloads to the Datadog backend
 func (e *fleetAutomationExtension) handleMetadata(w http.ResponseWriter, r *http.Request) {
 	e.mu.RLock()
 	defer e.mu.RUnlock()
@@ -241,7 +254,9 @@ func (e *fleetAutomationExtension) handleMetadata(w http.ResponseWriter, r *http
 		Metadata:  e.otelMetadataPayload,
 		UUID:      uuid.GetUUID(),
 	}
-	// e.serializer.SendMetadata(&mp)
+
+	e.serializer.SendMetadata(&e.agentInfoPayload)
+	e.serializer.SendMetadata(&mp)
 	e.serializer.SendMetadata(&ap)
 	e.serializer.SendMetadata(&p)
 
@@ -258,21 +273,23 @@ func (e *fleetAutomationExtension) handleMetadata(w http.ResponseWriter, r *http
 		return
 	}
 
-	// Write the JSON response
-	w.Header().Set("Content-Type", "application/json")
-	w.Write(jsonData)
-
-}
-
-func (e *fleetAutomationExtension) printCollectorConfig() {
-	configMap := e.collectorConfig.ToStringMap()
-	configJSON, err := json.MarshalIndent(configMap, "", "  ")
-	if err != nil {
-		e.telemetry.Logger.Error(err.Error())
-		return
+	if w != nil {
+		// Write the JSON response
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(jsonData)
 	}
-	e.telemetry.Logger.Info("Collector Configuration: ", zap.String("config", string(configJSON)))
+
 }
+
+// func (e *fleetAutomationExtension) printCollectorConfig() {
+// 	configMap := e.collectorConfig.ToStringMap()
+// 	configJSON, err := json.MarshalIndent(configMap, "", "  ")
+// 	if err != nil {
+// 		e.telemetry.Logger.Error(err.Error())
+// 		return
+// 	}
+// 	e.telemetry.Logger.Info("Collector Configuration: ", zap.String("config", string(configJSON)))
+// }
 
 // PrintModuleInfo logs the ModuleInfo using the provided zap logger.
 func (e *fleetAutomationExtension) printModuleInfo() {
@@ -313,7 +330,7 @@ func (e *fleetAutomationExtension) Start(_ context.Context, _ component.Host) er
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/metadata", e.handleMetadata)
-
+	//TODO: let user specify port in config
 	e.httpServer = &http.Server{
 		Addr:    ":8088",
 		Handler: mux,
@@ -325,25 +342,42 @@ func (e *fleetAutomationExtension) Start(_ context.Context, _ component.Host) er
 		}
 	}()
 
-	var agentInfo AgentInfo
-	err := json.Unmarshal([]byte(sampleHostPayload), &agentInfo)
+	// Create a ticker that triggers every 5 minutes
+	ticker := time.NewTicker(5 * time.Minute)
+	done := make(chan bool)
+
+	// Start a goroutine that will send the Datadog fleet automation payload every 5 minutes
+	go func() {
+		for {
+			select {
+			case <-ticker.C:
+				// Call handleMetadata periodically
+				e.handleMetadata(nil, nil)
+			case <-done:
+				ticker.Stop()
+				return
+			}
+		}
+	}()
+
+	err := json.Unmarshal([]byte(sampleHostPayload), &e.agentInfoPayload)
 	if err != nil {
 		e.telemetry.Logger.Error("Failed to unmarshal sample host payload", zap.Error(err))
 	}
-	agentInfo.APIKey = string(e.extensionConfig.API.Key)
-	agentInfo.UUID = uuid.GetUUID()
+	e.agentInfoPayload.APIKey = string(e.extensionConfig.API.Key)
+	e.agentInfoPayload.UUID = uuid.GetUUID()
 
-	agentInfo.InstallMethod.Tool = e.buildInfo.Command
-	agentInfo.InstallMethod.InstallerVersion = e.buildInfo.Version
-	agentInfo.InstallMethod.ToolVersion = e.buildInfo.Version
+	e.agentInfoPayload.InstallMethod.Tool = e.buildInfo.Command
+	e.agentInfoPayload.InstallMethod.InstallerVersion = e.buildInfo.Version
+	e.agentInfoPayload.InstallMethod.ToolVersion = e.buildInfo.Version
 
-	marshalled, err := json.MarshalIndent(agentInfo, "", "  ")
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println(string(marshalled))
+	// marshalled, err := json.MarshalIndent(e.agentInfo, "", "  ")
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// fmt.Println(string(marshalled))
 
-	e.serializer.SendMetadata(&agentInfo)
+	// e.serializer.SendMetadata(&e.agentInfo)
 
 	e.telemetry.Logger.Info("HTTP Server started on port 8088")
 
@@ -370,6 +404,20 @@ func newExtension(config *Config, settings extension.Settings) *fleetAutomationE
 	forwarder := newForwarder(cfg, log)
 	compressor := newCompressor()
 	serializer := newSerializer(forwarder, compressor, cfg)
+	var version string
+	extensionInfo, ok := settings.ModuleInfo.Extension[metadata.Type]
+	if ok {
+		parts := strings.Split(extensionInfo, " ")
+		if len(parts) > 1 {
+			version = parts[1]
+		} else {
+			telemetry.Logger.Warn("Unexpected format for extension info", zap.String("extensionInfo", extensionInfo))
+			version = "unknown"
+		}
+	} else {
+		telemetry.Logger.Warn("Extension info not found in ModuleInfo")
+		version = "unknown"
+	}
 	return &fleetAutomationExtension{
 		extensionConfig: config,
 		telemetry:       telemetry,
@@ -380,6 +428,6 @@ func newExtension(config *Config, settings extension.Settings) *fleetAutomationE
 		moduleInfo:      settings.ModuleInfo,
 		buildInfo:       settings.BuildInfo,
 		id:              settings.ID,
-		version:         strings.Split(settings.ModuleInfo.Extension[metadata.Type], " ")[1],
+		version:         version,
 	}
 }
