@@ -32,6 +32,8 @@ type fleetAutomationExtension struct {
 	extensionConfig *Config
 	telemetry       component.TelemetrySettings
 	collectorConfig *confmap.Conf
+	ticker          *time.Ticker
+	done            chan bool
 	mu              sync.RWMutex
 
 	moduleInfo extension.ModuleInfo
@@ -167,7 +169,7 @@ func (e *fleetAutomationExtension) NotifyConfig(_ context.Context, conf *confmap
 		FeatureUSMIstioEnabled:                 false,
 		ECSFargateTaskARN:                      "",
 		ECSFargateClusterName:                  "",
-		Hostname:                               metadata.Type.String() + "-6",
+		Hostname:                               metadata.Type.String(),
 		FleetPoliciesApplied:                   make([]string, 0),
 	}
 
@@ -222,19 +224,19 @@ func (e *fleetAutomationExtension) handleMetadata(w http.ResponseWriter, r *http
 	e.mu.RLock()
 	defer e.mu.RUnlock()
 	mp := metadataPayload{
-		Hostname:  metadata.Type.String() + "-6",
+		Hostname:  metadata.Type.String(),
 		Timestamp: time.Now().UnixNano(),
 		Metadata:  e.hostMetadataPayload,
 		UUID:      uuid.GetUUID(),
 	}
 	ap := agentPayload{
-		Hostname:  metadata.Type.String() + "-6",
+		Hostname:  metadata.Type.String(),
 		Timestamp: time.Now().UnixNano(),
 		Metadata:  e.agentMetadataPayload,
 		UUID:      uuid.GetUUID(),
 	}
 	p := payload{
-		Hostname:  metadata.Type.String() + "-6",
+		Hostname:  metadata.Type.String(),
 		Timestamp: time.Now().UnixNano(),
 		Metadata:  e.otelMetadataPayload,
 		UUID:      uuid.GetUUID(),
@@ -288,24 +290,21 @@ func (e *fleetAutomationExtension) Start(_ context.Context, _ component.Host) er
 		}
 	}()
 
-	// Create a ticker that triggers every 5 minutes
-	// TODO: Let user specify interval in config?
-	ticker := time.NewTicker(5 * time.Minute)
-	done := make(chan bool)
-
-	// Start a goroutine that will send the Datadog fleet automation payload every 5 minutes
-	go func() {
+	// Create a ticker that triggers every 20 minutes (FA has 1 hour TTL)
+	// Start a goroutine that will send the Datadog fleet automation payload every 20 minutes
+	go func(ticker *time.Ticker) {
 		for {
 			select {
 			case <-ticker.C:
 				// Call handleMetadata periodically
 				e.handleMetadata(nil, nil)
-			case <-done:
+			case <-e.done:
+				e.telemetry.Logger.Info("Stopping datadog fleet automation payload sender")
 				ticker.Stop()
 				return
 			}
 		}
-	}()
+	}(e.ticker)
 
 	e.telemetry.Logger.Info("HTTP Server started on port 8088")
 
@@ -314,10 +313,13 @@ func (e *fleetAutomationExtension) Start(_ context.Context, _ component.Host) er
 }
 
 // Shutdown stops the extension via the component interface.
+// It shuts down the HTTP server, stops forwarder, and passes signal on
+// channel to end goroutine that sends the Datadog fleet automation payloads.
 func (e *fleetAutomationExtension) Shutdown(ctx context.Context) error {
 	if e.httpServer != nil {
 		e.httpServer.Shutdown(ctx)
 	}
+	e.done <- true
 	e.forwarder.Stop()
 	e.telemetry.Logger.Info("Stopped Datadog Fleet Automation extension")
 	return nil
@@ -357,5 +359,7 @@ func newExtension(config *Config, settings extension.Settings) *fleetAutomationE
 		buildInfo:       settings.BuildInfo,
 		id:              settings.ID,
 		version:         version,
+		ticker:          time.NewTicker(20 * time.Minute),
+		done:            make(chan bool),
 	}
 }

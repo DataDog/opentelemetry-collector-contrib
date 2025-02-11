@@ -10,9 +10,13 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/component/componenttest"
 	"go.opentelemetry.io/collector/confmap"
+	"go.opentelemetry.io/collector/extension"
 	"go.uber.org/zap/zaptest"
+
+	"github.com/open-telemetry/opentelemetry-collector-contrib/extension/datadogfleetautomationextension/internal/metadata"
 )
 
 func Test_NotifyConfig(t *testing.T) {
@@ -35,11 +39,19 @@ func Test_NotifyConfig(t *testing.T) {
 	// Create a logger for testing
 	logger := zaptest.NewLogger(t)
 
+	set := extension.Settings{}
 	// Create telemetry settings with the test logger
 	telemetry := componenttest.NewNopTelemetrySettings()
 	telemetry.Logger = logger
+	set.TelemetrySettings = telemetry
+	set.BuildInfo = component.BuildInfo{
+		Command:     "otelcol",
+		Description: "OpenTelemetry Collector",
+		Version:     "1.0.0",
+	}
+	set.ID = component.MustNewID(metadata.Type.String())
 
-	faExt := newExtension(&Config{}, telemetry)
+	faExt := newExtension(&Config{}, set)
 	err := faExt.NotifyConfig(ctx, conf)
 	assert.NoError(t, err)
 
