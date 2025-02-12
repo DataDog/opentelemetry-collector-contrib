@@ -64,18 +64,8 @@ func (e *fleetAutomationExtension) NotifyConfig(_ context.Context, conf *confmap
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	// e.printModuleInfo()
-
 	e.collectorConfig = conf
 	e.telemetry.Logger.Info("Received new collector configuration")
-	// e.printCollectorConfig()
-
-	configMap := e.collectorConfig.ToStringMap()
-	configJSON, err := json.MarshalIndent(configMap, "", "  ")
-	if err != nil {
-		e.telemetry.Logger.Error("Failed to marshal collector config", zap.Error(err))
-		return nil
-	}
 
 	e.hostMetadataPayload = HostMetadata{
 		CPUArchitecture:              "unknown",
@@ -180,8 +170,17 @@ func (e *fleetAutomationExtension) NotifyConfig(_ context.Context, conf *confmap
 		providedModules = ""
 	} else {
 		providedModules = string(moduleJSON)
+		providedModules = strings.ReplaceAll(providedModules, "\"", "")
+	}
+
+	configMap := e.collectorConfig.ToStringMap()
+	configJSON, err := json.MarshalIndent(configMap, "", "  ")
+	if err != nil {
+		e.telemetry.Logger.Error("Failed to marshal collector config", zap.Error(err))
+		return nil
 	}
 	fullConfig := string(configJSON)
+	fullConfig = strings.ReplaceAll(fullConfig, "\"", "")
 	e.otelMetadataPayload = OtelMetadata{
 		Enabled:                          true,
 		Version:                          e.buildInfo.Version,
