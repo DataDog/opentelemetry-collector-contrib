@@ -203,12 +203,16 @@ func (exp *metricsExporter) PushMetricsData(ctx context.Context, md pmetric.Metr
 		}
 	}
 	var consumer otlpmetrics.Consumer
-	if isMetricExportV2Enabled() {
+	if isMetricExportV2Enabled() || isMetricExportSerializerEnabled() {
 		consumer = metrics.NewConsumer()
 	} else {
 		consumer = metrics.NewZorkianConsumer()
 	}
-	metadata, err := exp.tr.MapMetrics(ctx, md, consumer)
+	var metadata otlpmetrics.Metadata
+	var err error
+	if !isMetricExportSerializerEnabled() {
+		metadata, err = exp.tr.MapMetrics(ctx, md, consumer)
+	}
 	if err != nil {
 		return fmt.Errorf("failed to map metrics: %w", err)
 	}
@@ -236,7 +240,14 @@ func (exp *metricsExporter) PushMetricsData(ctx context.Context, md pmetric.Metr
 			errs = append(errs, experr)
 		}
 	} else if isMetricExportSerializerEnabled() {
-
+		exp.consumer.(*)
+		//var ms []datadogV2.MetricSeries
+		//ms, sl = consumer.(*metrics.Consumer).All(exp.getPushTime(), exp.params.BuildInfo, tags, metadata)
+		if md.DataPointCount() > 0 {
+			exp.params.Logger.Debug("exporting native Datadog payload", zap.Any("metric", md))
+			merr := exp.serializerExporter.ConsumeMetrics(ctx, md)
+			errs = append(errs, merr)
+		}
 	} else {
 		var ms []zorkian.Metric
 		ms, sl = consumer.(*metrics.ZorkianConsumer).All(exp.getPushTime(), exp.params.BuildInfo, tags)

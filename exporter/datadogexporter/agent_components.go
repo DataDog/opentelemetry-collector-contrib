@@ -161,7 +161,9 @@ func newSerializerExporter(s serializer.Serializer, set exporter.Settings, cfg *
 	// todo(ankit) quadruple check all these settings
 	exporterConfig := &serializerexporter.ExporterConfig{
 		Metrics: serializerexporter.MetricsConfig{
+			//Metrics: cfg.Metrics,
 			Metrics: datadogconfig.MetricsConfig{
+				TCPAddrConfig: cfg.Metrics.TCPAddrConfig,
 				DeltaTTL: cfg.Metrics.DeltaTTL,
 				ExporterConfig: datadogconfig.MetricsExporterConfig{
 					ResourceAttributesAsTags:           cfg.Metrics.ExporterConfig.ResourceAttributesAsTags,
