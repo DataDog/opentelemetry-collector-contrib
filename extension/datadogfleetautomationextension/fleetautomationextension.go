@@ -17,6 +17,7 @@ import (
 	"go.opentelemetry.io/collector/confmap"
 	"go.opentelemetry.io/collector/extension"
 	"go.opentelemetry.io/collector/extension/extensioncapabilities"
+	"go.opentelemetry.io/collector/service"
 	"go.uber.org/zap"
 
 	"github.com/DataDog/datadog-agent/comp/forwarder/defaultforwarder"
@@ -36,8 +37,8 @@ type fleetAutomationExtension struct {
 	done            chan bool
 	mu              sync.RWMutex
 
-	moduleInfo extension.ModuleInfo
 	buildInfo  component.BuildInfo
+	moduleInfo service.ModuleInfos
 	version    string
 	id         component.ID
 
@@ -163,15 +164,15 @@ func (e *fleetAutomationExtension) NotifyConfig(_ context.Context, conf *confmap
 		FleetPoliciesApplied:                   make([]string, 0),
 	}
 
-	moduleJSON, err := json.MarshalIndent(e.moduleInfo, "", "  ")
-	var providedModules string
-	if err != nil {
-		e.telemetry.Logger.Error("Failed to marshal module info", zap.Error(err))
-		providedModules = ""
-	} else {
-		providedModules = string(moduleJSON)
-		providedModules = strings.ReplaceAll(providedModules, "\"", "")
-	}
+	// moduleJSON, err := json.MarshalIndent(e.moduleInfo, "", "  ")
+	// var providedModules string
+	// if err != nil {
+	// 	e.telemetry.Logger.Error("Failed to marshal module info", zap.Error(err))
+	// 	providedModules = ""
+	// } else {
+	// 	providedModules = string(moduleJSON)
+	// 	providedModules = strings.ReplaceAll(providedModules, "\"", "")
+	// }
 
 	configMap := e.collectorConfig.ToStringMap()
 	configJSON, err := json.MarshalIndent(configMap, "", "  ")
@@ -187,7 +188,7 @@ func (e *fleetAutomationExtension) NotifyConfig(_ context.Context, conf *confmap
 		ExtensionVersion:                 e.version,
 		Command:                          e.buildInfo.Command,
 		Description:                      "OSS Collector with Datadog Fleet Automation Extension",
-		ProvidedConfiguration:            providedModules,
+		ProvidedConfiguration:            "", // TODO: Re-implement module list
 		RuntimeOverrideConfiguration:     "",
 		EnvironmentVariableConfiguration: "",
 		FullConfiguration:                fullConfig,
@@ -267,13 +268,15 @@ func (e *fleetAutomationExtension) handleMetadata(w http.ResponseWriter, r *http
 }
 
 // Start starts the extension via the component interface.
-func (e *fleetAutomationExtension) Start(_ context.Context, _ component.Host) error {
+func (e *fleetAutomationExtension) Start(_ context.Context, host component.Host) error {
 	if e.forwarder != nil {
 		err := e.forwarder.Start()
 		if err != nil {
 			e.telemetry.Logger.Error("Failed to start forwarder", zap.Error(err))
 		}
 	}
+
+	// TODO: implement hostcapabilities.GetModuleInfos to get the list of modules
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/metadata", e.handleMetadata)
@@ -333,20 +336,7 @@ func newExtension(config *Config, settings extension.Settings) *fleetAutomationE
 	forwarder := newForwarder(cfg, log)
 	compressor := newCompressor()
 	serializer := newSerializer(forwarder, compressor, cfg)
-	var version string
-	extensionInfo, ok := settings.ModuleInfo.Extension[metadata.Type]
-	if ok {
-		parts := strings.Split(extensionInfo, " ")
-		if len(parts) > 1 {
-			version = parts[1]
-		} else {
-			telemetry.Logger.Warn("Unexpected format for extension info", zap.String("extensionInfo", extensionInfo))
-			version = "unknown"
-		}
-	} else {
-		telemetry.Logger.Warn("Extension info not found in ModuleInfo")
-		version = "unknown"
-	}
+	version := settings.BuildInfo.Version
 	return &fleetAutomationExtension{
 		extensionConfig: config,
 		telemetry:       telemetry,
@@ -354,7 +344,6 @@ func newExtension(config *Config, settings extension.Settings) *fleetAutomationE
 		forwarder:       forwarder,
 		compressor:      &compressor,
 		serializer:      serializer,
-		moduleInfo:      settings.ModuleInfo,
 		buildInfo:       settings.BuildInfo,
 		id:              settings.ID,
 		version:         version,
