@@ -89,7 +89,7 @@ func (e *fleetAutomationExtension) NotifyConfig(_ context.Context, conf *confmap
 		IPAddress:                    "192.168.24.138",
 		IPv6Address:                  "fe80::1ff:fe23:4567:890a",
 		MACAddress:                   "01:23:45:67:89:AB",
-		AgentVersion:                 "7.69.0",
+		AgentVersion:                 e.buildInfo.Version,
 		CloudProvider:                "AWS",
 		CloudProviderSource:          "DMI",
 		CloudProviderAccountID:       "aws_account_id",
@@ -115,7 +115,7 @@ func (e *fleetAutomationExtension) NotifyConfig(_ context.Context, conf *confmap
 	// }
 
 	e.agentMetadataPayload = AgentMetadata{
-		AgentVersion:                           "7.69.0",
+		AgentVersion:                           e.buildInfo.Version,
 		AgentStartupTimeMs:                     1738781602921,
 		AgentFlavor:                            "agent",
 		ConfigAPMDDUrl:                         "",
@@ -164,15 +164,15 @@ func (e *fleetAutomationExtension) NotifyConfig(_ context.Context, conf *confmap
 		FleetPoliciesApplied:                   make([]string, 0),
 	}
 
-	// moduleJSON, err := json.MarshalIndent(e.moduleInfo, "", "  ")
-	// var providedModules string
-	// if err != nil {
-	// 	e.telemetry.Logger.Error("Failed to marshal module info", zap.Error(err))
-	// 	providedModules = ""
-	// } else {
-	// 	providedModules = string(moduleJSON)
-	// 	providedModules = strings.ReplaceAll(providedModules, "\"", "")
-	// }
+	moduleJSON, err := json.MarshalIndent(e.moduleInfo, "", "  ")
+	var providedModules string
+	if err != nil {
+		e.telemetry.Logger.Error("Failed to marshal module info", zap.Error(err))
+		providedModules = ""
+	} else {
+		providedModules = string(moduleJSON)
+		providedModules = strings.ReplaceAll(providedModules, "\"", "")
+	}
 
 	configMap := e.collectorConfig.ToStringMap()
 	configJSON, err := json.MarshalIndent(configMap, "", "  ")
@@ -188,7 +188,7 @@ func (e *fleetAutomationExtension) NotifyConfig(_ context.Context, conf *confmap
 		ExtensionVersion:                 e.version,
 		Command:                          e.buildInfo.Command,
 		Description:                      "OSS Collector with Datadog Fleet Automation Extension",
-		ProvidedConfiguration:            "", // TODO: Re-implement module list
+		ProvidedConfiguration:            providedModules,
 		RuntimeOverrideConfiguration:     "",
 		EnvironmentVariableConfiguration: "",
 		FullConfiguration:                fullConfig,
@@ -277,10 +277,17 @@ func (e *fleetAutomationExtension) Start(_ context.Context, host component.Host)
 	}
 
 	// TODO: implement hostcapabilities.GetModuleInfos to get the list of modules
-
+	type ExportModules interface {
+		GetModuleInfos() service.ModuleInfos
+	}
+	if host, ok := host.(ExportModules); ok {
+		e.moduleInfo = host.GetModuleInfos()
+	} else {
+		e.telemetry.Logger.Warn("Failed to get module info; Datadog fleet automation will only show the collector config")
+	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/metadata", e.handleMetadata)
-	//TODO: let user specify port in config
+	//TODO: let user specify port in config? Or remove?
 	e.httpServer = &http.Server{
 		Addr:    ":8088",
 		Handler: mux,
