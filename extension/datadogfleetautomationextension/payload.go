@@ -140,6 +140,19 @@ type agentPayload struct {
 	UUID      string        `json:"uuid"`
 }
 
+type collectorComponent struct {
+	Name            string `json:"name"`
+	Type            string `json:"type"`
+	Module          string `json:"module"`
+	Version         string `json:"version"`
+	Enabled         bool   `json:"enabled"`
+	ComponentStatus string `json:"component_status"`
+}
+
+type moduleInfoJSON struct {
+	Components []collectorComponent `json:"components"`
+}
+
 // MarshalJSON serializes a metadataPayload to JSON
 func (p *metadataPayload) MarshalJSON() ([]byte, error) {
 	type metadataPayloadAlias metadataPayload

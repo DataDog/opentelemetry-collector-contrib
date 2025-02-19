@@ -23,24 +23,25 @@ import (
 	"github.com/DataDog/datadog-agent/comp/forwarder/defaultforwarder"
 	"github.com/DataDog/datadog-agent/pkg/serializer"
 	"github.com/DataDog/datadog-agent/pkg/util/compression"
-	"github.com/DataDog/datadog-agent/pkg/util/uuid"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/extension/datadogfleetautomationextension/internal/metadata"
 )
 
 type fleetAutomationExtension struct {
 	extension.Extension // Embed base Extension for common functionality.
 
-	extensionConfig *Config
-	telemetry       component.TelemetrySettings
-	collectorConfig *confmap.Conf
-	ticker          *time.Ticker
-	done            chan bool
-	mu              sync.RWMutex
+	extensionConfig          *Config
+	telemetry                component.TelemetrySettings
+	collectorConfig          *confmap.Conf
+	collectorConfigStringMap map[string]any
+	ticker                   *time.Ticker
+	done                     chan bool
+	mu                       sync.RWMutex
 
-	buildInfo  component.BuildInfo
-	moduleInfo service.ModuleInfos
-	version    string
-	id         component.ID
+	buildInfo      component.BuildInfo
+	moduleInfo     service.ModuleInfos
+	moduleInfoJSON moduleInfoJSON
+	version        string
+	id             component.ID
 
 	forwarder  *defaultforwarder.DefaultForwarder
 	compressor *compression.Compressor
@@ -50,7 +51,10 @@ type fleetAutomationExtension struct {
 	otelMetadataPayload  OtelMetadata
 	hostMetadataPayload  HostMetadata
 
-	httpServer *http.Server
+	httpServer           *http.Server
+	healthCheckV2Enabled bool
+	healthCheckV2Config  map[string]any
+	componentStatus      map[string]any // retrieved from healthcheckv2 extension, if enabled/configured
 }
 
 var _ extensioncapabilities.ConfigWatcher = (*fleetAutomationExtension)(nil)
@@ -115,7 +119,7 @@ func (e *fleetAutomationExtension) NotifyConfig(_ context.Context, conf *confmap
 	// }
 
 	e.agentMetadataPayload = AgentMetadata{
-		AgentVersion:                           e.buildInfo.Version,
+		AgentVersion:                           "7.64.0-collector",
 		AgentStartupTimeMs:                     1738781602921,
 		AgentFlavor:                            "agent",
 		ConfigAPMDDUrl:                         "",
@@ -174,8 +178,8 @@ func (e *fleetAutomationExtension) NotifyConfig(_ context.Context, conf *confmap
 		providedModules = strings.ReplaceAll(providedModules, "\"", "")
 	}
 
-	configMap := e.collectorConfig.ToStringMap()
-	configJSON, err := json.MarshalIndent(configMap, "", "  ")
+	e.collectorConfigStringMap = e.collectorConfig.ToStringMap()
+	configJSON, err := json.MarshalIndent(e.collectorConfigStringMap, "", "  ")
 	if err != nil {
 		e.telemetry.Logger.Error("Failed to marshal collector config", zap.Error(err))
 		return nil
@@ -193,78 +197,10 @@ func (e *fleetAutomationExtension) NotifyConfig(_ context.Context, conf *confmap
 		EnvironmentVariableConfiguration: "",
 		FullConfiguration:                fullConfig,
 	}
-	// jsonBytes, err := json.MarshalIndent(inventoryOtelPayload, "", "  ")
-	// if err != nil {
-	// 	e.telemetry.Logger.Error("Failed to marshal JSON structure", zap.Error(err))
-	// 	return nil
-	// }
-
-	// e.telemetry.Logger.Info("JSON Structure: ", zap.String("json", string(jsonBytes)))
-
-	// p := payload{
-	// 	Hostname:  metadata.Type.String(),
-	// 	Timestamp: time.Now().UnixNano(),
-	// 	Metadata:  e.otelMetadataPayload,
-	// 	UUID:      uuid.GetUUID(),
-	// }
-	// e.telemetry.Logger.Info("Sending fleet automation payload to Datadog backend with:", zap.Any("metadata", p))
-	// err = e.serializer.SendMetadata(&p)
-	// if err != nil {
-	// 	e.telemetry.Logger.Error("Failed to send fleet automation payload to Datadog backend", zap.Error(err))
-	// }
 
 	go e.handleMetadata(nil, nil)
 
 	return nil
-}
-
-// handleMetadata writes the metadata payloads to the response writer.
-// It also sends these payloads to the Datadog backend
-func (e *fleetAutomationExtension) handleMetadata(w http.ResponseWriter, r *http.Request) {
-	e.mu.RLock()
-	defer e.mu.RUnlock()
-	mp := metadataPayload{
-		Hostname:  metadata.Type.String(),
-		Timestamp: time.Now().UnixNano(),
-		Metadata:  e.hostMetadataPayload,
-		UUID:      uuid.GetUUID(),
-	}
-	ap := agentPayload{
-		Hostname:  metadata.Type.String(),
-		Timestamp: time.Now().UnixNano(),
-		Metadata:  e.agentMetadataPayload,
-		UUID:      uuid.GetUUID(),
-	}
-	p := payload{
-		Hostname:  metadata.Type.String(),
-		Timestamp: time.Now().UnixNano(),
-		Metadata:  e.otelMetadataPayload,
-		UUID:      uuid.GetUUID(),
-	}
-
-	// e.serializer.SendMetadata(&mp)
-	e.serializer.SendMetadata(&ap)
-	e.serializer.SendMetadata(&p)
-
-	combinedPayload := CombinedPayload{
-		MetadataPayload: mp,
-		AgentPayload:    ap,
-		OtelPayload:     p,
-	}
-
-	// Marshal the combined payload to JSON
-	jsonData, err := json.MarshalIndent(combinedPayload, "", "  ")
-	if err != nil {
-		http.Error(w, "Failed to marshal combined payload", http.StatusInternalServerError)
-		return
-	}
-
-	if w != nil {
-		// Write the JSON response
-		w.Header().Set("Content-Type", "application/json")
-		w.Write(jsonData)
-	}
-
 }
 
 // Start starts the extension via the component interface.
@@ -276,46 +212,36 @@ func (e *fleetAutomationExtension) Start(_ context.Context, host component.Host)
 		}
 	}
 
-	// TODO: implement hostcapabilities.GetModuleInfos to get the list of modules
-	type ExportModules interface {
+	type exportModules interface {
 		GetModuleInfos() service.ModuleInfos
 	}
-	if host, ok := host.(ExportModules); ok {
+	if host, ok := host.(exportModules); ok {
 		e.moduleInfo = host.GetModuleInfos()
-	} else {
-		e.telemetry.Logger.Warn("Failed to get module info; Datadog fleet automation will only show the collector config")
-	}
-	mux := http.NewServeMux()
-	mux.HandleFunc("/metadata", e.handleMetadata)
-	//TODO: let user specify port in config? Or remove?
-	e.httpServer = &http.Server{
-		Addr:    ":8088",
-		Handler: mux,
-	}
-
-	go func() {
-		if err := e.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			e.telemetry.Logger.Error("HTTP server error", zap.Error(err))
+		healthCheckV2Configured := e.isComponentConfigured("healthcheckv2", extensionsType)
+		if healthCheckV2Configured {
+			e.healthCheckV2Config = e.getComponentConfig("healthcheckv2", extensionsType)
 		}
-	}()
-
-	// Create a ticker that triggers every 20 minutes (FA has 1 hour TTL)
-	// Start a goroutine that will send the Datadog fleet automation payload every 20 minutes
-	go func(ticker *time.Ticker) {
-		for {
-			select {
-			case <-ticker.C:
-				// Call handleMetadata periodically
-				e.handleMetadata(nil, nil)
-			case <-e.done:
-				e.telemetry.Logger.Info("Stopping datadog fleet automation payload sender")
-				ticker.Stop()
-				return
+		if healthCheckV2Configured {
+			e.healthCheckV2Config = e.getComponentConfig("healthcheckv2", extensionsType)
+			var err error
+			e.healthCheckV2Enabled, err = e.isHealthCheckV2Enabled()
+			if err != nil {
+				e.telemetry.Logger.Info(err.Error())
+			} else if !e.healthCheckV2Enabled {
+				e.telemetry.Logger.Info("healthcheckv2 extension is not enabled; component status will not be available")
 			}
+		} else {
+			e.healthCheckV2Enabled = false
+			e.telemetry.Logger.Info("healthcheckv2 extension is not configured; component status will not be available")
 		}
-	}(e.ticker)
+	} else {
+		e.telemetry.Logger.Warn("Failed to get module info; Datadog Fleet Automation will only show the active collector config")
+	}
 
-	e.telemetry.Logger.Info("HTTP Server started on port 8088")
+	err := e.startLocalConfigServer()
+	if err != nil {
+		e.telemetry.Logger.Warn("Failed to start local config server; local fleet metadata requests will not be available", zap.Error(err))
+	}
 
 	e.telemetry.Logger.Info("Started Datadog Fleet Automation extension")
 	return nil
