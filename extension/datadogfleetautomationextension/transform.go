@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"go.opentelemetry.io/collector/component"
+	"go.opentelemetry.io/collector/service"
 
 	"go.uber.org/zap"
 )
@@ -108,41 +109,55 @@ func (e *fleetAutomationExtension) getComponentConfig(name string, componentsTyp
 
 func (e *fleetAutomationExtension) populateModuleInfoJSON() moduleInfoJSON {
 	var components []collectorComponent
-	for name, moduleInfo := range e.moduleInfo.Receiver {
-		parts := strings.Split(moduleInfo.BuilderRef, " ")
-		if len(parts) != 2 {
-			e.telemetry.Logger.Warn("Invalid extension info", zap.String("extension", moduleInfo.BuilderRef))
-			continue
-		}
-		enabled := e.isComponentConfigured(name.String(), receiversType)
-		status := "unknown"
-		if enabled && e.healthCheckV2Enabled {
-			if componentsConfig, ok := e.componentStatus["components"].(map[string]any); ok {
-				if componentStatus, ok := componentsConfig[receiversType].(map[string]any); ok {
-					if receiversStatus, ok := componentStatus["components"].(map[string]any); ok {
-						componentName := receiverType + ":" + name.String()
-						if componentStatus, ok := receiversStatus[componentName].(map[string]any); ok {
-							statusJson, err := json.MarshalIndent(componentStatus, "", "  ")
-							if err != nil {
-								e.telemetry.Logger.Error("Failed to marshal component healthcheck status", zap.Error(err))
-							} else {
-								status = string(statusJson)
-								status = strings.ReplaceAll(status, "\"", "")
+	for _, field := range []struct {
+		names string
+		data  map[component.Type]service.ModuleInfo
+		name  string
+	}{
+		{receiversType, e.moduleInfo.Receiver, receiverType},
+		{processorsType, e.moduleInfo.Processor, processorType},
+		{exportersType, e.moduleInfo.Exporter, exporterType},
+		{extensionsType, e.moduleInfo.Extension, extensionType},
+		{connectorsType, e.moduleInfo.Connector, connectorType},
+		// TODO: add Providers and Converters after upstream change accepted to add these to moduleinfos
+	} {
+		for comp, builderRef := range field.data {
+			parts := strings.Split(builderRef.BuilderRef, " ")
+			if len(parts) != 2 {
+				e.telemetry.Logger.Warn("Invalid extension info", zap.String("extension", builderRef.BuilderRef))
+				continue
+			}
+			enabled := e.isComponentConfigured(comp.String(), field.names)
+			status := "unknown"
+			if enabled && e.healthCheckV2Enabled {
+				if componentsConfig, ok := e.componentStatus["components"].(map[string]any); ok {
+					if componentStatus, ok := componentsConfig[field.names].(map[string]any); ok {
+						if receiversStatus, ok := componentStatus["components"].(map[string]any); ok {
+							componentName := field.name + ":" + comp.String()
+							if componentStatus, ok := receiversStatus[componentName].(map[string]any); ok {
+								statusJson, err := json.MarshalIndent(componentStatus, "", "  ")
+								if err != nil {
+									e.telemetry.Logger.Error("Failed to marshal component healthcheck status", zap.Error(err))
+								} else {
+									status = string(statusJson)
+									status = strings.ReplaceAll(status, "\"", "")
+								}
 							}
 						}
 					}
 				}
 			}
+			components = append(components, collectorComponent{
+				Name:            comp.String(),
+				Type:            field.name,
+				Module:          parts[0],
+				Version:         parts[1],
+				Enabled:         enabled,
+				ComponentStatus: status,
+			})
 		}
-		components = append(components, collectorComponent{
-			Name:            name.String(),
-			Type:            receiverType,
-			Module:          parts[0],
-			Version:         parts[1],
-			Enabled:         enabled,
-			ComponentStatus: status,
-		})
 	}
+
 	return moduleInfoJSON{
 		Components: components,
 	}
