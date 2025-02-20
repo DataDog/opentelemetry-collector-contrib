@@ -33,6 +33,18 @@ const (
 	convertersType = "converters"
 )
 
+var (
+	typesToType map[string]string = map[string]string{
+		receiversType:  receiverType,
+		processorsType: processorType,
+		exportersType:  exporterType,
+		extensionsType: extensionType,
+		connectorsType: connectorType,
+		providersType:  providerType,
+		convertersType: converterType,
+	}
+)
+
 func (e *fleetAutomationExtension) isComponentConfigured(name string, componentsType string) bool {
 	if components, ok := e.collectorConfigStringMap[componentsType]; ok {
 		if componentMap, ok := components.(map[string]interface{}); ok {
@@ -107,6 +119,59 @@ func (e *fleetAutomationExtension) getComponentConfig(name string, componentsTyp
 	return nil
 }
 
+// subject to change/removal as healthcheckv2 is in "development status"
+// unclear if we should wait until this is more stabilized to add individual component status health
+// to the payloads we send
+func (e *fleetAutomationExtension) getComponentHealthStatus(name string, componentsType string) map[string]any {
+	componentType, ok := typesToType[componentsType]
+	if !ok {
+		return nil
+	}
+	result := make(map[string]any)
+	// scrape components list for extensions, pipelines list for receivers, processors, exporters, connectors
+	if componentsConfig, ok := e.componentStatus["components"].(map[string]any); ok {
+		if componentsType == extensionsType {
+			if componentStatus, ok := componentsConfig[componentsType].(map[string]any); ok {
+				if receiversStatus, ok := componentStatus["components"].(map[string]any); ok {
+					componentName := componentType + ":" + name
+					if componentStatus, ok := receiversStatus[componentName].(map[string]any); ok {
+						result = componentStatus
+					}
+				}
+			}
+		} else {
+			// extract component from pipeline list
+			for key, value := range componentsConfig {
+				if key == extensionsType {
+					continue
+				}
+				if pipelineMap, ok := value.(map[string]any); ok {
+					if components, ok := pipelineMap["components"].(map[string]any); ok {
+						for id, status := range components {
+							idParts := strings.Split(id, ":")
+							if len(idParts) != 2 {
+								continue
+							}
+							kind := idParts[0]
+							fullID := idParts[1]
+							idSplit := strings.Split(fullID, "/")
+							compType := idSplit[0]
+							if kind == componentType && name == compType {
+								if componentStatus, ok := status.(map[string]any); ok {
+									result[key] = map[string]any{
+										id: componentStatus,
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	return result
+}
+
 func (e *fleetAutomationExtension) populateModuleInfoJSON() moduleInfoJSON {
 	var components []collectorComponent
 	for _, field := range []struct {
@@ -128,24 +193,18 @@ func (e *fleetAutomationExtension) populateModuleInfoJSON() moduleInfoJSON {
 				continue
 			}
 			enabled := e.isComponentConfigured(comp.String(), field.names)
-			status := "unknown"
-			// TODO: break out this logic to a e.getComponentHealthStatus(name string, componentsType string, componentType string)
+			status := ""
+			// Remains to be seen if we should wait until healthcheckv2 is marked stable to use this
 			if enabled && e.healthCheckV2Enabled {
-				if componentsConfig, ok := e.componentStatus["components"].(map[string]any); ok {
-					if componentStatus, ok := componentsConfig[field.names].(map[string]any); ok {
-						if receiversStatus, ok := componentStatus["components"].(map[string]any); ok {
-							componentName := field.name + ":" + comp.String()
-							if componentStatus, ok := receiversStatus[componentName].(map[string]any); ok {
-								statusJson, err := json.MarshalIndent(componentStatus, "", "  ")
-								if err != nil {
-									e.telemetry.Logger.Error("Failed to marshal component healthcheck status", zap.Error(err))
-								} else {
-									status = string(statusJson)
-									status = strings.ReplaceAll(status, "\"", "")
-									status = strings.ReplaceAll(status, "\n", "")
-								}
-							}
-						}
+				statusMap := e.getComponentHealthStatus(comp.String(), field.names)
+				if statusMap != nil {
+					statusJson, err := json.MarshalIndent(statusMap, "", "  ")
+					if err != nil {
+						e.telemetry.Logger.Error("Failed to marshal component healthcheck status", zap.Error(err))
+					} else {
+						status = string(statusJson)
+						status = strings.ReplaceAll(status, "\"", "")
+						status = strings.ReplaceAll(status, "\n", "")
 					}
 				}
 			}

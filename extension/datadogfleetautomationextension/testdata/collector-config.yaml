@@ -1,8 +1,10 @@
 receivers:
   otlp:
     protocols:
-      grpc:
       http:
+  otlp/log:
+    protocols:
+      grpc:
 exporters:
   datadog:
     api:
@@ -16,6 +18,7 @@ extensions:
     api: 
       key: ${env:DD_API_KEY}
       site: datadoghq.com
+    hostname: "datadogfleetautomation-confighostname"
   healthcheckv2:
     use_v2: true
     component_health:
@@ -28,5 +31,9 @@ service:
   pipelines:
     traces:
       receivers: [otlp]
+      processors: [batch]
+      exporters: [debug]
+    logs:
+      receivers: [otlp/log]
       processors: [batch]
       exporters: [debug]

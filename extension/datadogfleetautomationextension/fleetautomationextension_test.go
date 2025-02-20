@@ -51,8 +51,9 @@ func Test_NotifyConfig(t *testing.T) {
 	}
 	set.ID = component.MustNewID(metadata.Type.String())
 
-	faExt := newExtension(&Config{}, set)
-	err := faExt.NotifyConfig(ctx, conf)
+	faExt, err := newExtension(ctx, &Config{}, set)
+	assert.NoError(t, err)
+	err = faExt.NotifyConfig(ctx, conf)
 	assert.NoError(t, err)
 
 	// Verify that the configuration is correctly set
