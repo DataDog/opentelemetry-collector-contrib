@@ -9,6 +9,7 @@ import (
 	"context"
 
 	"go.opentelemetry.io/collector/component"
+	"go.opentelemetry.io/collector/config/confighttp"
 	"go.opentelemetry.io/collector/extension"
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/extension/datadogfleetautomationextension/internal/metadata"
@@ -21,12 +22,13 @@ func NewFactory() extension.Factory {
 
 func createDefaultConfig() component.Config {
 	return &Config{
+		ClientConfig: confighttp.NewDefaultClientConfig(),
 		API: APIConfig{
 			Site: DefaultSite,
 		},
 	}
 }
 
-func create(_ context.Context, set extension.Settings, cfg component.Config) (extension.Extension, error) {
-	return newExtension(cfg.(*Config), set), nil
+func create(ctx context.Context, set extension.Settings, cfg component.Config) (extension.Extension, error) {
+	return newExtension(ctx, cfg.(*Config), set)
 }

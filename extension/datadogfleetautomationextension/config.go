@@ -6,16 +6,21 @@
 package datadogfleetautomationextension
 
 import (
-	"errors"
-
 	"go.opentelemetry.io/collector/component"
+	"go.opentelemetry.io/collector/config/confighttp"
 
 	datadogconfig "github.com/open-telemetry/opentelemetry-collector-contrib/pkg/datadog/config"
 )
 
 var (
-	errMissingSite = errors.New("\"site\" cannot be blank when using the \"datadogfleetautomation\" extension")
-	errMissingKey  = errors.New("\"key\" cannot be blank when using the \"datadogfleetautomation\" extension")
+	// ErrUnsetAPIKey is returned when the API key is not set.
+	ErrUnsetAPIKey = datadogconfig.ErrUnsetAPIKey
+	// ErrEmptyEndpoint is returned when endpoint is empty
+	ErrEmptyEndpoint = datadogconfig.ErrEmptyEndpoint
+	// ErrAPIKeyFormat is returned if API key contains invalid characters
+	ErrAPIKeyFormat = datadogconfig.ErrAPIKeyFormat
+	// NonHexRegex is a regex of characters that are always invalid in a Datadog API Key
+	NonHexRegex = datadogconfig.NonHexRegex
 )
 
 var _ component.Config = (*Config)(nil)
@@ -23,12 +28,17 @@ var _ component.Config = (*Config)(nil)
 const (
 	// DefaultSite is the default site for the Datadog API.
 	DefaultSite = datadogconfig.DefaultSite
+	// NonHexChars is a regex of characters that are always invalid in a Datadog API key.
+	NonHexChars = datadogconfig.NonHexChars
 )
 
 // Config contains the information necessary for enabling the Datadog Fleet
 // Automation Extension.
 type Config struct {
+	confighttp.ClientConfig
 	API APIConfig `mapstructure:"api"`
+	// If Hostname is empty extension will use available system APIs and cloud provider endpoints.
+	Hostname string `mapstructure:"hostname"`
 }
 
 // APIConfig contains the information necessary for configuring the Datadog API.
@@ -37,10 +47,10 @@ type APIConfig = datadogconfig.APIConfig
 // Validate ensures that the configuration is valid.
 func (c *Config) Validate() error {
 	if c.API.Site == "" {
-		return errMissingSite
+		return ErrEmptyEndpoint
 	}
 	if c.API.Key == "" {
-		return errMissingKey
+		return ErrUnsetAPIKey
 	}
 	return nil
 }

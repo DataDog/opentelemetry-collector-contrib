@@ -8,6 +8,7 @@ package datadogfleetautomationextension
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 	"sync"
@@ -23,7 +24,10 @@ import (
 	"github.com/DataDog/datadog-agent/comp/forwarder/defaultforwarder"
 	"github.com/DataDog/datadog-agent/pkg/serializer"
 	"github.com/DataDog/datadog-agent/pkg/util/compression"
+	"github.com/DataDog/opentelemetry-mapping-go/pkg/otlp/attributes/source"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/extension/datadogfleetautomationextension/internal/metadata"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/datadog/clientutil"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/datadog/hostmetadata"
 )
 
 type fleetAutomationExtension struct {
@@ -49,12 +53,15 @@ type fleetAutomationExtension struct {
 
 	agentMetadataPayload AgentMetadata
 	otelMetadataPayload  OtelMetadata
-	hostMetadataPayload  HostMetadata
 
 	httpServer           *http.Server
 	healthCheckV2Enabled bool
 	healthCheckV2Config  map[string]any
 	componentStatus      map[string]any // retrieved from healthcheckv2 extension, if enabled/configured
+
+	hostnameProvider source.Provider
+	hostnameSource   string // can be "unset", "config", or "inferred"
+	hostname         string // unique identifier for host where collector is running
 }
 
 var _ extensioncapabilities.ConfigWatcher = (*fleetAutomationExtension)(nil)
@@ -65,7 +72,7 @@ var _ extensioncapabilities.ConfigWatcher = (*fleetAutomationExtension)(nil)
 
 // This method is called during the startup process by the Collector's Service right after
 // calling Start.
-func (e *fleetAutomationExtension) NotifyConfig(_ context.Context, conf *confmap.Conf) error {
+func (e *fleetAutomationExtension) NotifyConfig(ctx context.Context, conf *confmap.Conf) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
@@ -73,6 +80,29 @@ func (e *fleetAutomationExtension) NotifyConfig(_ context.Context, conf *confmap
 	e.telemetry.Logger.Info("Received new collector configuration")
 	e.collectorConfigStringMap = e.collectorConfig.ToStringMap()
 
+	// check for new hostname in extension config
+	extensionConfig := e.getComponentConfig(metadata.Type.String(), extensionsType)
+	if extensionConfig != nil {
+		hostname := extensionConfig["hostname"]
+		if hostname != e.hostname {
+			if hostname != "" {
+				e.hostname = hostname.(string)
+				e.hostnameSource = "config"
+			} else {
+				e.telemetry.Logger.Info("Hostname in config is empty, inferring hostname")
+				source, err := e.hostnameProvider.Source(ctx)
+				if err != nil {
+					e.telemetry.Logger.Error("Failed to infer hostname, collector will not show in Fleet Automation", zap.Error(err))
+					e.hostname = ""
+					e.hostnameSource = "unset"
+				} else {
+					e.hostname = source.Identifier
+					e.telemetry.Logger.Info("Inferred hostname", zap.String("hostname", e.hostname))
+					e.hostnameSource = "inferred"
+				}
+			}
+		}
+	}
 	// check if healthcheckV2 is configured, enabled, and properly configured
 	// if so, set healthCheckV2Enabled to true
 	healthCheckV2Configured := e.isComponentConfigured("healthcheckv2", extensionsType)
@@ -91,42 +121,6 @@ func (e *fleetAutomationExtension) NotifyConfig(_ context.Context, conf *confmap
 		if e.isModuleAvailable("healthcheckv2", extensionType) {
 			e.telemetry.Logger.Info("healthcheckv2 extension is included with your collector but not configured; component status will not be available in Datadog Fleet page")
 		}
-	}
-
-	// create a sample hostmetadata payload
-	// TODO: replace with actual host info
-	e.hostMetadataPayload = HostMetadata{
-		CPUArchitecture:              "unknown",
-		CPUCacheSize:                 9437184,
-		CPUCores:                     6,
-		CPUFamily:                    "6",
-		CPUFrequency:                 2208.007,
-		CPULogicalProcessors:         6,
-		CPUModel:                     "Intel(R) Core(TM) i7-8750H CPU @ 2.20GHz",
-		CPUModelID:                   "158",
-		CPUStepping:                  "10",
-		CPUVendor:                    "GenuineIntel",
-		KernelName:                   "Linux",
-		KernelRelease:                "5.16.0-6-amd64",
-		KernelVersion:                "#1 SMP PREEMPT Debian 5.16.18-1 (2022-03-29)",
-		OS:                           "GNU/Linux",
-		OSVersion:                    "debian bookworm/sid",
-		MemorySwapTotalKB:            10237948,
-		MemoryTotalKB:                12227556,
-		IPAddress:                    "192.168.24.138",
-		IPv6Address:                  "fe80::1ff:fe23:4567:890a",
-		MACAddress:                   "01:23:45:67:89:AB",
-		AgentVersion:                 e.buildInfo.Version,
-		CloudProvider:                "AWS",
-		CloudProviderSource:          "DMI",
-		CloudProviderAccountID:       "aws_account_id",
-		CloudProviderHostID:          "32809141302",
-		HypervisorGuestUUID:          "ec24ce06-9ac4-42df-9c10-14772aeb06d7",
-		DMIProductUUID:               "ec24ce06-9ac4-42df-9c10-14772aeb06d7",
-		DMIAssetTag:                  "i-abcedf",
-		DMIAssetVendor:               "Amazon EC2",
-		LinuxPackageSigningEnabled:   true,
-		RPMGlobalRepoGPGCheckEnabled: false,
 	}
 
 	// create agent metadata payload. most fields are not relevant to OSS collector.
@@ -176,7 +170,7 @@ func (e *fleetAutomationExtension) NotifyConfig(_ context.Context, conf *confmap
 		FeatureUSMIstioEnabled:                 false,
 		ECSFargateTaskARN:                      "",
 		ECSFargateClusterName:                  "",
-		Hostname:                               metadata.Type.String(),
+		Hostname:                               e.hostname,
 		FleetPoliciesApplied:                   make([]string, 0),
 	}
 
@@ -249,8 +243,39 @@ func (e *fleetAutomationExtension) Shutdown(ctx context.Context) error {
 	return nil
 }
 
-func newExtension(config *Config, settings extension.Settings) *fleetAutomationExtension {
+func newExtension(ctx context.Context, config *Config, settings extension.Settings) (*fleetAutomationExtension, error) {
+	// API Key validation
+	// TODO: consider moving common logic to pkg/datadog or internal/datadog
+	errchan := make(chan error)
+	apiClient := clientutil.CreateAPIClient(
+		settings.BuildInfo,
+		fmt.Sprintf("https://api.%s", config.API.Site),
+		config.ClientConfig)
+	go func() { errchan <- clientutil.ValidateAPIKey(ctx, string(config.API.Key), settings.Logger, apiClient) }()
+	if config.API.FailOnInvalidKey {
+		if err := <-errchan; err != nil {
+			return nil, err
+		}
+	}
+
 	telemetry := settings.TelemetrySettings
+	// Get Hostname provider
+	hostnameSource := "config"
+	hostname := config.Hostname
+	sourceProvider, err := hostmetadata.GetSourceProvider(settings.TelemetrySettings, config.Hostname, 15*time.Second)
+	if err != nil {
+		telemetry.Logger.Warn("Hostname detection failed to start, hostname must be set manually in config", zap.Error(err))
+	}
+	if hostname == "" && err == nil {
+		source, err := sourceProvider.Source(ctx)
+		if err != nil {
+			telemetry.Logger.Error("Hostname unset and failed to determine hostname, please edit config to manually set hostname", zap.Error(err))
+			hostnameSource = "unset"
+		} else {
+			hostname = source.Identifier
+			hostnameSource = "inferred"
+		}
+	}
 
 	cfg := newConfigComponent(telemetry, config)
 	log := newLogComponent(telemetry)
@@ -260,16 +285,19 @@ func newExtension(config *Config, settings extension.Settings) *fleetAutomationE
 	serializer := newSerializer(forwarder, compressor, cfg)
 	version := settings.BuildInfo.Version
 	return &fleetAutomationExtension{
-		extensionConfig: config,
-		telemetry:       telemetry,
-		collectorConfig: &confmap.Conf{},
-		forwarder:       forwarder,
-		compressor:      &compressor,
-		serializer:      serializer,
-		buildInfo:       settings.BuildInfo,
-		id:              settings.ID,
-		version:         version,
-		ticker:          time.NewTicker(20 * time.Minute),
-		done:            make(chan bool),
-	}
+		extensionConfig:  config,
+		telemetry:        telemetry,
+		collectorConfig:  &confmap.Conf{},
+		forwarder:        forwarder,
+		compressor:       &compressor,
+		serializer:       serializer,
+		buildInfo:        settings.BuildInfo,
+		id:               settings.ID,
+		version:          version,
+		ticker:           time.NewTicker(20 * time.Minute),
+		done:             make(chan bool),
+		hostnameProvider: sourceProvider,
+		hostnameSource:   hostnameSource,
+		hostname:         hostname,
+	}, nil
 }

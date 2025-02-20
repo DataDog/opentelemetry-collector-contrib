@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/DataDog/datadog-agent/pkg/util/uuid"
-	"github.com/open-telemetry/opentelemetry-collector-contrib/extension/datadogfleetautomationextension/internal/metadata"
 	"go.uber.org/zap"
 )
 
@@ -126,33 +125,33 @@ func (e *fleetAutomationExtension) handleMetadata(w http.ResponseWriter, r *http
 		moduleInfoString = strings.ReplaceAll(moduleInfoString, "\"", "")
 		e.otelMetadataPayload.ProvidedConfiguration = moduleInfoString
 	}
-	mp := metadataPayload{
-		Hostname:  metadata.Type.String(),
-		Timestamp: time.Now().UnixNano(),
-		Metadata:  e.hostMetadataPayload,
-		UUID:      uuid.GetUUID(),
-	}
 	ap := agentPayload{
-		Hostname:  metadata.Type.String(),
+		Hostname:  e.hostname,
 		Timestamp: time.Now().UnixNano(),
 		Metadata:  e.agentMetadataPayload,
 		UUID:      uuid.GetUUID(),
 	}
 	p := payload{
-		Hostname:  metadata.Type.String(),
+		Hostname:  e.hostname,
 		Timestamp: time.Now().UnixNano(),
 		Metadata:  e.otelMetadataPayload,
 		UUID:      uuid.GetUUID(),
 	}
 
-	// e.serializer.SendMetadata(&mp)
+	if e.hostnameSource == "unset" {
+		e.telemetry.Logger.Debug("Skipping fleet automation payloads since the hostname is empty")
+		if w != nil {
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte("Fleet automation payloads not sent since the hostname is empty"))
+		}
+		return
+	}
 	e.serializer.SendMetadata(&ap)
 	e.serializer.SendMetadata(&p)
 
 	combinedPayload := CombinedPayload{
-		MetadataPayload: mp,
-		AgentPayload:    ap,
-		OtelPayload:     p,
+		AgentPayload: ap,
+		OtelPayload:  p,
 	}
 
 	// Marshal the combined payload to JSON

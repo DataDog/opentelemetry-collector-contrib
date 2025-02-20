@@ -24,44 +24,9 @@ type OtelMetadata struct {
 	Version                          string `json:"version"`
 }
 
-type HostMetadata struct {
-	CPUArchitecture              string  `json:"cpu_architecture"`
-	CPUCacheSize                 int     `json:"cpu_cache_size"`
-	CPUCores                     int     `json:"cpu_cores"`
-	CPUFamily                    string  `json:"cpu_family"`
-	CPUFrequency                 float64 `json:"cpu_frequency"`
-	CPULogicalProcessors         int     `json:"cpu_logical_processors"`
-	CPUModel                     string  `json:"cpu_model"`
-	CPUModelID                   string  `json:"cpu_model_id"`
-	CPUStepping                  string  `json:"cpu_stepping"`
-	CPUVendor                    string  `json:"cpu_vendor"`
-	KernelName                   string  `json:"kernel_name"`
-	KernelRelease                string  `json:"kernel_release"`
-	KernelVersion                string  `json:"kernel_version"`
-	OS                           string  `json:"os"`
-	OSVersion                    string  `json:"os_version"`
-	MemorySwapTotalKB            int     `json:"memory_swap_total_kb"`
-	MemoryTotalKB                int     `json:"memory_total_kb"`
-	IPAddress                    string  `json:"ip_address"`
-	IPv6Address                  string  `json:"ipv6_address"`
-	MACAddress                   string  `json:"mac_address"`
-	AgentVersion                 string  `json:"agent_version"`
-	CloudProvider                string  `json:"cloud_provider"`
-	CloudProviderSource          string  `json:"cloud_provider_source"`
-	CloudProviderAccountID       string  `json:"cloud_provider_account_id"`
-	CloudProviderHostID          string  `json:"cloud_provider_host_id"`
-	HypervisorGuestUUID          string  `json:"hypervisor_guest_uuid"`
-	DMIProductUUID               string  `json:"dmi_product_uuid"`
-	DMIAssetTag                  string  `json:"dmi_board_asset_tag"`
-	DMIAssetVendor               string  `json:"dmi_board_vendor"`
-	LinuxPackageSigningEnabled   bool    `json:"linux_package_signing_enabled"`
-	RPMGlobalRepoGPGCheckEnabled bool    `json:"rpm_global_repo_gpg_check_enabled"`
-}
-
 type CombinedPayload struct {
-	MetadataPayload metadataPayload `json:"metadata_payload"`
-	AgentPayload    agentPayload    `json:"agent_payload"`
-	OtelPayload     payload         `json:"otel_payload"`
+	AgentPayload agentPayload `json:"agent_payload"`
+	OtelPayload  payload      `json:"otel_payload"`
 }
 
 type AgentMetadata struct {
@@ -125,14 +90,6 @@ type payload struct {
 	UUID      string       `json:"uuid"`
 }
 
-// metadataPayload handles the JSON unmarshalling of the host metadata payload
-type metadataPayload struct {
-	Hostname  string       `json:"hostname"`
-	Timestamp int64        `json:"timestamp"`
-	Metadata  HostMetadata `json:"host_metadata"`
-	UUID      string       `json:"uuid"`
-}
-
 type agentPayload struct {
 	Hostname  string        `json:"hostname"`
 	Timestamp int64         `json:"timestamp"`
@@ -151,17 +108,6 @@ type collectorComponent struct {
 
 type moduleInfoJSON struct {
 	Components []collectorComponent `json:"components"`
-}
-
-// MarshalJSON serializes a metadataPayload to JSON
-func (p *metadataPayload) MarshalJSON() ([]byte, error) {
-	type metadataPayloadAlias metadataPayload
-	return json.Marshal((*metadataPayloadAlias)(p))
-}
-
-// SplitPayload implements marshaler.AbstractMarshaler
-func (p *metadataPayload) SplitPayload(_ int) ([]marshaler.AbstractMarshaler, error) {
-	return nil, fmt.Errorf("could not split inventories agent payload any more, payload is too big for intake")
 }
 
 // MarshalJSON serializes a Payload to JSON
