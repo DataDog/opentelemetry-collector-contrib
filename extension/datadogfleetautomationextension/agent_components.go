@@ -6,14 +6,13 @@
 package datadogfleetautomationextension
 
 import (
+	"compress/gzip"
 	"strings"
 
 	"go.opentelemetry.io/collector/component"
 
-	"github.com/DataDog/datadog-agent/comp/core/config"
 	coreconfig "github.com/DataDog/datadog-agent/comp/core/config"
 	corelog "github.com/DataDog/datadog-agent/comp/core/log/def"
-	log "github.com/DataDog/datadog-agent/comp/core/log/def"
 	"github.com/DataDog/datadog-agent/comp/forwarder/defaultforwarder"
 	pkgconfigmodel "github.com/DataDog/datadog-agent/pkg/config/model"
 	"github.com/DataDog/datadog-agent/pkg/serializer"
@@ -29,17 +28,18 @@ func newLogComponent(set component.TelemetrySettings) corelog.Component {
 	return zlog
 }
 
-func newForwarder(cfg config.Component, log log.Component) *defaultforwarder.DefaultForwarder {
+func newForwarder(cfg coreconfig.Component, log corelog.Component) *defaultforwarder.DefaultForwarder {
 	// fmt.Println("forwarder api_key: ", string(cfg.GetString("api_key")))
 	keysPerDomain := map[string][]string{"https://api." + cfg.GetString("site"): {string(cfg.GetString("api_key"))}}
 	return defaultforwarder.NewDefaultForwarder(cfg, log, defaultforwarder.NewOptions(cfg, log, keysPerDomain))
 }
 
+// create compressor with Gzip strategy, best compression
 func newCompressor() compression.Compressor {
-	return selector.NewCompressor(compression.NoneKind, 0)
+	return selector.NewCompressor(compression.GzipKind, gzip.BestCompression)
 }
 
-func newSerializer(fwd *defaultforwarder.DefaultForwarder, cmp compression.Compressor, cfg config.Component) *serializer.Serializer {
+func newSerializer(fwd *defaultforwarder.DefaultForwarder, cmp compression.Compressor, cfg coreconfig.Component) *serializer.Serializer {
 	return serializer.NewSerializer(fwd, nil, cmp, cfg, metadata.Type.String())
 }
 

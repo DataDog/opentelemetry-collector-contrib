@@ -71,7 +71,30 @@ func (e *fleetAutomationExtension) NotifyConfig(_ context.Context, conf *confmap
 
 	e.collectorConfig = conf
 	e.telemetry.Logger.Info("Received new collector configuration")
+	e.collectorConfigStringMap = e.collectorConfig.ToStringMap()
 
+	// check if healthcheckV2 is configured, enabled, and properly configured
+	// if so, set healthCheckV2Enabled to true
+	healthCheckV2Configured := e.isComponentConfigured("healthcheckv2", extensionsType)
+	if healthCheckV2Configured {
+		e.healthCheckV2Config = e.getComponentConfig("healthcheckv2", extensionsType)
+		enabled, err := e.isHealthCheckV2Enabled()
+		e.healthCheckV2Enabled = false
+		if err != nil {
+			e.telemetry.Logger.Warn(err.Error())
+		} else if !enabled {
+			e.telemetry.Logger.Info("healthcheckv2 extension is included in your collector config but not properly configured")
+		} else {
+			e.healthCheckV2Enabled = true
+		}
+	} else {
+		if e.isModuleAvailable("healthcheckv2", extensionType) {
+			e.telemetry.Logger.Info("healthcheckv2 extension is included with your collector but not configured; component status will not be available in Datadog Fleet page")
+		}
+	}
+
+	// create a sample hostmetadata payload
+	// TODO: replace with actual host info
 	e.hostMetadataPayload = HostMetadata{
 		CPUArchitecture:              "unknown",
 		CPUCacheSize:                 9437184,
@@ -106,18 +129,7 @@ func (e *fleetAutomationExtension) NotifyConfig(_ context.Context, conf *confmap
 		RPMGlobalRepoGPGCheckEnabled: false,
 	}
 
-	// mp := metadataPayload{
-	// 	Hostname:  metadata.Type.String(),
-	// 	Timestamp: time.Now().UnixNano(),
-	// 	Metadata:  e.hostMetadataPayload,
-	// 	UUID:      uuid.GetUUID(),
-	// }
-
-	// err = e.serializer.SendMetadata(&mp)
-	// if err != nil {
-	// 	e.telemetry.Logger.Error("Failed to send host metadata to Datadog backend", zap.Error(err))
-	// }
-
+	// create agent metadata payload. most fields are not relevant to OSS collector.
 	e.agentMetadataPayload = AgentMetadata{
 		AgentVersion:                           "7.64.0-collector",
 		AgentStartupTimeMs:                     1738781602921,
@@ -168,17 +180,7 @@ func (e *fleetAutomationExtension) NotifyConfig(_ context.Context, conf *confmap
 		FleetPoliciesApplied:                   make([]string, 0),
 	}
 
-	moduleJSON, err := json.MarshalIndent(e.moduleInfo, "", "  ")
-	var providedModules string
-	if err != nil {
-		e.telemetry.Logger.Error("Failed to marshal module info", zap.Error(err))
-		providedModules = ""
-	} else {
-		providedModules = string(moduleJSON)
-		providedModules = strings.ReplaceAll(providedModules, "\"", "")
-	}
-
-	e.collectorConfigStringMap = e.collectorConfig.ToStringMap()
+	// convert full config map to a json string and remove excess quotation marks
 	configJSON, err := json.MarshalIndent(e.collectorConfigStringMap, "", "  ")
 	if err != nil {
 		e.telemetry.Logger.Error("Failed to marshal collector config", zap.Error(err))
@@ -186,18 +188,20 @@ func (e *fleetAutomationExtension) NotifyConfig(_ context.Context, conf *confmap
 	}
 	fullConfig := string(configJSON)
 	fullConfig = strings.ReplaceAll(fullConfig, "\"", "")
+
 	e.otelMetadataPayload = OtelMetadata{
 		Enabled:                          true,
 		Version:                          e.buildInfo.Version,
 		ExtensionVersion:                 e.version,
 		Command:                          e.buildInfo.Command,
 		Description:                      "OSS Collector with Datadog Fleet Automation Extension",
-		ProvidedConfiguration:            providedModules,
+		ProvidedConfiguration:            "", // This gets overwritten by populateModuleInfoJSON in http.go
 		RuntimeOverrideConfiguration:     "",
-		EnvironmentVariableConfiguration: "",
+		EnvironmentVariableConfiguration: "", // This gets overwritten by getHealchCheckStatus in http.go
 		FullConfiguration:                fullConfig,
 	}
 
+	// handleMetadata sends the payload(s) to the Datadog backend
 	go e.handleMetadata(nil, nil)
 
 	return nil
@@ -212,30 +216,15 @@ func (e *fleetAutomationExtension) Start(_ context.Context, host component.Host)
 		}
 	}
 
+	// exportModules exposes the GetModulesInfos() private method from collector/service/internal/graph
 	type exportModules interface {
 		GetModuleInfos() service.ModuleInfos
 	}
+
 	if host, ok := host.(exportModules); ok {
 		e.moduleInfo = host.GetModuleInfos()
-		healthCheckV2Configured := e.isComponentConfigured("healthcheckv2", extensionsType)
-		if healthCheckV2Configured {
-			e.healthCheckV2Config = e.getComponentConfig("healthcheckv2", extensionsType)
-		}
-		if healthCheckV2Configured {
-			e.healthCheckV2Config = e.getComponentConfig("healthcheckv2", extensionsType)
-			var err error
-			e.healthCheckV2Enabled, err = e.isHealthCheckV2Enabled()
-			if err != nil {
-				e.telemetry.Logger.Info(err.Error())
-			} else if !e.healthCheckV2Enabled {
-				e.telemetry.Logger.Info("healthcheckv2 extension is not enabled; component status will not be available")
-			}
-		} else {
-			e.healthCheckV2Enabled = false
-			e.telemetry.Logger.Info("healthcheckv2 extension is not configured; component status will not be available")
-		}
 	} else {
-		e.telemetry.Logger.Warn("Failed to get module info; Datadog Fleet Automation will only show the active collector config")
+		e.telemetry.Logger.Warn("Collector component/module info not available; Datadog Fleet Automation will only show the active collector config")
 	}
 
 	err := e.startLocalConfigServer()

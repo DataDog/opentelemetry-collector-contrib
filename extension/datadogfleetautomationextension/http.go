@@ -52,7 +52,7 @@ func (e *fleetAutomationExtension) startLocalConfigServer() error {
 		}
 	}(e.ticker)
 
-	e.telemetry.Logger.Info("HTTP Server started on port " + string(serverPort))
+	e.telemetry.Logger.Info("HTTP Server started on port " + fmt.Sprintf("%d", serverPort))
 
 	return nil
 }
@@ -105,6 +105,14 @@ func (e *fleetAutomationExtension) handleMetadata(w http.ResponseWriter, r *http
 			e.telemetry.Logger.Error("Failed to get health check status", zap.Error(err))
 		} else {
 			e.componentStatus = componentStatus
+			componentStatusByte, err := json.MarshalIndent(componentStatus, "", "  ")
+			if err != nil {
+				e.telemetry.Logger.Error("Failed to marshal component status JSON", zap.Error(err))
+			} else {
+				componentStatusString := string(componentStatusByte)
+				componentStatusString = strings.ReplaceAll(componentStatusString, "\"", "")
+				e.otelMetadataPayload.EnvironmentVariableConfiguration = componentStatusString
+			}
 		}
 	}
 
