@@ -129,6 +129,7 @@ func (e *fleetAutomationExtension) populateModuleInfoJSON() moduleInfoJSON {
 			}
 			enabled := e.isComponentConfigured(comp.String(), field.names)
 			status := "unknown"
+			// TODO: break out this logic to a e.getComponentHealthStatus(name string, componentsType string, componentType string)
 			if enabled && e.healthCheckV2Enabled {
 				if componentsConfig, ok := e.componentStatus["components"].(map[string]any); ok {
 					if componentStatus, ok := componentsConfig[field.names].(map[string]any); ok {
@@ -141,6 +142,7 @@ func (e *fleetAutomationExtension) populateModuleInfoJSON() moduleInfoJSON {
 								} else {
 									status = string(statusJson)
 									status = strings.ReplaceAll(status, "\"", "")
+									status = strings.ReplaceAll(status, "\n", "")
 								}
 							}
 						}
