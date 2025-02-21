@@ -70,32 +70,23 @@ func (e *fleetAutomationExtension) isComponentConfigured(typ string, componentsK
 
 // isModuleAvailable checks if a given gomod type is included in the collector ModuleInfos struct
 func (e *fleetAutomationExtension) isModuleAvailable(componentType string, componentKind string) bool {
-	if componentKind == receiverKind {
-		if _, ok := e.moduleInfo.Receiver[component.MustNewType(componentType)]; ok {
-			return true
+	for _, field := range []struct {
+		kind string
+		data map[component.Type]service.ModuleInfo
+	}{
+		{receiverKind, e.moduleInfo.Receiver},
+		{processorKind, e.moduleInfo.Processor},
+		{exporterKind, e.moduleInfo.Exporter},
+		{extensionKind, e.moduleInfo.Extension},
+		{connectorKind, e.moduleInfo.Connector},
+		// TODO: add Providers and Converters after upstream change accepted to add these to moduleinfos
+	} {
+		if componentKind == field.kind {
+			if _, ok := field.data[component.MustNewType(componentType)]; ok {
+				return true
+			}
 		}
 	}
-	if componentKind == processorKind {
-		if _, ok := e.moduleInfo.Processor[component.MustNewType(componentType)]; ok {
-			return true
-		}
-	}
-	if componentKind == exporterKind {
-		if _, ok := e.moduleInfo.Exporter[component.MustNewType(componentType)]; ok {
-			return true
-		}
-	}
-	if componentKind == extensionKind {
-		if _, ok := e.moduleInfo.Extension[component.MustNewType(componentType)]; ok {
-			return true
-		}
-	}
-	if componentKind == connectorKind {
-		if _, ok := e.moduleInfo.Connector[component.MustNewType(componentType)]; ok {
-			return true
-		}
-	}
-	// TODO: add Provider and converter types after upstream change accepted to add these to moduleinfos
 	return false
 }
 
@@ -194,9 +185,9 @@ func (e *fleetAutomationExtension) getComponentHealthStatus(id string, component
 func (e *fleetAutomationExtension) populateFullComponentsJSON() *moduleInfoJSON {
 	modInfo := newModuleInfoJSON()
 	for _, field := range []struct {
-		names string
+		kinds string
 		data  map[component.Type]service.ModuleInfo
-		name  string
+		kind  string
 	}{
 		{receiversKind, e.moduleInfo.Receiver, receiverKind},
 		{processorsKind, e.moduleInfo.Processor, processorKind},
@@ -211,10 +202,10 @@ func (e *fleetAutomationExtension) populateFullComponentsJSON() *moduleInfoJSON 
 				e.telemetry.Logger.Warn("Invalid extension info", zap.String("extension", builderRef.BuilderRef))
 				continue
 			}
-			enabled, _ := e.isComponentConfigured(comp.String(), field.names)
+			enabled, _ := e.isComponentConfigured(comp.String(), field.kinds)
 			modInfo.addComponent(collectorModule{
 				Type:              comp.String(),
-				Kind:              field.name,
+				Kind:              field.kind,
 				Gomod:             parts[0],
 				Version:           parts[1],
 				IncludedInService: enabled,
@@ -226,15 +217,16 @@ func (e *fleetAutomationExtension) populateFullComponentsJSON() *moduleInfoJSON 
 
 // populateActiveComponentsJSON creates an activeComponentsJSON struct with all active components from the collector service pipelines
 func (e *fleetAutomationExtension) populateActiveComponentsJSON() (*activeComponentsJSON, error) {
-	var components []serviceComponent
+	var serviceComponents []serviceComponent
 	serviceMap, ok := e.collectorConfigStringMap["service"].(map[string]any)
 	if !ok {
 		e.telemetry.Logger.Error("Failed to get service map from collector config, cannot populate active components table")
 		return &activeComponentsJSON{
-			Components: components,
+			Components: serviceComponents,
 		}, errors.New("failed to get service map from collector config, cannot populate active components table")
 	}
 	for key, value := range serviceMap {
+		var id, name, typ, kind, gomod, version, status string
 		if key == extensionsKind {
 			extensionsList, ok := value.([]any)
 			if !ok {
@@ -247,7 +239,6 @@ func (e *fleetAutomationExtension) populateActiveComponentsJSON() (*activeCompon
 					e.telemetry.Logger.Info("Extensions list in service map config contains non-string value", zap.Any("extension", extension))
 					continue
 				}
-				var id, name, typ, kind, gomod, version, status string
 				fullID := strings.Split(extensionString, "/")
 				if len(fullID) == 1 {
 					// component does not have a name
@@ -278,7 +269,7 @@ func (e *fleetAutomationExtension) populateActiveComponentsJSON() (*activeCompon
 						status = dataToFlattenedJSONString(statusMap, true)
 					}
 				}
-				components = append(components, serviceComponent{
+				serviceComponents = append(serviceComponents, serviceComponent{
 					ID:              id,
 					Name:            name,
 					Type:            typ,
@@ -291,12 +282,135 @@ func (e *fleetAutomationExtension) populateActiveComponentsJSON() (*activeCompon
 		} else {
 			if key == pipelinesKind {
 				// TODO: ADD PIPELINE COMPONENTS TO ACTIVE COMPONENTS
-				e.telemetry.Logger.Info("Skipping pipelines section in service map")
+				pipelineMap, ok := value.(map[string]any) // e.g. "traces", "logs", "metrics"
+				if !ok {
+					e.telemetry.Logger.Info("Failed to get pipeline map from service map config")
+					continue
+				}
+				for _, components := range pipelineMap {
+					// pipelineTelemetryKind will be "traces", "logs", etc.
+					// components will be a list of map[string]interface{} with component kinds and ids mapped
+					componentKindsInPipeline, ok := components.(map[string]any)
+					if !ok {
+						e.telemetry.Logger.Info("Failed to get components map from pipeline map in service map config")
+						continue
+					}
+					for componentsKind, componentsInterface := range componentKindsInPipeline {
+						componentKind, ok := kindsToKind[componentsKind]
+						if !ok {
+							e.telemetry.Logger.Info("Invalid component kind", zap.String("kind", componentsKind))
+							continue
+						}
+						componentsList, ok := componentsInterface.([]any)
+						if !ok {
+							e.telemetry.Logger.Info("Failed to get components list from pipeline map in service map config")
+							continue
+						}
+						for _, component := range componentsList {
+							componentString, ok := component.(string)
+							if !ok {
+								e.telemetry.Logger.Info("Components list in pipeline map in service map config contains non-string value", zap.Any("component", component))
+								continue
+							}
+							fullID := strings.Split(componentString, "/")
+							if len(fullID) == 1 {
+								// component does not have a name
+								id = fullID[0]
+								name = ""
+							} else if len(fullID) == 2 {
+								id = componentString
+								name = fullID[1]
+							} else {
+								e.telemetry.Logger.Info("Invalid component ID", zap.String("component", componentString))
+								continue
+							}
+							typ = fullID[0]
+							kind = componentKind
+							comp, ok := e.moduleInfoJSON.getComponent(typ, kind)
+							if !ok {
+								e.telemetry.Logger.Info("service component not found in module info", zap.String("component", componentString))
+								gomod = "unknown"
+								version = "unknown"
+							} else {
+								gomod = comp.Gomod
+								version = comp.Version
+							}
+							status = ""
+							if e.healthCheckV2Enabled {
+								statusMap := e.getComponentHealthStatus(id, extensionsKind)
+								if statusMap != nil {
+									status = dataToFlattenedJSONString(statusMap, true)
+								}
+							}
+							serviceComponents = append(serviceComponents, serviceComponent{
+								ID:              id,
+								Name:            name,
+								Type:            typ,
+								Kind:            kind,
+								Gomod:           gomod,
+								Version:         version,
+								ComponentStatus: status,
+							})
+						}
+					}
+
+				}
+			} else {
 				continue
 			}
 		}
 	}
-	return &activeComponentsJSON{Components: components}, nil
+	return &activeComponentsJSON{Components: serviceComponents}, nil
+}
+
+// TODO: Work to support instancing of components (non-trivial problem)
+// https://github.com/open-telemetry/opentelemetry-collector/issues/10534#issue-2389523504
+func (e *fleetAutomationExtension) getServiceComponent(componentString, componentsKind string) *serviceComponent {
+	var id, name, typ, kind, gomod, version, status string
+	componentKind, ok := kindsToKind[componentsKind]
+	if !ok {
+		e.telemetry.Logger.Info("Invalid component kind", zap.String("kind", componentsKind))
+		return nil
+	}
+	fullID := strings.Split(componentString, "/")
+	if len(fullID) == 1 {
+		// component does not have a name
+		id = fullID[0]
+		name = ""
+	} else if len(fullID) == 2 {
+		id = componentString
+		name = fullID[1]
+	} else {
+		e.telemetry.Logger.Info("Invalid component ID", zap.String("component", componentString))
+		return nil
+	}
+	typ = fullID[0]
+	kind = componentKind
+	comp, ok := e.moduleInfoJSON.getComponent(typ, kind)
+	if !ok {
+		e.telemetry.Logger.Info("service component not found in module info", zap.String("component", componentString))
+		gomod = "unknown"
+		version = "unknown"
+	} else {
+		gomod = comp.Gomod
+		version = comp.Version
+	}
+	status = ""
+	if e.healthCheckV2Enabled {
+		statusMap := e.getComponentHealthStatus(id, extensionsKind)
+		if statusMap != nil {
+			status = dataToFlattenedJSONString(statusMap, true)
+		}
+	}
+	return &serviceComponent{
+		ID:              id,
+		Name:            name,
+		Type:            typ,
+		Kind:            kind,
+		Gomod:           gomod,
+		Version:         version,
+		ComponentStatus: status,
+	}
 }
 
 func dataToFlattenedJSONString(data any, removeNewLines bool) string {
