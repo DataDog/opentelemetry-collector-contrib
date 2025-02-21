@@ -14,6 +14,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	pkgconfigsetup "github.com/DataDog/datadog-agent/pkg/config/setup"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/pkg/datadog"
 )
 
 func TestNewLogComponent(t *testing.T) {
@@ -36,12 +37,12 @@ func TestNewLogComponent(t *testing.T) {
 	// Assert that the returned component is not nil
 	assert.NotNil(t, logComponent)
 
-	// Assert that the returned component is of type *zaplogger
-	zlog, ok := logComponent.(*zaplogger)
-	assert.True(t, ok, "Expected logComponent to be of type *zaplogger")
+	// Assert that the returned component is of type *datadog.Zaplogger
+	zlog, ok := logComponent.(*datadog.Zaplogger)
+	assert.True(t, ok, "Expected logComponent to be of type *datadog.Zaplogger")
 
 	// Assert that the logger is correctly set
-	assert.Equal(t, logger, zlog.logger)
+	assert.Equal(t, logger, zlog.Logger)
 }
 
 func TestNewConfigComponent(t *testing.T) {

@@ -19,11 +19,12 @@ import (
 	"github.com/DataDog/datadog-agent/pkg/util/compression"
 	"github.com/DataDog/datadog-agent/pkg/util/compression/selector"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/extension/datadogfleetautomationextension/internal/metadata"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/pkg/datadog"
 )
 
 func newLogComponent(set component.TelemetrySettings) corelog.Component {
-	zlog := &zaplogger{
-		logger: set.Logger,
+	zlog := &datadog.Zaplogger{
+		Logger: set.Logger,
 	}
 	return zlog
 }
