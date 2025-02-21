@@ -15,7 +15,7 @@ require (
 	github.com/DataDog/datadog-agent/pkg/util/uuid v0.64.0-devel.0.20250204171248-049f218d24a4
 	github.com/DataDog/opentelemetry-mapping-go/pkg/otlp/attributes v0.26.0
 	github.com/open-telemetry/opentelemetry-collector-contrib/internal/datadog v0.120.1
-	github.com/open-telemetry/opentelemetry-collector-contrib/pkg/datadog v0.118.0
+	github.com/open-telemetry/opentelemetry-collector-contrib/pkg/datadog v0.120.1
 	github.com/stretchr/testify v1.10.0
 	go.opentelemetry.io/collector/component v0.120.0
 	go.opentelemetry.io/collector/component/componenttest v0.120.0
@@ -51,11 +51,12 @@ require (
 	github.com/DataDog/datadog-agent/pkg/metrics v0.64.0-devel // indirect
 	github.com/DataDog/datadog-agent/pkg/orchestrator/model v0.62.1 // indirect
 	github.com/DataDog/datadog-agent/pkg/process/util/api v0.62.1 // indirect
-	github.com/DataDog/datadog-agent/pkg/proto v0.63.0-devel // indirect
+	github.com/DataDog/datadog-agent/pkg/proto v0.64.0-devel // indirect
 	github.com/DataDog/datadog-agent/pkg/status/health v0.62.1 // indirect
 	github.com/DataDog/datadog-agent/pkg/tagger/types v0.62.1 // indirect
 	github.com/DataDog/datadog-agent/pkg/tagset v0.62.1 // indirect
 	github.com/DataDog/datadog-agent/pkg/telemetry v0.62.1 // indirect
+	github.com/DataDog/datadog-agent/pkg/trace v0.62.2 // indirect
 	github.com/DataDog/datadog-agent/pkg/util/backoff v0.62.1 // indirect
 	github.com/DataDog/datadog-agent/pkg/util/buf v0.62.1 // indirect
 	github.com/DataDog/datadog-agent/pkg/util/cache v0.64.0-devel.0.20250204171248-049f218d24a4 // indirect
@@ -81,8 +82,8 @@ require (
 	github.com/DataDog/gohai v0.0.0-20230524154621-4316413895ee // indirect
 	github.com/DataDog/mmh3 v0.0.0-20210722141835-012dc69a9e49 // indirect
 	github.com/DataDog/opentelemetry-mapping-go/pkg/inframetadata v0.25.0 // indirect
-	github.com/DataDog/opentelemetry-mapping-go/pkg/otlp/metrics v0.24.0 // indirect
-	github.com/DataDog/opentelemetry-mapping-go/pkg/quantile v0.24.0 // indirect
+	github.com/DataDog/opentelemetry-mapping-go/pkg/otlp/metrics v0.25.0 // indirect
+	github.com/DataDog/opentelemetry-mapping-go/pkg/quantile v0.25.0 // indirect
 	github.com/DataDog/sketches-go v1.4.6 // indirect
 	github.com/DataDog/viper v1.14.0 // indirect
 	github.com/DataDog/zstd v1.5.6 // indirect
@@ -196,7 +197,7 @@ require (
 	go.opentelemetry.io/collector/component/componentstatus v0.120.0 // indirect
 	go.opentelemetry.io/collector/config/configauth v0.120.0 // indirect
 	go.opentelemetry.io/collector/config/configcompression v1.26.0 // indirect
-	go.opentelemetry.io/collector/config/confignet v1.24.0 // indirect
+	go.opentelemetry.io/collector/config/confignet v1.26.0 // indirect
 	go.opentelemetry.io/collector/config/configopaque v1.26.0 // indirect
 	go.opentelemetry.io/collector/config/configretry v1.26.0 // indirect
 	go.opentelemetry.io/collector/config/configtelemetry v0.120.0 // indirect
@@ -261,7 +262,7 @@ require (
 	golang.org/x/sys v0.30.0 // indirect
 	golang.org/x/term v0.29.0 // indirect
 	golang.org/x/text v0.22.0 // indirect
-	golang.org/x/time v0.7.0 // indirect
+	golang.org/x/time v0.8.0 // indirect
 	gonum.org/v1/gonum v0.15.1 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20250115164207-1a7da9e5054f // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250115164207-1a7da9e5054f // indirect
