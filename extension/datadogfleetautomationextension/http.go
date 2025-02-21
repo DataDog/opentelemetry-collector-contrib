@@ -9,7 +9,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/DataDog/datadog-agent/pkg/util/uuid"
@@ -104,27 +103,21 @@ func (e *fleetAutomationExtension) handleMetadata(w http.ResponseWriter, r *http
 			e.telemetry.Logger.Error("Failed to get health check status", zap.Error(err))
 		} else {
 			e.componentStatus = componentStatus
-			componentStatusByte, err := json.MarshalIndent(componentStatus, "", "  ")
-			if err != nil {
-				e.telemetry.Logger.Error("Failed to marshal component status JSON", zap.Error(err))
-			} else {
-				componentStatusString := string(componentStatusByte)
-				componentStatusString = strings.ReplaceAll(componentStatusString, "\"", "")
-				e.otelMetadataPayload.EnvironmentVariableConfiguration = componentStatusString
-			}
+			e.otelMetadataPayload.EnvironmentVariableConfiguration = dataToFlattenedJSONString(e.componentStatus, false)
 		}
 	}
 
-	e.moduleInfoJSON = e.populateModuleInfoJSON()
-	moduleInfoByte, err := json.MarshalIndent(e.moduleInfoJSON, "", "  ")
-	moduleInfoString := ""
+	e.moduleInfoJSON = e.populateFullComponentsJSON()
+	e.otelMetadataPayload.ProvidedConfiguration = dataToFlattenedJSONString(e.moduleInfoJSON, false)
+
+	var err error
+	e.activeComponentsJSON, err = e.populateActiveComponentsJSON()
 	if err != nil {
-		e.telemetry.Logger.Error("Failed to marshal module info JSON", zap.Error(err))
+		e.telemetry.Logger.Error("Failed to populate active components JSON", zap.Error(err))
 	} else {
-		moduleInfoString = string(moduleInfoByte)
-		moduleInfoString = strings.ReplaceAll(moduleInfoString, "\"", "")
-		e.otelMetadataPayload.ProvidedConfiguration = moduleInfoString
+		e.otelMetadataPayload.ProvidedConfiguration = dataToFlattenedJSONString(e.activeComponentsJSON, false) + "\n" + e.otelMetadataPayload.ProvidedConfiguration
 	}
+
 	ap := agentPayload{
 		Hostname:  e.hostname,
 		Timestamp: time.Now().UnixNano(),

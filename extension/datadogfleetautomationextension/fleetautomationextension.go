@@ -7,10 +7,8 @@ package datadogfleetautomationextension
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
-	"strings"
 	"sync"
 	"time"
 
@@ -25,7 +23,6 @@ import (
 	"github.com/DataDog/datadog-agent/pkg/serializer"
 	"github.com/DataDog/datadog-agent/pkg/util/compression"
 	"github.com/DataDog/opentelemetry-mapping-go/pkg/otlp/attributes/source"
-	"github.com/open-telemetry/opentelemetry-collector-contrib/extension/datadogfleetautomationextension/internal/metadata"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/datadog/clientutil"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/datadog/hostmetadata"
 )
@@ -34,6 +31,7 @@ type fleetAutomationExtension struct {
 	extension.Extension // Embed base Extension for common functionality.
 
 	extensionConfig          *Config
+	extensionID              component.ID
 	telemetry                component.TelemetrySettings
 	collectorConfig          *confmap.Conf
 	collectorConfigStringMap map[string]any
@@ -41,11 +39,11 @@ type fleetAutomationExtension struct {
 	done                     chan bool
 	mu                       sync.RWMutex
 
-	buildInfo      component.BuildInfo
-	moduleInfo     service.ModuleInfos
-	moduleInfoJSON moduleInfoJSON
-	version        string
-	id             component.ID
+	buildInfo            component.BuildInfo
+	moduleInfo           service.ModuleInfos
+	moduleInfoJSON       *moduleInfoJSON
+	activeComponentsJSON *activeComponentsJSON
+	version              string
 
 	forwarder  *defaultforwarder.DefaultForwarder
 	compressor *compression.Compressor
@@ -56,6 +54,7 @@ type fleetAutomationExtension struct {
 
 	httpServer           *http.Server
 	healthCheckV2Enabled bool
+	healthCheckV2ID      *component.ID // currently first healthcheckv2 extension found; could expand to multiple health checks if needed
 	healthCheckV2Config  map[string]any
 	componentStatus      map[string]any // retrieved from healthcheckv2 extension, if enabled/configured
 
@@ -69,7 +68,7 @@ var _ extensioncapabilities.ConfigWatcher = (*fleetAutomationExtension)(nil)
 // NotifyConfig implements the ConfigWatcher interface, which allows this extension
 // to be notified of the Collector's effective configuration. See interface:
 // https://github.com/open-telemetry/opentelemetry-collector/blob/d0fde2f6b98f13cbbd8657f8188207ac7d230ed5/extension/extension.go#L46.
-
+//
 // This method is called during the startup process by the Collector's Service right after
 // calling Start.
 func (e *fleetAutomationExtension) NotifyConfig(ctx context.Context, conf *confmap.Conf) error {
@@ -81,7 +80,7 @@ func (e *fleetAutomationExtension) NotifyConfig(ctx context.Context, conf *confm
 	e.collectorConfigStringMap = e.collectorConfig.ToStringMap()
 
 	// check for new hostname in extension config
-	extensionConfig := e.getComponentConfig(metadata.Type.String(), extensionsType)
+	extensionConfig := e.getComponentConfig(e.extensionID.String(), extensionsKind)
 	if extensionConfig != nil {
 		hostname := extensionConfig["hostname"]
 		if hostname != e.hostname {
@@ -105,9 +104,12 @@ func (e *fleetAutomationExtension) NotifyConfig(ctx context.Context, conf *confm
 	}
 	// check if healthcheckV2 is configured, enabled, and properly configured
 	// if so, set healthCheckV2Enabled to true
-	healthCheckV2Configured := e.isComponentConfigured("healthcheckv2", extensionsType)
+	healthCheckV2Configured, healthCheckV2ID := e.isComponentConfigured("healthcheckv2", extensionsKind)
+	if healthCheckV2ID != nil {
+		e.healthCheckV2ID = healthCheckV2ID
+	}
 	if healthCheckV2Configured {
-		e.healthCheckV2Config = e.getComponentConfig("healthcheckv2", extensionsType)
+		e.healthCheckV2Config = e.getComponentConfig(e.healthCheckV2ID.String(), extensionsKind)
 		enabled, err := e.isHealthCheckV2Enabled()
 		e.healthCheckV2Enabled = false
 		if err != nil {
@@ -118,70 +120,39 @@ func (e *fleetAutomationExtension) NotifyConfig(ctx context.Context, conf *confm
 			e.healthCheckV2Enabled = true
 		}
 	} else {
-		if e.isModuleAvailable("healthcheckv2", extensionType) {
+		if e.isModuleAvailable("healthcheckv2", extensionKind) {
 			e.telemetry.Logger.Info("healthcheckv2 extension is included with your collector but not configured; component status will not be available in Datadog Fleet page")
 		}
 	}
 
 	// create agent metadata payload. most fields are not relevant to OSS collector.
 	e.agentMetadataPayload = AgentMetadata{
-		AgentVersion:                           "7.64.0-collector",
-		AgentStartupTimeMs:                     1738781602921,
-		AgentFlavor:                            "agent",
-		ConfigAPMDDUrl:                         "",
-		ConfigSite:                             e.extensionConfig.API.Site,
-		ConfigLogsDDUrl:                        "",
-		ConfigLogsSocks5ProxyAddress:           "",
-		ConfigNoProxy:                          make([]string, 0),
-		ConfigProcessDDUrl:                     "",
-		ConfigProxyHTTP:                        "",
-		ConfigProxyHTTPS:                       "",
-		ConfigEKSFargate:                       false,
-		InstallMethodTool:                      e.buildInfo.Command,
-		InstallMethodToolVersion:               e.buildInfo.Version,
-		InstallMethodInstallerVersion:          e.buildInfo.Version,
-		LogsTransport:                          "",
-		FeatureFIPSEnabled:                     false,
-		FeatureCWSEnabled:                      false,
-		FeatureCWSNetworkEnabled:               false,
-		FeatureCWSSecurityProfilesEnabled:      false,
-		FeatureCWSRemoteConfigEnabled:          false,
-		FeatureCSMVMContainersEnabled:          false,
-		FeatureCSMVMHostsEnabled:               false,
-		FeatureContainerImagesEnabled:          false,
-		FeatureProcessEnabled:                  false,
-		FeatureProcessesContainerEnabled:       false,
-		FeatureProcessLanguageDetectionEnabled: false,
-		FeatureNetworksEnabled:                 false,
-		FeatureNetworksHTTPEnabled:             false,
-		FeatureNetworksHTTPSEnabled:            false,
-		FeatureLogsEnabled:                     false,
-		FeatureCSPMEnabled:                     false,
-		FeatureAPMEnabled:                      false,
-		FeatureRemoteConfigurationEnabled:      true,
-		FeatureOTLPEnabled:                     true,
-		FeatureIMDSv2Enabled:                   false,
-		FeatureUSMEnabled:                      false,
-		FeatureUSMKafkaEnabled:                 false,
-		FeatureUSMJavaTLSEnabled:               false,
-		FeatureUSMGoTLSEnabled:                 false,
-		FeatureUSMHTTPByStatusCodeEnabled:      false,
-		FeatureUSMHTTP2Enabled:                 false,
-		FeatureUSMIstioEnabled:                 false,
-		ECSFargateTaskARN:                      "",
-		ECSFargateClusterName:                  "",
-		Hostname:                               e.hostname,
-		FleetPoliciesApplied:                   make([]string, 0),
+		AgentVersion:                      "7.64.0-collector",
+		AgentStartupTimeMs:                1738781602921,
+		AgentFlavor:                       "agent",
+		ConfigAPMDDUrl:                    "",
+		ConfigSite:                        e.extensionConfig.API.Site,
+		ConfigLogsDDUrl:                   "",
+		ConfigLogsSocks5ProxyAddress:      "",
+		ConfigNoProxy:                     make([]string, 0),
+		ConfigProcessDDUrl:                "",
+		ConfigProxyHTTP:                   "",
+		ConfigProxyHTTPS:                  "",
+		ConfigEKSFargate:                  false,
+		InstallMethodTool:                 e.buildInfo.Command,
+		InstallMethodToolVersion:          e.buildInfo.Version,
+		InstallMethodInstallerVersion:     e.buildInfo.Version,
+		LogsTransport:                     "",
+		FeatureRemoteConfigurationEnabled: true,
+		FeatureOTLPEnabled:                true,
+		ECSFargateTaskARN:                 "",
+		ECSFargateClusterName:             "",
+		Hostname:                          e.hostname,
+		FleetPoliciesApplied:              make([]string, 0),
 	}
 
 	// convert full config map to a json string and remove excess quotation marks
-	configJSON, err := json.MarshalIndent(e.collectorConfigStringMap, "", "  ")
-	if err != nil {
-		e.telemetry.Logger.Error("Failed to marshal collector config", zap.Error(err))
-		return nil
-	}
-	fullConfig := string(configJSON)
-	fullConfig = strings.ReplaceAll(fullConfig, "\"", "")
+	fullConfig := dataToFlattenedJSONString(e.collectorConfigStringMap, false)
 
 	e.otelMetadataPayload = OtelMetadata{
 		Enabled:                          true,
@@ -189,7 +160,7 @@ func (e *fleetAutomationExtension) NotifyConfig(ctx context.Context, conf *confm
 		ExtensionVersion:                 e.version,
 		Command:                          e.buildInfo.Command,
 		Description:                      "OSS Collector with Datadog Fleet Automation Extension",
-		ProvidedConfiguration:            "", // This gets overwritten by populateModuleInfoJSON in http.go
+		ProvidedConfiguration:            "", // This gets overwritten by populateFullComponentsJSON in http.go
 		RuntimeOverrideConfiguration:     "",
 		EnvironmentVariableConfiguration: "", // This gets overwritten by getHealchCheckStatus in http.go
 		FullConfiguration:                fullConfig,
@@ -285,6 +256,7 @@ func newExtension(ctx context.Context, config *Config, settings extension.Settin
 	serializer := newSerializer(forwarder, compressor, cfg)
 	version := settings.BuildInfo.Version
 	return &fleetAutomationExtension{
+		extensionID:      settings.ID,
 		extensionConfig:  config,
 		telemetry:        telemetry,
 		collectorConfig:  &confmap.Conf{},
@@ -292,7 +264,6 @@ func newExtension(ctx context.Context, config *Config, settings extension.Settin
 		compressor:       &compressor,
 		serializer:       serializer,
 		buildInfo:        settings.BuildInfo,
-		id:               settings.ID,
 		version:          version,
 		ticker:           time.NewTicker(20 * time.Minute),
 		done:             make(chan bool),

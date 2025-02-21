@@ -14,7 +14,7 @@ processors:
   batch:
     timeout: 10s
 extensions:
-  datadogfleetautomation:
+  datadogfleetautomation/test:
     api: 
       key: ${env:DD_API_KEY}
       site: datadoghq.com
@@ -27,7 +27,7 @@ extensions:
       recovery_duration: 5m
     http:
 service:
-  extensions: [healthcheckv2, datadogfleetautomation]
+  extensions: [healthcheckv2, datadogfleetautomation/test]
   pipelines:
     traces:
       receivers: [otlp]

@@ -97,17 +97,66 @@ type agentPayload struct {
 	UUID      string        `json:"uuid"`
 }
 
-type collectorComponent struct {
-	Name            string `json:"name"`
+type collectorModule struct {
+	Type              string `json:"type"`
+	Kind              string `json:"kind"`
+	Gomod             string `json:"gomod"`
+	Version           string `json:"version"`
+	IncludedInService bool   `json:"included_in_service"`
+}
+
+type serviceComponent struct {
+	ID              string `json:"id"`
+	Name            string `json:"name,omitempty"`
 	Type            string `json:"type"`
-	Module          string `json:"module"`
+	Kind            string `json:"kind"`
+	Gomod           string `json:"gomod"`
 	Version         string `json:"version"`
-	Enabled         bool   `json:"enabled"`
 	ComponentStatus string `json:"component_status"`
 }
 
 type moduleInfoJSON struct {
-	Components []collectorComponent `json:"components"`
+	components map[string]collectorModule
+}
+
+func newModuleInfoJSON() *moduleInfoJSON {
+	return &moduleInfoJSON{
+		components: make(map[string]collectorModule),
+	}
+}
+
+func (m *moduleInfoJSON) getKey(typeStr, kindStr string) string {
+	return typeStr + ":" + kindStr
+}
+
+func (m *moduleInfoJSON) addComponent(comp collectorModule) {
+	key := m.getKey(comp.Type, comp.Kind)
+	m.components[key] = comp
+	// We don't ever expect two modules to have the same type and kind
+	// as collector would not be able to distinguish between them for configuration
+	// and service/pipeline purposes.
+}
+
+func (m *moduleInfoJSON) getComponent(typeStr, kindStr string) (collectorModule, bool) {
+	key := m.getKey(typeStr, kindStr)
+	comp, ok := m.components[key]
+	return comp, ok
+}
+
+func (m *moduleInfoJSON) MarshalJSON() ([]byte, error) {
+	alias := struct {
+		Components []collectorModule `json:"full_components"`
+	}{
+		Components: make([]collectorModule, 00, len(m.components)),
+	}
+	for _, comp := range m.components {
+		alias.Components = append(alias.Components, comp)
+	}
+	return json.Marshal(alias)
+}
+
+type activeComponentsJSON struct {
+	Components []serviceComponent `json:"active_components"`
 }
 
 // MarshalJSON serializes a Payload to JSON
