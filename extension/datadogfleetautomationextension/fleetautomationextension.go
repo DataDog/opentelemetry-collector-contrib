@@ -130,25 +130,14 @@ func (e *fleetAutomationExtension) NotifyConfig(ctx context.Context, conf *confm
 		AgentVersion:                      "7.64.0-collector",
 		AgentStartupTimeMs:                1738781602921,
 		AgentFlavor:                       "agent",
-		ConfigAPMDDUrl:                    "",
 		ConfigSite:                        e.extensionConfig.API.Site,
-		ConfigLogsDDUrl:                   "",
-		ConfigLogsSocks5ProxyAddress:      "",
-		ConfigNoProxy:                     make([]string, 0),
-		ConfigProcessDDUrl:                "",
-		ConfigProxyHTTP:                   "",
-		ConfigProxyHTTPS:                  "",
 		ConfigEKSFargate:                  false,
 		InstallMethodTool:                 e.buildInfo.Command,
 		InstallMethodToolVersion:          e.buildInfo.Version,
 		InstallMethodInstallerVersion:     e.buildInfo.Version,
-		LogsTransport:                     "",
 		FeatureRemoteConfigurationEnabled: true,
 		FeatureOTLPEnabled:                true,
-		ECSFargateTaskARN:                 "",
-		ECSFargateClusterName:             "",
 		Hostname:                          e.hostname,
-		FleetPoliciesApplied:              make([]string, 0),
 	}
 
 	// convert full config map to a json string and remove excess quotation marks
@@ -161,7 +150,6 @@ func (e *fleetAutomationExtension) NotifyConfig(ctx context.Context, conf *confm
 		Command:                          e.buildInfo.Command,
 		Description:                      "OSS Collector with Datadog Fleet Automation Extension",
 		ProvidedConfiguration:            "", // This gets overwritten by populateFullComponentsJSON in http.go
-		RuntimeOverrideConfiguration:     "",
 		EnvironmentVariableConfiguration: "", // This gets overwritten by getHealchCheckStatus in http.go
 		FullConfiguration:                fullConfig,
 	}
