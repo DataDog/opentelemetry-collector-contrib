@@ -61,6 +61,7 @@ type fleetAutomationExtension struct {
 	hostnameProvider source.Provider
 	hostnameSource   string // can be "unset", "config", or "inferred"
 	hostname         string // unique identifier for host where collector is running
+	localEndpoint    string // if specified, where to listen for metadata requests locally
 }
 
 var _ extensioncapabilities.ConfigWatcher = (*fleetAutomationExtension)(nil)
@@ -262,5 +263,6 @@ func newExtension(ctx context.Context, config *Config, settings extension.Settin
 		hostnameProvider: sourceProvider,
 		hostnameSource:   hostnameSource,
 		hostname:         hostname,
+		localEndpoint:    config.LocalEndpoint,
 	}, nil
 }

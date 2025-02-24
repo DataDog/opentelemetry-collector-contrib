@@ -19,6 +19,7 @@ extensions:
       key: ${env:DD_API_KEY}
       site: datadoghq.com
     hostname: "datadogfleetautomation-confighostname"
+    local_endpoint: "localhost:8087/metadata"
   healthcheckv2:
     use_v2: true
     component_health:
