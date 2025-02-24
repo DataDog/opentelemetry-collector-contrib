@@ -141,7 +141,7 @@ func (e *fleetAutomationExtension) NotifyConfig(ctx context.Context, conf *confm
 	}
 
 	// convert full config map to a json string and remove excess quotation marks
-	fullConfig := dataToFlattenedJSONString(e.collectorConfigStringMap, false)
+	fullConfig := dataToFlattenedJSONString(e.collectorConfigStringMap, false, false)
 
 	e.otelMetadataPayload = OtelMetadata{
 		Enabled:                          true,
@@ -154,8 +154,12 @@ func (e *fleetAutomationExtension) NotifyConfig(ctx context.Context, conf *confm
 		FullConfiguration:                fullConfig,
 	}
 
-	// handleMetadata sends the payload(s) to the Datadog backend
-	go e.handleMetadata(nil, nil)
+	// send payloads to Datadog backend
+	_, err := e.prepareAndSendFleetAutomationPayloads()
+	if err != nil {
+		e.telemetry.Logger.Error("Failed to prepare and send fleet automation payloads", zap.Error(err))
+		return err
+	}
 
 	return nil
 }

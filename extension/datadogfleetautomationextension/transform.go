@@ -266,7 +266,7 @@ func (e *fleetAutomationExtension) populateActiveComponentsJSON() (*activeCompon
 				if e.healthCheckV2Enabled {
 					statusMap := e.getComponentHealthStatus(id, extensionsKind)
 					if statusMap != nil {
-						status = dataToFlattenedJSONString(statusMap, true)
+						status = dataToFlattenedJSONString(statusMap, false, false)
 					}
 				}
 				serviceComponents = append(serviceComponents, serviceComponent{
@@ -339,7 +339,7 @@ func (e *fleetAutomationExtension) populateActiveComponentsJSON() (*activeCompon
 							if e.healthCheckV2Enabled {
 								statusMap := e.getComponentHealthStatus(id, extensionsKind)
 								if statusMap != nil {
-									status = dataToFlattenedJSONString(statusMap, true)
+									status = dataToFlattenedJSONString(statusMap, false, false)
 								}
 							}
 							serviceComponents = append(serviceComponents, serviceComponent{
@@ -399,7 +399,7 @@ func (e *fleetAutomationExtension) getServiceComponent(componentString, componen
 	if e.healthCheckV2Enabled {
 		statusMap := e.getComponentHealthStatus(id, extensionsKind)
 		if statusMap != nil {
-			status = dataToFlattenedJSONString(statusMap, true)
+			status = dataToFlattenedJSONString(statusMap, false, false)
 		}
 	}
 	return &serviceComponent{
@@ -413,15 +413,17 @@ func (e *fleetAutomationExtension) getServiceComponent(componentString, componen
 	}
 }
 
-func dataToFlattenedJSONString(data any, removeNewLines bool) string {
+func dataToFlattenedJSONString(data any, removeNewLines bool, removeQuotes bool) string {
 	jsonData, err := json.MarshalIndent(data, "", "  ")
 	if err != nil {
 		return ""
 	}
 	res := string(jsonData)
-	res = strings.ReplaceAll(res, "\"", "")
 	if removeNewLines {
 		res = strings.ReplaceAll(res, "\n", "")
+	}
+	if removeQuotes {
+		res = strings.ReplaceAll(res, "\"", "")
 	}
 	return res
 }

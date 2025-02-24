@@ -92,32 +92,33 @@ func (e *fleetAutomationExtension) getHealthCheckStatus() (map[string]any, error
 	return result, nil
 }
 
-// handleMetadata writes the metadata payloads to the response writer.
-// It also sends these payloads to the Datadog backend
-func (e *fleetAutomationExtension) handleMetadata(w http.ResponseWriter, r *http.Request) {
-	e.mu.RLock()
-	defer e.mu.RUnlock()
+func (e *fleetAutomationExtension) prepareAndSendFleetAutomationPayloads() (*CombinedPayload, error) {
+
+	// If health check v2 enabled, set Environment Variable Configuration to health check verbose query response
 	if e.healthCheckV2Enabled {
 		componentStatus, err := e.getHealthCheckStatus()
 		if err != nil {
 			e.telemetry.Logger.Error("Failed to get health check status", zap.Error(err))
 		} else {
 			e.componentStatus = componentStatus
-			e.otelMetadataPayload.EnvironmentVariableConfiguration = dataToFlattenedJSONString(e.componentStatus, false)
+			e.otelMetadataPayload.EnvironmentVariableConfiguration = dataToFlattenedJSONString(e.componentStatus, false, false)
 		}
 	}
 
+	// add full components list to Provided Configuration
 	e.moduleInfoJSON = e.populateFullComponentsJSON()
-	e.otelMetadataPayload.ProvidedConfiguration = dataToFlattenedJSONString(e.moduleInfoJSON, false)
+	e.otelMetadataPayload.ProvidedConfiguration = dataToFlattenedJSONString(e.moduleInfoJSON, false, false)
 
-	var err error
-	e.activeComponentsJSON, err = e.populateActiveComponentsJSON()
+	// add active components list to Provided Configuration, if available
+	activeComponentsJSON, err := e.populateActiveComponentsJSON()
 	if err != nil {
 		e.telemetry.Logger.Error("Failed to populate active components JSON", zap.Error(err))
 	} else {
-		e.otelMetadataPayload.ProvidedConfiguration = dataToFlattenedJSONString(e.activeComponentsJSON, false) + "\n" + e.otelMetadataPayload.ProvidedConfiguration
+		e.activeComponentsJSON = activeComponentsJSON
+		e.otelMetadataPayload.ProvidedConfiguration = dataToFlattenedJSONString(e.activeComponentsJSON, false, false) + "\n" + e.otelMetadataPayload.ProvidedConfiguration
 	}
 
+	// Create the datadog_agent and the datadog_agent_otel payloads
 	ap := agentPayload{
 		Hostname:  e.hostname,
 		Timestamp: time.Now().UnixNano(),
@@ -131,6 +132,28 @@ func (e *fleetAutomationExtension) handleMetadata(w http.ResponseWriter, r *http
 		UUID:      uuid.GetUUID(),
 	}
 
+	// Use datadog-agent serializer to send these payloads
+	err = e.serializer.SendMetadata(&ap)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send datadog_agent payload: %w", err)
+	}
+	err = e.serializer.SendMetadata(&p)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send datadog_agent_otel payload: %w", err)
+	}
+
+	combinedPayload := &CombinedPayload{
+		AgentPayload: ap,
+		OtelPayload:  p,
+	}
+	return combinedPayload, nil
+}
+
+// handleMetadata writes the metadata payloads to the response writer.
+// It also sends these payloads to the Datadog backend via prepareAndSendFleetAutomationPayloads
+func (e *fleetAutomationExtension) handleMetadata(w http.ResponseWriter, r *http.Request) {
+	e.mu.RLock()
+	defer e.mu.RUnlock()
 	if e.hostnameSource == "unset" {
 		e.telemetry.Logger.Debug("Skipping fleet automation payloads since the hostname is empty")
 		if w != nil {
@@ -139,18 +162,25 @@ func (e *fleetAutomationExtension) handleMetadata(w http.ResponseWriter, r *http
 		}
 		return
 	}
-	e.serializer.SendMetadata(&ap)
-	e.serializer.SendMetadata(&p)
 
-	combinedPayload := CombinedPayload{
-		AgentPayload: ap,
-		OtelPayload:  p,
+	// call local helper function to prepare the fleet automation payloads
+	// and transmit using serializer component
+	combinedPayload, err := e.prepareAndSendFleetAutomationPayloads()
+	if err != nil {
+		e.telemetry.Logger.Error("Failed to prepare and send fleet automation payloads", zap.Error(err))
+		if w != nil {
+			http.Error(w, "Failed to prepare and send fleet automation payloads", http.StatusInternalServerError)
+		}
+		return
 	}
 
 	// Marshal the combined payload to JSON
 	jsonData, err := json.MarshalIndent(combinedPayload, "", "  ")
 	if err != nil {
-		http.Error(w, "Failed to marshal combined payload", http.StatusInternalServerError)
+		e.telemetry.Logger.Error("Failed to marshal combined payload for local http response", zap.Error(err))
+		if w != nil {
+			http.Error(w, "Failed to marshal combined payload", http.StatusInternalServerError)
+		}
 		return
 	}
 

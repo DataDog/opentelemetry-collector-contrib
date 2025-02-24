@@ -114,7 +114,7 @@ type serviceComponent struct {
 	Kind            string `json:"kind"`
 	Gomod           string `json:"gomod"`
 	Version         string `json:"version"`
-	ComponentStatus string `json:"component_status"`
+	ComponentStatus string `json:"component_status,omitempty"`
 }
 
 // moduleInfoJSON holds data on all modules in the collector
