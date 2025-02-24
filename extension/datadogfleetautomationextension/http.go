@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/DataDog/datadog-agent/comp/forwarder/defaultforwarder"
 	"github.com/DataDog/datadog-agent/pkg/util/uuid"
 	"go.uber.org/zap"
 )
@@ -149,13 +150,17 @@ func (e *fleetAutomationExtension) prepareAndSendFleetAutomationPayloads() (*Com
 	}
 
 	// Use datadog-agent serializer to send these payloads
-	err = e.serializer.SendMetadata(&ap)
-	if err != nil {
-		return nil, fmt.Errorf("failed to send datadog_agent payload: %w", err)
-	}
-	err = e.serializer.SendMetadata(&p)
-	if err != nil {
-		return nil, fmt.Errorf("failed to send datadog_agent_otel payload: %w", err)
+	if e.forwarder.State() == defaultforwarder.Started {
+		err = e.serializer.SendMetadata(&ap)
+		if err != nil {
+			return nil, fmt.Errorf("failed to send datadog_agent payload: %w", err)
+		}
+		err = e.serializer.SendMetadata(&p)
+		if err != nil {
+			return nil, fmt.Errorf("failed to send datadog_agent_otel payload: %w", err)
+		}
+	} else {
+		e.telemetry.Logger.Warn("Forwarder is not started, skipping sending payloads")
 	}
 
 	combinedPayload := &CombinedPayload{

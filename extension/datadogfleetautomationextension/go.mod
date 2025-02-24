@@ -9,7 +9,6 @@ require (
 	github.com/DataDog/datadog-agent/comp/core/log/def v0.64.0-devel
 	github.com/DataDog/datadog-agent/comp/forwarder/defaultforwarder v0.62.1
 	github.com/DataDog/datadog-agent/pkg/config/model v0.64.0-devel
-	github.com/DataDog/datadog-agent/pkg/config/setup v0.62.2
 	github.com/DataDog/datadog-agent/pkg/serializer v0.64.0-devel
 	github.com/DataDog/datadog-agent/pkg/util/compression v0.64.0-devel
 	github.com/DataDog/datadog-agent/pkg/util/uuid v0.64.0-devel.0.20250204171248-049f218d24a4
@@ -45,6 +44,7 @@ require (
 	github.com/DataDog/datadog-agent/pkg/config/env v0.62.2 // indirect
 	github.com/DataDog/datadog-agent/pkg/config/mock v0.62.2 // indirect
 	github.com/DataDog/datadog-agent/pkg/config/nodetreemodel v0.64.0-devel // indirect
+	github.com/DataDog/datadog-agent/pkg/config/setup v0.62.2 // indirect
 	github.com/DataDog/datadog-agent/pkg/config/structure v0.62.2 // indirect
 	github.com/DataDog/datadog-agent/pkg/config/teeconfig v0.64.0-devel // indirect
 	github.com/DataDog/datadog-agent/pkg/config/utils v0.62.1 // indirect

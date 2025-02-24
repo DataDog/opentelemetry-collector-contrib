@@ -30,7 +30,7 @@ func newLogComponent(set component.TelemetrySettings) corelog.Component {
 }
 
 // The Forwarder sends the payloads to Datadog backend
-func newForwarder(cfg coreconfig.Component, log corelog.Component) *defaultforwarder.DefaultForwarder {
+func newForwarder(cfg coreconfig.Component, log corelog.Component) defaultforwarder.Forwarder {
 	keysPerDomain := map[string][]string{"https://api." + cfg.GetString("site"): {string(cfg.GetString("api_key"))}}
 	return defaultforwarder.NewDefaultForwarder(cfg, log, defaultforwarder.NewOptions(cfg, log, keysPerDomain))
 }
@@ -41,7 +41,7 @@ func newCompressor() compression.Compressor {
 }
 
 // The Serializer serializes the payloads prior to being forwarded by the Forwarder
-func newSerializer(fwd *defaultforwarder.DefaultForwarder, cmp compression.Compressor, cfg coreconfig.Component) *serializer.Serializer {
+func newSerializer(fwd defaultforwarder.Forwarder, cmp compression.Compressor, cfg coreconfig.Component) *serializer.Serializer {
 	return serializer.NewSerializer(fwd, nil, cmp, cfg, metadata.Type.String())
 }
 

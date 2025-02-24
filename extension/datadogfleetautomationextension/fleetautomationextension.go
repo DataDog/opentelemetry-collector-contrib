@@ -27,6 +27,13 @@ import (
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/datadog/hostmetadata"
 )
 
+type forwarderWithStartStop interface {
+	defaultforwarder.Forwarder
+	Start() error
+	State() uint32
+	Stop()
+}
+
 type fleetAutomationExtension struct {
 	extension.Extension // Embed base Extension for common functionality.
 
@@ -45,7 +52,7 @@ type fleetAutomationExtension struct {
 	activeComponentsJSON *activeComponentsJSON
 	version              string
 
-	forwarder  *defaultforwarder.DefaultForwarder
+	forwarder  forwarderWithStartStop
 	compressor *compression.Compressor
 	serializer *serializer.Serializer
 
@@ -171,6 +178,7 @@ func (e *fleetAutomationExtension) Start(_ context.Context, host component.Host)
 		err := e.forwarder.Start()
 		if err != nil {
 			e.telemetry.Logger.Error("Failed to start forwarder", zap.Error(err))
+			return err
 		}
 	}
 
@@ -244,7 +252,10 @@ func newExtension(ctx context.Context, config *Config, settings extension.Settin
 	cfg := newConfigComponent(telemetry, config)
 	log := newLogComponent(telemetry)
 	// Initialize forwarder, compressor, and serializer components to forward OTel Inventory to REDAPL backend
-	forwarder := newForwarder(cfg, log)
+	forwarder, ok := newForwarder(cfg, log).(forwarderWithStartStop)
+	if !ok {
+		return nil, fmt.Errorf("failed to create forwarder")
+	}
 	compressor := newCompressor()
 	serializer := newSerializer(forwarder, compressor, cfg)
 	version := settings.BuildInfo.Version
