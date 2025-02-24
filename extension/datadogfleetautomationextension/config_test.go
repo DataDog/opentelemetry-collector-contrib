@@ -58,28 +58,6 @@ func TestConfig_Validate(t *testing.T) {
 			},
 			wantErr: fmt.Errorf("%w: invalid characters: %s", ErrAPIKeyFormat, "g"),
 		},
-		{
-			name: "Valid local endpoint",
-			config: Config{
-				API: APIConfig{
-					Site: DefaultSite,
-					Key:  "1234567890abcdef1234567890abcdef",
-				},
-				LocalEndpoint: "localhost:8088/metadata",
-			},
-			wantErr: nil,
-		},
-		{
-			name: "Invalid local endpoint",
-			config: Config{
-				API: APIConfig{
-					Site: DefaultSite,
-					Key:  "1234567890abcdef1234567890abcdef",
-				},
-				LocalEndpoint: "bomb.com/metadata",
-			},
-			wantErr: fmt.Errorf("%w: failed to split host and port: address bomb.com: missing port in address", errUnavailableLocalEndpoint),
-		},
 	}
 
 	for _, tt := range tests {

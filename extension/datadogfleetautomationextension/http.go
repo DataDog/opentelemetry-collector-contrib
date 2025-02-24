@@ -8,7 +8,6 @@ package datadogfleetautomationextension
 import (
 	"encoding/json"
 	"fmt"
-	"net"
 	"net/http"
 	"time"
 
@@ -18,33 +17,18 @@ import (
 )
 
 const (
-	defaultLocalEndpoint         = "localhost:8088/metadata"
+	serverPort                   = 8088
 	defaultHealthCheckV2Endpoint = "localhost:13133"
 )
 
 func (e *fleetAutomationExtension) startLocalConfigServer() error {
-	var address, port, path string
-	var err error
-	if e.localEndpoint == "" {
-		address, port, path, err = parseEndpoint(defaultLocalEndpoint)
-	} else {
-		address, port, path, err = parseEndpoint(e.localEndpoint)
-	}
-	if err != nil {
-		return fmt.Errorf("failed to parse local endpoint: %w", err)
-	}
-	// Check if local port is available
-	if err := checkPortAvailability(net.JoinHostPort(address, port)); err != nil {
-		return fmt.Errorf("port %s is not available: %w", port, err)
-	}
-
 	mux := http.NewServeMux()
-	mux.HandleFunc(path, e.handleMetadata)
+	mux.HandleFunc("/metadata", e.handleMetadata)
+	//TODO: let user specify port in config? Or remove?
 	e.httpServer = &http.Server{
-		Addr:    net.JoinHostPort(address, port),
+		Addr:    ":" + fmt.Sprintf("%d", serverPort),
 		Handler: mux,
 	}
-
 	go func() {
 		if err := e.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			e.telemetry.Logger.Error("HTTP server error", zap.Error(err))
@@ -67,7 +51,7 @@ func (e *fleetAutomationExtension) startLocalConfigServer() error {
 		}
 	}(e.ticker)
 
-	e.telemetry.Logger.Info("HTTP Server started on " + net.JoinHostPort(address, port))
+	e.telemetry.Logger.Info("HTTP Server started on port " + fmt.Sprintf("%d", serverPort))
 
 	return nil
 }
@@ -211,22 +195,4 @@ func (e *fleetAutomationExtension) handleMetadata(w http.ResponseWriter, r *http
 		w.Write(jsonData)
 	}
 
-}
-
-// checkPortAvailability checks if the port is available for listening.
-func checkPortAvailability(address string) error {
-	// Split the address into host and port
-	_, port, err := net.SplitHostPort(address)
-	if err != nil {
-		return fmt.Errorf("invalid address format: %w", err)
-	}
-
-	// Check if the port is available
-	listener, err := net.Listen("tcp", net.JoinHostPort(address, port))
-	if err != nil {
-		return fmt.Errorf("port %s is not available: %w", port, err)
-	}
-	defer listener.Close()
-
-	return nil
 }

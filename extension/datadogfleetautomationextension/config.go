@@ -7,8 +7,6 @@ package datadogfleetautomationextension
 
 import (
 	"fmt"
-	"net"
-	"net/url"
 	"strings"
 
 	"go.opentelemetry.io/collector/component"
@@ -25,8 +23,7 @@ var (
 	// ErrAPIKeyFormat is returned if API key contains invalid characters
 	ErrAPIKeyFormat = datadogconfig.ErrAPIKeyFormat
 	// NonHexRegex is a regex of characters that are always invalid in a Datadog API Key
-	NonHexRegex                 = datadogconfig.NonHexRegex
-	errUnavailableLocalEndpoint = fmt.Errorf("local endpoint is not available")
+	NonHexRegex = datadogconfig.NonHexRegex
 )
 
 var _ component.Config = (*Config)(nil)
@@ -45,8 +42,6 @@ type Config struct {
 	API                     APIConfig `mapstructure:"api"`
 	// If Hostname is empty extension will use available system APIs and cloud provider endpoints.
 	Hostname string `mapstructure:"hostname"`
-	// LocalEndpoint is used to specify a custom local listener (must be localhost or 0.0.0.0)
-	LocalEndpoint string `mapstructure:"local_endpoint"`
 }
 
 // APIConfig contains the information necessary for configuring the Datadog API.
@@ -64,36 +59,5 @@ func (c *Config) Validate() error {
 	if len(invalidAPIKeyChars) > 0 {
 		return fmt.Errorf("%w: invalid characters: %s", ErrAPIKeyFormat, strings.Join(invalidAPIKeyChars, ", "))
 	}
-	if c.LocalEndpoint != "" {
-		_, _, _, err := parseEndpoint(c.LocalEndpoint)
-		if err != nil {
-			return fmt.Errorf("%w: %v", errUnavailableLocalEndpoint, err)
-		}
-	}
 	return nil
-}
-
-func parseEndpoint(endpoint string) (address, port, path string, err error) {
-	// Ensure the endpoint has a scheme for proper URL parsing
-	if !strings.HasPrefix(endpoint, "http://") && !strings.HasPrefix(endpoint, "https://") {
-		endpoint = "http://" + endpoint
-	}
-
-	// Parse the URL
-	parsedURL, err := url.Parse(endpoint)
-	if err != nil {
-		return "", "", "", fmt.Errorf("failed to parse endpoint: %w", err)
-	}
-
-	// Extract the host and path
-	host := parsedURL.Host
-	path = parsedURL.Path
-
-	// Split the host into address and port
-	address, port, err = net.SplitHostPort(host)
-	if err != nil {
-		return "", "", "", fmt.Errorf("failed to split host and port: %w", err)
-	}
-
-	return address, port, path, nil
 }
