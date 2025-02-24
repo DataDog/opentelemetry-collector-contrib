@@ -124,7 +124,7 @@ func (e *fleetAutomationExtension) handleMetadata(w http.ResponseWriter, r *http
 		Metadata:  e.agentMetadataPayload,
 		UUID:      uuid.GetUUID(),
 	}
-	p := payload{
+	p := otelAgentPayload{
 		Hostname:  e.hostname,
 		Timestamp: time.Now().UnixNano(),
 		Metadata:  e.otelMetadataPayload,

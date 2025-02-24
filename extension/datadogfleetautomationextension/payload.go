@@ -25,8 +25,8 @@ type OtelMetadata struct {
 }
 
 type CombinedPayload struct {
-	AgentPayload agentPayload `json:"agent_payload"`
-	OtelPayload  payload      `json:"otel_payload"`
+	AgentPayload agentPayload     `json:"agent_payload"`
+	OtelPayload  otelAgentPayload `json:"otel_payload"`
 }
 
 type AgentMetadata struct {
@@ -80,10 +80,12 @@ type AgentMetadata struct {
 	FleetPoliciesApplied                   []string `json:"fleet_policies_applied"`
 }
 
-var _ marshaler.JSONMarshaler = (*payload)(nil)
+// Explicitly implement the JSONMarshaler interface
+var _ marshaler.JSONMarshaler = (*otelAgentPayload)(nil)
+var _ marshaler.JSONMarshaler = (*agentPayload)(nil)
 
 // Payload handles the JSON unmarshalling of the otel metadata payload
-type payload struct {
+type otelAgentPayload struct {
 	Hostname  string       `json:"hostname"`
 	Timestamp int64        `json:"timestamp"`
 	Metadata  OtelMetadata `json:"otel_metadata"`
@@ -115,6 +117,9 @@ type serviceComponent struct {
 	ComponentStatus string `json:"component_status"`
 }
 
+// moduleInfoJSON holds data on all modules in the collector
+// It is built to make checking module info quicker when building active/configured components list
+// (don't need to iterate through a whole list of modules, just do key/value pair in map)
 type moduleInfoJSON struct {
 	components map[string]collectorModule
 }
@@ -160,15 +165,15 @@ type activeComponentsJSON struct {
 }
 
 // MarshalJSON serializes a Payload to JSON
-func (p *payload) MarshalJSON() ([]byte, error) {
-	type payloadAlias payload
+func (p *otelAgentPayload) MarshalJSON() ([]byte, error) {
+	type payloadAlias otelAgentPayload
 	return json.Marshal((*payloadAlias)(p))
 }
 
 // SplitPayload implements marshaler.AbstractMarshaler#SplitPayload.
 //
 // In this case, the payload can't be split any further.
-func (p *payload) SplitPayload(_ int) ([]marshaler.AbstractMarshaler, error) {
+func (p *otelAgentPayload) SplitPayload(_ int) ([]marshaler.AbstractMarshaler, error) {
 	return nil, fmt.Errorf("could not split inventories agent payload any more, payload is too big for intake")
 }
 

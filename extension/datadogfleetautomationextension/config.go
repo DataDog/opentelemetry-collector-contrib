@@ -6,6 +6,9 @@
 package datadogfleetautomationextension
 
 import (
+	"fmt"
+	"strings"
+
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/config/confighttp"
 
@@ -35,8 +38,8 @@ const (
 // Config contains the information necessary for enabling the Datadog Fleet
 // Automation Extension.
 type Config struct {
-	confighttp.ClientConfig
-	API APIConfig `mapstructure:"api"`
+	confighttp.ClientConfig `mapstructure:",squash"`
+	API                     APIConfig `mapstructure:"api"`
 	// If Hostname is empty extension will use available system APIs and cloud provider endpoints.
 	Hostname string `mapstructure:"hostname"`
 }
@@ -51,6 +54,10 @@ func (c *Config) Validate() error {
 	}
 	if c.API.Key == "" {
 		return ErrUnsetAPIKey
+	}
+	invalidAPIKeyChars := NonHexRegex.FindAllString(string(c.API.Key), -1)
+	if len(invalidAPIKeyChars) > 0 {
+		return fmt.Errorf("%w: invalid characters: %s", ErrAPIKeyFormat, strings.Join(invalidAPIKeyChars, ", "))
 	}
 	return nil
 }

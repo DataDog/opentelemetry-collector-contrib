@@ -13,7 +13,6 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
-	pkgconfigsetup "github.com/DataDog/datadog-agent/pkg/config/setup"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/pkg/datadog"
 )
 
@@ -75,27 +74,14 @@ func TestNewConfigComponent(t *testing.T) {
 	assert.Equal(t, "test-site", configComponent.GetString("site"))
 	assert.Equal(t, true, configComponent.GetBool("logs_enabled"))
 	assert.Equal(t, "info", configComponent.GetString("log_level"))
-	assert.Equal(t, pkgconfigsetup.DefaultAuditorTTL, configComponent.GetInt("logs_config.auditor_ttl"))
-	assert.Equal(t, pkgconfigsetup.DefaultBatchMaxContentSize, configComponent.GetInt("logs_config.batch_max_content_size"))
-	assert.Equal(t, pkgconfigsetup.DefaultBatchMaxSize, configComponent.GetInt("logs_config.batch_max_size"))
-	assert.Equal(t, true, configComponent.GetBool("logs_config.force_use_http"))
-	assert.Equal(t, pkgconfigsetup.DefaultInputChanSize, configComponent.GetInt("logs_config.input_chan_size"))
-	assert.Equal(t, pkgconfigsetup.DefaultMaxMessageSizeBytes, configComponent.GetInt("logs_config.max_message_size_bytes"))
-	assert.Equal(t, "/opt/datadog-agent/run", configComponent.GetString("logs_config.run_path"))
-	assert.Equal(t, pkgconfigsetup.DefaultLogsSenderBackoffFactor, configComponent.GetFloat64("logs_config.sender_backoff_factor"))
-	assert.Equal(t, pkgconfigsetup.DefaultLogsSenderBackoffBase, configComponent.GetFloat64("logs_config.sender_backoff_base"))
-	assert.Equal(t, pkgconfigsetup.DefaultLogsSenderBackoffMax, configComponent.GetFloat64("logs_config.sender_backoff_max"))
-	assert.Equal(t, pkgconfigsetup.DefaultForwarderRecoveryInterval, configComponent.GetInt("logs_config.sender_recovery_interval"))
-	assert.Equal(t, 30, configComponent.GetInt("logs_config.stop_grace_period"))
-	assert.Equal(t, true, configComponent.GetBool("logs_config.use_v2_api"))
 	assert.Equal(t, true, configComponent.GetBool("enable_payloads.events"))
 	assert.Equal(t, true, configComponent.GetBool("enable_payloads.json_to_v1_intake"))
 	assert.Equal(t, true, configComponent.GetBool("enable_sketch_stream_payload_serialization"))
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
+	assert.Equal(t, 60, configComponent.GetInt("forwarder_apikey_validation_interval"))
+	assert.Equal(t, 1, configComponent.GetInt("forwarder_num_workers"))
+	assert.Equal(t, 2, configComponent.GetInt("logging_frequency"))
+	assert.Equal(t, 2, configComponent.GetInt("forwarder_backoff_factor"))
+	assert.Equal(t, 2, configComponent.GetInt("forwarder_backoff_base"))
+	assert.Equal(t, 64, configComponent.GetInt("forwarder_backoff_max"))
+	assert.Equal(t, 2, configComponent.GetInt("forwarder_recovery_interval"))
 }

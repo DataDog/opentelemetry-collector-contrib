@@ -12,21 +12,23 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/open-telemetry/opentelemetry-collector-contrib/extension/datadogfleetautomationextension/internal/metadata"
 	"go.opentelemetry.io/collector/component/componenttest"
+	"go.opentelemetry.io/collector/config/confighttp"
 	"go.opentelemetry.io/collector/extension/extensiontest"
 )
 
 func TestFactory_CreateDefaultConfig(t *testing.T) {
-	cfg := createDefaultConfig()
-	assert.Equal(t, &Config{
+	expectedConfig := &Config{
+		ClientConfig: confighttp.NewDefaultClientConfig(),
 		API: APIConfig{
 			Site: DefaultSite,
 		},
-	}, cfg)
+	}
+	cfg := createDefaultConfig()
+	assert.Equal(t, expectedConfig, cfg)
+
 	require.NoError(t, componenttest.CheckConfigStruct(cfg))
-	ext, err := create(context.Background(), extensiontest.NewNopSettings(), cfg)
-	require.NoError(t, err)
-	require.NotNil(t, ext)
 }
 
 func TestFactory_Create(t *testing.T) {
@@ -35,4 +37,27 @@ func TestFactory_Create(t *testing.T) {
 	ext, err := create(context.Background(), extensiontest.NewNopSettings(), cfg)
 	require.NoError(t, err)
 	require.NotNil(t, ext)
+}
+
+func TestNewFactory(t *testing.T) {
+	factory := NewFactory()
+
+	assert.Equal(t, metadata.Type, factory.Type())
+	assert.NotNil(t, factory.CreateDefaultConfig)
+	assert.NotNil(t, factory.Create)
+
+	// Test CreateDefaultConfig
+	defaultConfig := factory.CreateDefaultConfig()
+	expectedConfig := &Config{
+		ClientConfig: confighttp.NewDefaultClientConfig(),
+		API: APIConfig{
+			Site: DefaultSite,
+		},
+	}
+	assert.Equal(t, expectedConfig, defaultConfig)
+
+	// Test CreateExtension
+	ext, err := factory.Create(context.Background(), extensiontest.NewNopSettingsWithType(metadata.Type), defaultConfig)
+	assert.NoError(t, err)
+	assert.NotNil(t, ext)
 }
