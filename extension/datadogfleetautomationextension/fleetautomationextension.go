@@ -87,7 +87,8 @@ func (e *fleetAutomationExtension) NotifyConfig(ctx context.Context, conf *confm
 	e.collectorConfigStringMap = e.collectorConfig.ToStringMap()
 
 	// check for new hostname in extension config
-	extensionConfig := e.getComponentConfig(e.extensionID.String(), extensionsKind)
+	// TODO: switch to conf.Sub() method on refactor
+	extensionConfig := e.getComponentSubConfigMap(e.extensionID.String(), extensionsKind)
 	if extensionConfig != nil {
 		hostname := extensionConfig["hostname"]
 		if hostname != e.hostname {
@@ -116,7 +117,8 @@ func (e *fleetAutomationExtension) NotifyConfig(ctx context.Context, conf *confm
 		e.healthCheckV2ID = healthCheckV2ID
 	}
 	if healthCheckV2Configured {
-		e.healthCheckV2Config = e.getComponentConfig(e.healthCheckV2ID.String(), extensionsKind)
+		// TODO: switch to conf.Sub() method on refactor
+		e.healthCheckV2Config = e.getComponentSubConfigMap(e.healthCheckV2ID.String(), extensionsKind)
 		enabled, err := e.isHealthCheckV2Enabled()
 		e.healthCheckV2Enabled = false
 		if err != nil {

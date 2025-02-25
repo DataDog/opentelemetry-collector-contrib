@@ -52,14 +52,14 @@ func (e *fleetAutomationExtension) isComponentConfigured(typ string, componentsK
 	if components, ok := e.collectorConfigStringMap[componentsKind]; ok {
 		if componentMap, ok := components.(map[string]any); ok {
 			// iterate through componentMap, checking either if key == typ or key split by "/" has keySplit[0] as typ
-			for key, _ := range componentMap {
+			for key := range componentMap {
 				if key == typ {
-					newID := component.NewID(component.MustNewType(typ))
+					newID := component.MustNewID(typ)
 					return true, &newID
 				}
 				keySplit := strings.Split(key, "/")
 				if len(keySplit) == 2 && keySplit[0] == typ {
-					newID := component.NewIDWithName(component.MustNewType(keySplit[0]), keySplit[1])
+					newID := component.MustNewIDWithName(keySplit[0], keySplit[1])
 					return true, &newID
 				}
 			}
@@ -114,10 +114,11 @@ func (e *fleetAutomationExtension) isHealthCheckV2Enabled() (bool, error) {
 
 // getComponentConfig looks for the component type in the appropriate config section
 // TODO: allow matching of named components (only allows exact type check currently)
-func (e *fleetAutomationExtension) getComponentConfig(id string, componentsKind string) map[string]any {
+func (e *fleetAutomationExtension) getComponentSubConfigMap(id string, componentsKind string) map[string]any {
 	if components, ok := e.collectorConfigStringMap[componentsKind]; ok {
 		if componentMap, ok := components.(map[string]interface{}); ok {
 			// TODO: allow matching of named components
+			// Consider on refactor, relying on Sub conf method?
 			if componentConfig, ok := componentMap[id]; ok {
 				if configMap, ok := componentConfig.(map[string]any); ok {
 					return configMap
@@ -128,17 +129,17 @@ func (e *fleetAutomationExtension) getComponentConfig(id string, componentsKind 
 	return nil
 }
 
-// subject to change/removal as healthcheckv2 is in "development status"
+// getComponentHealthStatus is subject to change/removal as healthcheckv2 is in "development status"
 // unclear if we should wait until this is more stabilized to add individual component status health
 // to the payloads we send
 //
-// requires e.componentStatus to be recently updated with e.getHealthCheckStatus()
+// requires e.componentStatus to be recently updated with e.getHealthCheckStatus() prior to function call
 func (e *fleetAutomationExtension) getComponentHealthStatus(id string, componentsKind string) map[string]any {
 	componentKind, ok := kindsToKind[componentsKind]
 	if !ok {
 		return nil
 	}
-	result := make(map[string]any)
+	result := map[string]any{}
 	// scrape components list for extensions, pipelines list for receivers, processors, exporters, connectors
 	if componentsConfig, ok := e.componentStatus["components"].(map[string]any); ok {
 		if componentsKind == extensionsKind {
@@ -226,7 +227,6 @@ func (e *fleetAutomationExtension) populateActiveComponentsJSON() (*activeCompon
 		}, errors.New("failed to get service map from collector config, cannot populate active components table")
 	}
 	for key, value := range serviceMap {
-		var id, name, typ, kind, gomod, version, status string
 		if key == extensionsKind {
 			extensionsList, ok := value.([]any)
 			if !ok {
@@ -239,124 +239,47 @@ func (e *fleetAutomationExtension) populateActiveComponentsJSON() (*activeCompon
 					e.telemetry.Logger.Info("Extensions list in service map config contains non-string value", zap.Any("extension", extension))
 					continue
 				}
-				fullID := strings.Split(extensionString, "/")
-				if len(fullID) == 1 {
-					// component does not have a name
-					id = fullID[0]
-					name = ""
-				} else if len(fullID) == 2 {
-					id = extensionString
-					name = fullID[1]
-				} else {
-					e.telemetry.Logger.Info("Invalid extension ID", zap.String("extension", extensionString))
-					continue
+				newServiceComponent := e.getServiceComponent(extensionString, extensionsKind)
+				if newServiceComponent != nil {
+					serviceComponents = append(serviceComponents, *newServiceComponent)
 				}
-				typ = fullID[0]
-				kind = kindsToKind[extensionsKind]
-				comp, ok := e.moduleInfoJSON.getComponent(typ, kind)
-				if !ok {
-					e.telemetry.Logger.Info("service component not found in module info", zap.String("component", extensionString))
-					gomod = "unknown"
-					version = "unknown"
-				} else {
-					gomod = comp.Gomod
-					version = comp.Version
-				}
-				status = ""
-				if e.healthCheckV2Enabled {
-					statusMap := e.getComponentHealthStatus(id, extensionsKind)
-					if statusMap != nil {
-						status = dataToFlattenedJSONString(statusMap, false, false)
-					}
-				}
-				serviceComponents = append(serviceComponents, serviceComponent{
-					ID:              id,
-					Name:            name,
-					Type:            typ,
-					Kind:            kind,
-					Gomod:           gomod,
-					Version:         version,
-					ComponentStatus: status,
-				})
 			}
-		} else {
-			if key == pipelinesKind {
-				// TODO: ADD PIPELINE COMPONENTS TO ACTIVE COMPONENTS
-				pipelineMap, ok := value.(map[string]any) // e.g. "traces", "logs", "metrics"
+		} else if key == pipelinesKind {
+			pipelineMap, ok := value.(map[string]any) // e.g. "traces", "logs", "metrics"
+			if !ok {
+				e.telemetry.Logger.Info("Failed to get pipeline map from service map config")
+				continue
+			}
+			for _, components := range pipelineMap {
+				// pipelineTelemetryKind will be "traces", "logs", etc.
+				// components will be a list of map[string]interface{} with component kinds and ids mapped
+				componentKindsInPipeline, ok := components.(map[string]any)
 				if !ok {
-					e.telemetry.Logger.Info("Failed to get pipeline map from service map config")
+					e.telemetry.Logger.Info("Failed to get components map from pipeline map in service map config")
 					continue
 				}
-				for _, components := range pipelineMap {
-					// pipelineTelemetryKind will be "traces", "logs", etc.
-					// components will be a list of map[string]interface{} with component kinds and ids mapped
-					componentKindsInPipeline, ok := components.(map[string]any)
+				for componentsKind, componentsInterface := range componentKindsInPipeline {
 					if !ok {
-						e.telemetry.Logger.Info("Failed to get components map from pipeline map in service map config")
+						e.telemetry.Logger.Info("Invalid component kind", zap.String("kind", componentsKind))
 						continue
 					}
-					for componentsKind, componentsInterface := range componentKindsInPipeline {
-						componentKind, ok := kindsToKind[componentsKind]
+					componentsList, ok := componentsInterface.([]any)
+					if !ok {
+						e.telemetry.Logger.Info("Failed to get components list from pipeline map in service map config")
+						continue
+					}
+					for _, component := range componentsList {
+						componentString, ok := component.(string)
 						if !ok {
-							e.telemetry.Logger.Info("Invalid component kind", zap.String("kind", componentsKind))
+							e.telemetry.Logger.Info("Components list in pipeline map in service map config contains non-string value", zap.Any("component", component))
 							continue
 						}
-						componentsList, ok := componentsInterface.([]any)
-						if !ok {
-							e.telemetry.Logger.Info("Failed to get components list from pipeline map in service map config")
-							continue
-						}
-						for _, component := range componentsList {
-							componentString, ok := component.(string)
-							if !ok {
-								e.telemetry.Logger.Info("Components list in pipeline map in service map config contains non-string value", zap.Any("component", component))
-								continue
-							}
-							fullID := strings.Split(componentString, "/")
-							if len(fullID) == 1 {
-								// component does not have a name
-								id = fullID[0]
-								name = ""
-							} else if len(fullID) == 2 {
-								id = componentString
-								name = fullID[1]
-							} else {
-								e.telemetry.Logger.Info("Invalid component ID", zap.String("component", componentString))
-								continue
-							}
-							typ = fullID[0]
-							kind = componentKind
-							comp, ok := e.moduleInfoJSON.getComponent(typ, kind)
-							if !ok {
-								e.telemetry.Logger.Info("service component not found in module info", zap.String("component", componentString))
-								gomod = "unknown"
-								version = "unknown"
-							} else {
-								gomod = comp.Gomod
-								version = comp.Version
-							}
-							status = ""
-							if e.healthCheckV2Enabled {
-								statusMap := e.getComponentHealthStatus(id, extensionsKind)
-								if statusMap != nil {
-									status = dataToFlattenedJSONString(statusMap, false, false)
-								}
-							}
-							serviceComponents = append(serviceComponents, serviceComponent{
-								ID:              id,
-								Name:            name,
-								Type:            typ,
-								Kind:            kind,
-								Gomod:           gomod,
-								Version:         version,
-								ComponentStatus: status,
-							})
+						newServiceComponent := e.getServiceComponent(componentString, componentsKind)
+						if newServiceComponent != nil {
+							serviceComponents = append(serviceComponents, *newServiceComponent)
 						}
 					}
-
 				}
-			} else {
-				continue
 			}
 		}
 	}
@@ -397,9 +320,9 @@ func (e *fleetAutomationExtension) getServiceComponent(componentString, componen
 	}
 	status = ""
 	if e.healthCheckV2Enabled {
-		statusMap := e.getComponentHealthStatus(id, extensionsKind)
-		if statusMap != nil {
-			status = dataToFlattenedJSONString(statusMap, false, false)
+		statusMap := e.getComponentHealthStatus(id, componentsKind)
+		if len(statusMap) > 0 {
+			status = dataToFlattenedJSONString(statusMap, true, true)
 		}
 	}
 	return &serviceComponent{
@@ -414,10 +337,18 @@ func (e *fleetAutomationExtension) getServiceComponent(componentString, componen
 }
 
 func dataToFlattenedJSONString(data any, removeNewLines bool, removeQuotes bool) string {
-	jsonData, err := json.MarshalIndent(data, "", "  ")
+	var jsonData []byte
+	var err error
+	if removeNewLines && removeQuotes {
+		// no sense adding all the extra spaces if we are removing newlines and quotes
+		jsonData, err = json.Marshal(data)
+	} else {
+		jsonData, err = json.MarshalIndent(data, "", "  ")
+	}
 	if err != nil {
 		return ""
 	}
+
 	res := string(jsonData)
 	if removeNewLines {
 		res = strings.ReplaceAll(res, "\n", "")

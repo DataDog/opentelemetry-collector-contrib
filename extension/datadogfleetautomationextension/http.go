@@ -42,7 +42,7 @@ func (e *fleetAutomationExtension) startLocalConfigServer() error {
 			select {
 			case <-ticker.C:
 				// Call handleMetadata periodically
-				e.handleMetadata(nil, nil)
+				e.prepareAndSendFleetAutomationPayloads()
 			case <-e.done:
 				e.telemetry.Logger.Info("Stopping datadog fleet automation payload sender")
 				ticker.Stop()
