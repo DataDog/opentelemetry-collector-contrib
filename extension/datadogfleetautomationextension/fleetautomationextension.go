@@ -136,33 +136,24 @@ func (e *fleetAutomationExtension) NotifyConfig(ctx context.Context, conf *confm
 	}
 
 	// create agent metadata payload. most fields are not relevant to OSS collector.
-	e.agentMetadataPayload = AgentMetadata{
-		AgentVersion:                      "7.64.0-collector",
-		AgentStartupTimeMs:                1738781602921,
-		AgentFlavor:                       "agent",
-		ConfigSite:                        e.extensionConfig.API.Site,
-		ConfigEKSFargate:                  false,
-		InstallMethodTool:                 e.buildInfo.Command,
-		InstallMethodToolVersion:          e.buildInfo.Version,
-		InstallMethodInstallerVersion:     e.buildInfo.Version,
-		FeatureRemoteConfigurationEnabled: true,
-		FeatureOTLPEnabled:                true,
-		Hostname:                          e.hostname,
-	}
+	e.agentMetadataPayload = prepareAgentMetadataPayload(
+		e.extensionConfig.API.Site,
+		e.buildInfo.Command,
+		e.buildInfo.Version,
+		e.buildInfo.Version,
+		e.hostname,
+	)
 
 	// convert full config map to a json string and remove excess quotation marks
 	fullConfig := dataToFlattenedJSONString(e.collectorConfigStringMap, false, false)
 
-	e.otelMetadataPayload = OtelMetadata{
-		Enabled:                          true,
-		Version:                          e.buildInfo.Version,
-		ExtensionVersion:                 e.version,
-		Command:                          e.buildInfo.Command,
-		Description:                      "OSS Collector with Datadog Fleet Automation Extension",
-		ProvidedConfiguration:            "", // This gets overwritten by populateFullComponentsJSON in http.go
-		EnvironmentVariableConfiguration: "", // This gets overwritten by getHealchCheckStatus in http.go
-		FullConfiguration:                fullConfig,
-	}
+	// create otel metadata payload
+	e.otelMetadataPayload = prepareOtelMetadataPayload(
+		e.buildInfo.Version,
+		e.version,
+		e.buildInfo.Command,
+		fullConfig,
+	)
 
 	// send payloads to Datadog backend
 	_, err := e.prepareAndSendFleetAutomationPayloads()
@@ -217,6 +208,30 @@ func (e *fleetAutomationExtension) Shutdown(ctx context.Context) error {
 	return nil
 }
 
+func getHostname(ctx context.Context, telemetry component.TelemetrySettings, providedHostname string) (hostname string, hostnameSource string, sourceProvider *source.Provider, sourceProviderError error) {
+	hostnameSource = "config"
+	hostname = providedHostname
+	sp, err := hostmetadata.GetSourceProvider(telemetry, providedHostname, 15*time.Second)
+	if err != nil {
+		err = fmt.Errorf("hostname detection failed to start, hostname must be set manually in config: %v", err)
+		return "", "unset", nil, err
+	}
+	if hostname == "" {
+		source, err := sp.Source(ctx)
+		if err != nil {
+			err = fmt.Errorf("hostname detection failed, please set hostname manually in config: %v", err)
+			hostnameSource = "unset"
+			return "", "unset", &sp, err
+		} else {
+			hostname = source.Identifier
+			hostnameSource = "inferred"
+		}
+	}
+	return hostname, hostnameSource, &sp, err
+}
+
+// func validateAPIKey(ctx context.Context, clientConfig confighttp.ClientConfig, buildInfo component.BuildInfo, logger *zap.Logger, apiKey, site string)
+
 func newExtension(ctx context.Context, config *Config, settings extension.Settings) (*fleetAutomationExtension, error) {
 	// API Key validation
 	// TODO: consider moving common logic to pkg/datadog or internal/datadog
@@ -234,21 +249,10 @@ func newExtension(ctx context.Context, config *Config, settings extension.Settin
 
 	telemetry := settings.TelemetrySettings
 	// Get Hostname provider
-	hostnameSource := "config"
-	hostname := config.Hostname
-	sourceProvider, err := hostmetadata.GetSourceProvider(settings.TelemetrySettings, config.Hostname, 15*time.Second)
+	hostname, hostnameSource, sourceProvider, err := getHostname(ctx, telemetry, config.Hostname)
 	if err != nil {
-		telemetry.Logger.Warn("Hostname detection failed to start, hostname must be set manually in config", zap.Error(err))
-	}
-	if hostname == "" && err == nil {
-		source, err := sourceProvider.Source(ctx)
-		if err != nil {
-			telemetry.Logger.Error("Hostname unset and failed to determine hostname, please edit config to manually set hostname", zap.Error(err))
-			hostnameSource = "unset"
-		} else {
-			hostname = source.Identifier
-			hostnameSource = "inferred"
-		}
+		telemetry.Logger.Warn(err.Error())
+		return nil, err
 	}
 
 	cfg := newConfigComponent(telemetry, config)
@@ -273,8 +277,37 @@ func newExtension(ctx context.Context, config *Config, settings extension.Settin
 		version:          version,
 		ticker:           time.NewTicker(20 * time.Minute),
 		done:             make(chan bool),
-		hostnameProvider: sourceProvider,
+		hostnameProvider: *sourceProvider,
 		hostnameSource:   hostnameSource,
 		hostname:         hostname,
 	}, nil
+}
+
+func prepareAgentMetadataPayload(site, tool, toolversion, installerversion, hostname string) AgentMetadata {
+	return AgentMetadata{
+		AgentVersion:                      "7.64.0-collector",
+		AgentStartupTimeMs:                1234567890123,
+		AgentFlavor:                       "agent",
+		ConfigSite:                        site,
+		ConfigEKSFargate:                  false,
+		InstallMethodTool:                 tool,
+		InstallMethodToolVersion:          toolversion,
+		InstallMethodInstallerVersion:     installerversion,
+		FeatureRemoteConfigurationEnabled: true,
+		FeatureOTLPEnabled:                true,
+		Hostname:                          hostname,
+	}
+}
+
+func prepareOtelMetadataPayload(version, extensionVersion, command, fullConfig string) OtelMetadata {
+	return OtelMetadata{
+		Enabled:                          true,
+		Version:                          version,
+		ExtensionVersion:                 extensionVersion,
+		Command:                          command,
+		Description:                      "OSS Collector with Datadog Fleet Automation Extension",
+		ProvidedConfiguration:            "",
+		EnvironmentVariableConfiguration: "",
+		FullConfiguration:                fullConfig,
+	}
 }
