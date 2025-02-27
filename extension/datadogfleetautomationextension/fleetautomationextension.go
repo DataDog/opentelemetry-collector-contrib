@@ -22,9 +22,21 @@ import (
 	"github.com/DataDog/datadog-agent/comp/forwarder/defaultforwarder"
 	"github.com/DataDog/datadog-agent/pkg/serializer"
 	"github.com/DataDog/datadog-agent/pkg/util/compression"
+	"github.com/DataDog/datadog-api-client-go/v2/api/datadog"
 	"github.com/DataDog/opentelemetry-mapping-go/pkg/otlp/attributes/source"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/datadog/clientutil"
-	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/datadog/hostmetadata"
+
+	coreconfig "github.com/DataDog/datadog-agent/comp/core/config"
+	corelog "github.com/DataDog/datadog-agent/comp/core/log/def"
+)
+
+type (
+	// APIKeyValidator is a function that validates the API key, provided to newExtension for mocking
+	APIKeyValidator func(context.Context, string, *zap.Logger, *datadog.APIClient) error
+	// SourceProviderGetter is a function that returns a source.Provider, provided to newExtension for mocking
+	SourceProviderGetter func(component.TelemetrySettings, string, time.Duration) (source.Provider, error)
+	// ForwarderGetter is a function that returns a defaultforwarder.Forwarder, provided to newExtension for mocking
+	ForwarderGetter func(coreconfig.Component, corelog.Component) defaultforwarder.Forwarder
 )
 
 // defaultForwarderInterface is wrapper for methods in datadog-agent DefaultForwarder struct
@@ -203,15 +215,16 @@ func (e *fleetAutomationExtension) Shutdown(ctx context.Context) error {
 		e.httpServer.Shutdown(ctx)
 	}
 	e.done <- true
+	defer close(e.done)
 	e.forwarder.Stop()
 	e.telemetry.Logger.Info("Stopped Datadog Fleet Automation extension")
 	return nil
 }
 
-func getHostname(ctx context.Context, telemetry component.TelemetrySettings, providedHostname string) (hostname string, hostnameSource string, sourceProvider *source.Provider, sourceProviderError error) {
+func getHostname(ctx context.Context, telemetry component.TelemetrySettings, providedHostname string, sourceProviderGetter SourceProviderGetter) (hostname string, hostnameSource string, sourceProvider *source.Provider, sourceProviderError error) {
 	hostnameSource = "config"
 	hostname = providedHostname
-	sp, err := hostmetadata.GetSourceProvider(telemetry, providedHostname, 15*time.Second)
+	sp, err := sourceProviderGetter(telemetry, providedHostname, 15*time.Second)
 	if err != nil {
 		err = fmt.Errorf("hostname detection failed to start, hostname must be set manually in config: %v", err)
 		return "", "unset", nil, err
@@ -230,26 +243,34 @@ func getHostname(ctx context.Context, telemetry component.TelemetrySettings, pro
 	return hostname, hostnameSource, &sp, err
 }
 
-// func validateAPIKey(ctx context.Context, clientConfig confighttp.ClientConfig, buildInfo component.BuildInfo, logger *zap.Logger, apiKey, site string)
-
-func newExtension(ctx context.Context, config *Config, settings extension.Settings) (*fleetAutomationExtension, error) {
+func newExtension(
+	ctx context.Context,
+	config *Config,
+	settings extension.Settings,
+	apiKeyValidator APIKeyValidator,
+	sourceProviderGetter SourceProviderGetter,
+	forwarderGetter ForwarderGetter,
+) (*fleetAutomationExtension, error) {
 	// API Key validation
 	// TODO: consider moving common logic to pkg/datadog or internal/datadog
-	errchan := make(chan error)
 	apiClient := clientutil.CreateAPIClient(
 		settings.BuildInfo,
-		fmt.Sprintf("https://api.%s", config.API.Site),
+		fmt.Sprintf("https://api.%s", config.API.Site), // TODO: does this need to be safer/more adaptable?
 		config.ClientConfig)
-	go func() { errchan <- clientutil.ValidateAPIKey(ctx, string(config.API.Key), settings.Logger, apiClient) }()
-	if config.API.FailOnInvalidKey {
-		if err := <-errchan; err != nil {
+	// Not passed as goroutine here; no sense skipping API key when all the extension does is send metadata
+	// API Key is always required for proper functionality
+	err := apiKeyValidator(ctx, string(config.API.Key), settings.Logger, apiClient)
+	if err != nil {
+		if config.API.FailOnInvalidKey {
 			return nil, err
+		} else {
+			settings.Logger.Warn(err.Error())
 		}
 	}
 
 	telemetry := settings.TelemetrySettings
 	// Get Hostname provider
-	hostname, hostnameSource, sourceProvider, err := getHostname(ctx, telemetry, config.Hostname)
+	hostname, hostnameSource, sourceProvider, err := getHostname(ctx, telemetry, config.Hostname, sourceProviderGetter)
 	if err != nil {
 		telemetry.Logger.Warn(err.Error())
 		return nil, err
@@ -258,7 +279,7 @@ func newExtension(ctx context.Context, config *Config, settings extension.Settin
 	cfg := newConfigComponent(telemetry, config)
 	log := newLogComponent(telemetry)
 	// Initialize forwarder, compressor, and serializer components to forward OTel Inventory to REDAPL backend
-	forwarder, ok := newForwarder(cfg, log).(defaultForwarderInterface)
+	forwarder, ok := forwarderGetter(cfg, log).(defaultForwarderInterface)
 	if !ok {
 		return nil, fmt.Errorf("failed to create forwarder")
 	}

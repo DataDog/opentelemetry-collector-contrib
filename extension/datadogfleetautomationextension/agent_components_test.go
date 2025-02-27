@@ -19,7 +19,7 @@ import (
 	implgzip "github.com/DataDog/datadog-agent/pkg/util/compression/impl-gzip"
 )
 
-func TestNewSerializer(t *testing.T) {
+func TestAgentComponents_NewSerializer(t *testing.T) {
 	// Create a zap logger for testing
 	config := zap.NewProductionConfig()
 	config.Level = zap.NewAtomicLevelAt(zapcore.InfoLevel)
@@ -61,7 +61,7 @@ func TestNewSerializer(t *testing.T) {
 	assert.Equal(t, compressor, serial.Strategy)
 }
 
-func TestNewCompressor(t *testing.T) {
+func TestAgentComponents_NewCompressor(t *testing.T) {
 	// Call newCompressor
 	compressor := newCompressor()
 
@@ -73,7 +73,7 @@ func TestNewCompressor(t *testing.T) {
 	assert.True(t, ok, "Expected compressor to be of type *compression.GzipCompressor")
 }
 
-func TestNewForwarder(t *testing.T) {
+func TestAgentComponents_NewForwarder(t *testing.T) {
 	// Create a zap logger for testing
 	config := zap.NewProductionConfig()
 	config.Level = zap.NewAtomicLevelAt(zapcore.InfoLevel)
@@ -114,7 +114,7 @@ func TestNewForwarder(t *testing.T) {
 
 }
 
-func TestNewLogComponent(t *testing.T) {
+func TestAgentComponents_NewLogComponent(t *testing.T) {
 	// Create a zap logger for testing
 	config := zap.NewProductionConfig()
 	config.Level = zap.NewAtomicLevelAt(zapcore.InfoLevel)
@@ -142,7 +142,7 @@ func TestNewLogComponent(t *testing.T) {
 	assert.Equal(t, logger, zlog.Logger)
 }
 
-func TestNewConfigComponent(t *testing.T) {
+func TestAgentComponents_NewConfigComponent(t *testing.T) {
 	// Create a zap logger for testing
 	config := zap.NewProductionConfig()
 	config.Level = zap.NewAtomicLevelAt(zapcore.InfoLevel)

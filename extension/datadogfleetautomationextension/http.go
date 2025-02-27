@@ -38,6 +38,9 @@ func (e *fleetAutomationExtension) startLocalConfigServer() error {
 	// Create a ticker that triggers every 20 minutes (FA has 1 hour TTL)
 	// Start a goroutine that will send the Datadog fleet automation payload every 20 minutes
 	go func(ticker *time.Ticker) {
+		if ticker == nil {
+			return
+		}
 		for {
 			select {
 			case <-ticker.C:

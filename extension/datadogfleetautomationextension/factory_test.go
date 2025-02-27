@@ -39,7 +39,7 @@ func TestFactory_Create(t *testing.T) {
 	require.NotNil(t, ext)
 }
 
-func TestNewFactory(t *testing.T) {
+func TestFactory_NewFactory(t *testing.T) {
 	factory := NewFactory()
 
 	assert.Equal(t, metadata.Type, factory.Type())

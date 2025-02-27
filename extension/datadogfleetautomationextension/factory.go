@@ -13,6 +13,8 @@ import (
 	"go.opentelemetry.io/collector/extension"
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/extension/datadogfleetautomationextension/internal/metadata"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/datadog/clientutil"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/datadog/hostmetadata"
 )
 
 // NewFactory creates a factory for the Datadog Fleet Automation Extension.
@@ -30,5 +32,7 @@ func createDefaultConfig() component.Config {
 }
 
 func create(ctx context.Context, set extension.Settings, cfg component.Config) (extension.Extension, error) {
-	return newExtension(ctx, cfg.(*Config), set)
+	apiKeyValidator := clientutil.ValidateAPIKey
+	sourceProviderGetter := hostmetadata.GetSourceProvider
+	return newExtension(ctx, cfg.(*Config), set, apiKeyValidator, sourceProviderGetter, newForwarder)
 }

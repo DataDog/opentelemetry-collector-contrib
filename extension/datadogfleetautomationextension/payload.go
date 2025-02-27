@@ -10,7 +10,23 @@ import (
 	"fmt"
 
 	"github.com/DataDog/datadog-agent/pkg/serializer/marshaler"
+	"go.opentelemetry.io/collector/component"
 )
+
+type OtelCollector struct {
+	HostKey           string              `json:"host_key"`
+	Hostname          string              `json:"hostname"`
+	HostnameSource    string              `json:"hostname_source"`
+	CollectorID       string              `json:"collector_id"`
+	CollectorVersion  string              `json:"collector_version"`
+	ConfigSite        string              `json:"config_site"`
+	APIKeyUUID        string              `json:"api_key_uuid"`
+	FullComponents    []collectorModule   `json:"full_components"`
+	ActiveComponents  []serviceComponent  `json:"active_components"`
+	BuildInfo         component.BuildInfo `json:"build_info"`
+	FullConfiguration string              `json:"full_configuration"` // JSON passed as string
+	HealthStatus      string              `json:"health_status"`      // JSON passed as string
+}
 
 type OtelMetadata struct {
 	Command                          string `json:"command"`
@@ -100,21 +116,22 @@ type agentPayload struct {
 }
 
 type collectorModule struct {
-	Type              string `json:"type"`
-	Kind              string `json:"kind"`
-	Gomod             string `json:"gomod"`
-	Version           string `json:"version"`
-	IncludedInService bool   `json:"included_in_service"`
+	Type       string `json:"type"`
+	Kind       string `json:"kind"`
+	Gomod      string `json:"gomod"`
+	Version    string `json:"version"`
+	Configured bool   `json:"configured"`
 }
 
 type serviceComponent struct {
 	ID              string `json:"id"`
-	Name            string `json:"name,omitempty"`
+	Name            string `json:"name"`
 	Type            string `json:"type"`
 	Kind            string `json:"kind"`
+	Pipeline        string `json:"pipeline"`
 	Gomod           string `json:"gomod"`
 	Version         string `json:"version"`
-	ComponentStatus string `json:"component_status,omitempty"`
+	ComponentStatus string `json:"component_status"`
 }
 
 // moduleInfoJSON holds data on all modules in the collector

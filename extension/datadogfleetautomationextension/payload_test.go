@@ -22,11 +22,11 @@ func TestNewModuleInfoJSON(t *testing.T) {
 func TestAddComponent(t *testing.T) {
 	modInfo := newModuleInfoJSON()
 	comp := collectorModule{
-		Type:              "receiver",
-		Kind:              "otlp",
-		Gomod:             "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/otlpreceiver",
-		Version:           "v0.30.0",
-		IncludedInService: true,
+		Type:       "receiver",
+		Kind:       "otlp",
+		Gomod:      "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/otlpreceiver",
+		Version:    "v0.30.0",
+		Configured: true,
 	}
 	modInfo.addComponent(comp)
 	assert.Equal(t, 1, len(modInfo.components))
@@ -37,11 +37,11 @@ func TestAddComponent(t *testing.T) {
 func TestGetComponent(t *testing.T) {
 	modInfo := newModuleInfoJSON()
 	comp := collectorModule{
-		Type:              "receiver",
-		Kind:              "otlp",
-		Gomod:             "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/otlpreceiver",
-		Version:           "v0.30.0",
-		IncludedInService: true,
+		Type:       "receiver",
+		Kind:       "otlp",
+		Gomod:      "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/otlpreceiver",
+		Version:    "v0.30.0",
+		Configured: true,
 	}
 	modInfo.addComponent(comp)
 	retrievedComp, ok := modInfo.getComponent("receiver", "otlp")
@@ -55,18 +55,18 @@ func TestGetComponent(t *testing.T) {
 func TestMarshalJSON(t *testing.T) {
 	modInfo := newModuleInfoJSON()
 	comp1 := collectorModule{
-		Type:              "receiver",
-		Kind:              "otlp",
-		Gomod:             "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/otlpreceiver",
-		Version:           "v0.30.0",
-		IncludedInService: true,
+		Type:       "receiver",
+		Kind:       "otlp",
+		Gomod:      "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/otlpreceiver",
+		Version:    "v0.30.0",
+		Configured: true,
 	}
 	comp2 := collectorModule{
-		Type:              "processor",
-		Kind:              "batch",
-		Gomod:             "github.com/open-telemetry/opentelemetry-collector-contrib/processor/batchprocessor",
-		Version:           "v0.30.0",
-		IncludedInService: true,
+		Type:       "processor",
+		Kind:       "batch",
+		Gomod:      "github.com/open-telemetry/opentelemetry-collector-contrib/processor/batchprocessor",
+		Version:    "v0.30.0",
+		Configured: true,
 	}
 	modInfo.addComponent(comp1)
 	modInfo.addComponent(comp2)
@@ -81,14 +81,14 @@ func TestMarshalJSON(t *testing.T) {
 							"kind": "otlp",
 							"gomod": "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/otlpreceiver",
 							"version": "v0.30.0",
-							"included_in_service": true
+							"configured": true
 					},
 					{
 							"type": "processor",
 							"kind": "batch",
 							"gomod": "github.com/open-telemetry/opentelemetry-collector-contrib/processor/batchprocessor",
 							"version": "v0.30.0",
-							"included_in_service": true
+							"configured": true
 					}
 			]
 	}`

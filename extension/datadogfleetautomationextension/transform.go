@@ -205,11 +205,11 @@ func (e *fleetAutomationExtension) populateFullComponentsJSON() *moduleInfoJSON 
 			}
 			enabled, _ := e.isComponentConfigured(comp.String(), field.kinds)
 			modInfo.addComponent(collectorModule{
-				Type:              comp.String(),
-				Kind:              field.kind,
-				Gomod:             parts[0],
-				Version:           parts[1],
-				IncludedInService: enabled,
+				Type:       comp.String(),
+				Kind:       field.kind,
+				Gomod:      parts[0],
+				Version:    parts[1],
+				Configured: enabled,
 			})
 		}
 	}
