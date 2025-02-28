@@ -25,52 +25,159 @@ import (
 	"go.opentelemetry.io/collector/confmap"
 	"go.opentelemetry.io/collector/extension"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest"
+	"go.uber.org/zap/zaptest/observer"
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/extension/datadogfleetautomationextension/internal/metadata"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/datadog/clientutil"
-	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/datadog/hostmetadata"
 )
 
 func Test_NotifyConfig(t *testing.T) {
-	// Create a simple confmap.Conf
-	configData := map[string]any{
-		"service": map[string]any{
-			"pipelines": map[string]any{
-				"traces": map[string]any{
-					"receivers": []any{"otlp"},
-					"exporters": []any{"debug"},
+	tests := []struct {
+		name           string
+		configData     map[string]any
+		expectedConfig map[string]any
+		expectedError  string
+		expectedLog    string
+		forwarder      ForwarderGetter
+		provider       SourceProviderGetter
+		apikey         APIKeyValidator
+	}{
+		{
+			name: "Forwarder fails to send metadata",
+			configData: map[string]any{
+				"service": map[string]any{},
+			},
+			expectedConfig: map[string]any{
+				"service": map[string]any{},
+			},
+			expectedError: "failed to send datadog_agent payload",
+			forwarder: func(coreconfig.Component, corelog.Component) defaultforwarder.Forwarder {
+				return mockForwarder{failSendMetadata: true, state: 1}
+			},
+		},
+		{
+			name: "Invalid configuration",
+			configData: map[string]any{
+				"invalid": "config",
+			},
+			expectedConfig: map[string]any{
+				"invalid": "config",
+			},
+			expectedError: "",
+			expectedLog:   "Failed to populate active components JSON",
+			forwarder: func(coreconfig.Component, corelog.Component) defaultforwarder.Forwarder {
+				return mockForwarder{state: 1}
+			},
+		},
+		{
+			name: "Valid configuration",
+			configData: map[string]any{
+				"service": map[string]any{
+					"pipelines": map[string]any{
+						"traces": map[string]any{
+							"receivers": []any{"otlp"},
+							"exporters": []any{"debug"},
+						},
+					},
 				},
+			},
+			expectedConfig: map[string]any{
+				"service": map[string]any{
+					"pipelines": map[string]any{
+						"traces": map[string]any{
+							"receivers": []any{"otlp"},
+							"exporters": []any{"debug"},
+						},
+					},
+				},
+			},
+			expectedError: "",
+			forwarder: func(coreconfig.Component, corelog.Component) defaultforwarder.Forwarder {
+				return mockForwarder{state: 1}
+			},
+		},
+		{
+			name: "Empty configuration",
+			configData: map[string]any{
+				"service": map[string]any{},
+			},
+			expectedConfig: map[string]any{
+				"service": map[string]any{},
+			},
+			expectedError: "",
+			forwarder: func(coreconfig.Component, corelog.Component) defaultforwarder.Forwarder {
+				return mockForwarder{}
 			},
 		},
 	}
-	conf := confmap.NewFromStringMap(configData)
 
-	// Create a background context
-	ctx := context.Background()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create a confmap.Conf from the test config data
+			conf := confmap.NewFromStringMap(tt.configData)
 
-	// Create a logger for testing
-	logger := zaptest.NewLogger(t)
+			// Create a background context
+			ctx := context.Background()
 
-	set := extension.Settings{}
-	// Create telemetry settings with the test logger
-	telemetry := componenttest.NewNopTelemetrySettings()
-	telemetry.Logger = logger
-	set.TelemetrySettings = telemetry
-	set.BuildInfo = component.BuildInfo{
-		Command:     "otelcol",
-		Description: "OpenTelemetry Collector",
-		Version:     "1.0.0",
+			// Create a logger for testing
+			core, logs := observer.New(zapcore.InfoLevel)
+			logger := zap.New(core)
+
+			set := extension.Settings{}
+			// Create telemetry settings with the test logger
+			telemetry := componenttest.NewNopTelemetrySettings()
+			telemetry.Logger = logger
+			set.TelemetrySettings = telemetry
+			set.BuildInfo = component.BuildInfo{
+				Command:     "otelcol",
+				Description: "OpenTelemetry Collector",
+				Version:     "1.0.0",
+			}
+			set.ID = component.MustNewID(metadata.Type.String())
+
+			if tt.forwarder == nil {
+				tt.forwarder = newForwarder
+			}
+			if tt.provider == nil {
+				mspg := mockSourceProviderGetter{
+					provider: &mockSourceProvider{hostname: "inferred-hostname"},
+				}
+				tt.provider = mspg.GetSourceProvider
+			}
+			if tt.apikey == nil {
+				api := mockAPIKeyValidator{}
+				tt.apikey = api.ValidateAPIKey
+			}
+
+			faExt, err := newExtension(ctx, &Config{}, set, clientutil.ValidateAPIKey, tt.provider, tt.forwarder)
+			assert.NoError(t, err)
+			faExt.forwarder.Start()
+			err = faExt.NotifyConfig(ctx, conf)
+			if tt.expectedError != "" {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), tt.expectedError)
+			} else {
+				assert.NoError(t, err)
+			}
+
+			// Verify that the configuration is correctly set
+			assert.Equal(t, conf, faExt.collectorConfig)
+
+			// Check if the expected log message is present
+			if tt.expectedLog != "" {
+				found := false
+				for _, log := range logs.All() {
+					if log.Message == tt.expectedLog {
+						found = true
+						break
+					}
+				}
+				assert.True(t, found, "Expected log message not found")
+			}
+		})
 	}
-	set.ID = component.MustNewID(metadata.Type.String())
-
-	faExt, err := newExtension(ctx, &Config{}, set, clientutil.ValidateAPIKey, hostmetadata.GetSourceProvider, newForwarder)
-	assert.NoError(t, err)
-	err = faExt.NotifyConfig(ctx, conf)
-	assert.NoError(t, err)
-
-	// Verify that the configuration is correctly set
-	assert.Equal(t, conf, faExt.collectorConfig)
 }
 
 func TestPrepareAgentMetadataPayload(t *testing.T) {
@@ -180,7 +287,7 @@ func TestNewExtension(t *testing.T) {
 				err: nil,
 			},
 			sourceProviderGetter: &mockSourceProviderGetter{
-				provider: nil,
+				provider: &mockSourceProvider{hostname: "", err: fmt.Errorf("hostname detection failed")},
 				err:      fmt.Errorf("hostname detection failed"),
 			},
 			expectedError: "hostname detection failed",
@@ -289,17 +396,6 @@ func TestGetHostname(t *testing.T) {
 			expectedSource:   "unset",
 			expectedError:    "hostname detection failed, please set hostname manually in config: hostname detection failed",
 		},
-		{
-			name:             "Source provider getter fails",
-			providedHostname: "",
-			sourceProviderGetter: &mockSourceProviderGetter{
-				provider: nil,
-				err:      fmt.Errorf("source provider getter failed"),
-			},
-			expectedHostname: "",
-			expectedSource:   "unset",
-			expectedError:    "hostname detection failed to start, hostname must be set manually in config: source provider getter failed",
-		},
 	}
 
 	for _, tt := range tests {
@@ -308,8 +404,8 @@ func TestGetHostname(t *testing.T) {
 			logger := zaptest.NewLogger(t)
 			telemetry := componenttest.NewNopTelemetrySettings()
 			telemetry.Logger = logger
-
-			hostname, hostnameSource, _, err := getHostname(ctx, telemetry, tt.providedHostname, tt.sourceProviderGetter.GetSourceProvider)
+			sp, _ := tt.sourceProviderGetter.GetSourceProvider(telemetry, tt.providedHostname, 15*time.Second)
+			hostname, hostnameSource, err := getHostname(ctx, tt.providedHostname, sp)
 
 			if tt.expectedError != "" {
 				assert.Error(t, err)
@@ -320,6 +416,91 @@ func TestGetHostname(t *testing.T) {
 
 			assert.Equal(t, tt.expectedHostname, hostname)
 			assert.Equal(t, tt.expectedSource, hostnameSource)
+		})
+	}
+}
+
+func TestUpdateHostname(t *testing.T) {
+	tests := []struct {
+		name             string
+		initialHostname  string
+		configHostname   any
+		providerHostname string
+		providerError    error
+		expectedHostname string
+		expectedSource   string
+		expectedLogs     []string
+	}{
+		{
+			name:             "Hostname provided in config",
+			initialHostname:  "",
+			configHostname:   "test-hostname",
+			providerHostname: "inferred-hostname",
+			providerError:    nil,
+			expectedHostname: "test-hostname",
+			expectedSource:   "config",
+			expectedLogs:     []string{},
+		},
+		{
+			name:             "Hostname empty in config, inferred successfully",
+			initialHostname:  "",
+			configHostname:   "",
+			providerHostname: "inferred-hostname",
+			providerError:    nil,
+			expectedHostname: "inferred-hostname",
+			expectedSource:   "inferred",
+			expectedLogs:     []string{"Hostname in config is empty, inferring hostname", "Inferred hostname"},
+		},
+		{
+			name:             "Hostname empty in config, inference failed",
+			initialHostname:  "",
+			configHostname:   "",
+			providerHostname: "",
+			providerError:    fmt.Errorf("hostname detection failed"),
+			expectedHostname: "",
+			expectedSource:   "unset",
+			expectedLogs:     []string{"Hostname in config is empty, inferring hostname", "Failed to infer hostname, collector will not show in Fleet Automation"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create a logger for testing
+			core, logs := observer.New(zapcore.InfoLevel)
+			logger := zap.New(core)
+
+			// Create a mock source provider
+			mockProvider := &mockSourceProvider{
+				hostname: tt.providerHostname,
+				err:      tt.providerError,
+			}
+
+			// Create the extension with the initial hostname
+			ext := &fleetAutomationExtension{
+				telemetry:        component.TelemetrySettings{Logger: logger},
+				hostname:         tt.initialHostname,
+				hostnameProvider: mockProvider,
+				extensionID:      component.MustNewID(metadata.Type.String()),
+				collectorConfig:  confmap.NewFromStringMap(map[string]any{metadata.Type.String(): map[string]any{"hostname": tt.configHostname}}),
+			}
+
+			// Call updateHostname
+			ext.updateHostname(context.Background())
+
+			// Verify the hostname and source
+			assert.Equal(t, tt.expectedHostname, ext.hostname)
+			assert.Equal(t, tt.expectedSource, ext.hostnameSource)
+
+			// Verify the logs
+			for _, expectedLog := range tt.expectedLogs {
+				found := false
+				for _, log := range logs.All() {
+					if log.Message == expectedLog {
+						found = true
+						break
+					}
+				}
+				assert.True(t, found, "Expected log message not found: %s", expectedLog)
+			}
 		})
 	}
 }
@@ -457,9 +638,10 @@ func (m *mockAPIKeyValidator) ValidateAPIKey(ctx context.Context, apiKey string,
 }
 
 type mockForwarder struct {
-	startError error
-	stopError  error
-	state      uint32
+	startError       error
+	stopError        error
+	state            uint32
+	failSendMetadata bool
 }
 
 func (m mockForwarder) Start() error {
@@ -510,6 +692,9 @@ func (m mockForwarder) SubmitAgentChecksMetadata(payload transaction.BytesPayloa
 }
 
 func (m mockForwarder) SubmitMetadata(payload transaction.BytesPayloads, extra http.Header) error {
+	if m.failSendMetadata {
+		return fmt.Errorf("failed to send metadata")
+	}
 	return nil
 }
 

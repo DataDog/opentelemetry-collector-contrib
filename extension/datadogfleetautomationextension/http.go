@@ -62,8 +62,8 @@ func (e *fleetAutomationExtension) startLocalConfigServer() error {
 func (e *fleetAutomationExtension) getHealthCheckStatus() (map[string]any, error) {
 	endpoint := "localhost:13133"
 	path := "/health/status"
-	if httpConfig, ok := e.healthCheckV2Config["http"].(map[string]interface{}); ok {
-		if statusConfig, ok := httpConfig["status"].(map[string]interface{}); ok {
+	if httpConfig, ok := e.healthCheckV2Config["http"].(map[string]any); ok {
+		if statusConfig, ok := httpConfig["status"].(map[string]any); ok {
 			if enabled, ok := statusConfig["enabled"].(bool); !enabled || !ok {
 				return nil, fmt.Errorf("http health check v2 extension is not enabled")
 			} else {

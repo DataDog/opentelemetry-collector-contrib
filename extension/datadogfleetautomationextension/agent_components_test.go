@@ -32,6 +32,9 @@ func TestAgentComponents_NewSerializer(t *testing.T) {
 	telemetrySettings := component.TelemetrySettings{
 		Logger: logger,
 	}
+	zlog := &datadog.Zaplogger{
+		Logger: logger,
+	}
 
 	// Create a test Config
 	cfg := &Config{}
@@ -51,7 +54,7 @@ func TestAgentComponents_NewSerializer(t *testing.T) {
 	compressor := newCompressor()
 
 	// Call newSerializer
-	serial := newSerializer(forwarder, compressor, configComponent)
+	serial := newSerializer(forwarder, compressor, configComponent, zlog, "test-hostname")
 
 	// Assert that the returned serializer is not nil
 	assert.NotNil(t, serial)

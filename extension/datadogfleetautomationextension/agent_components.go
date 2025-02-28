@@ -15,10 +15,10 @@ import (
 	corelog "github.com/DataDog/datadog-agent/comp/core/log/def"
 	"github.com/DataDog/datadog-agent/comp/forwarder/defaultforwarder"
 	pkgconfigmodel "github.com/DataDog/datadog-agent/pkg/config/model"
+	"github.com/DataDog/datadog-agent/pkg/config/viperconfig"
 	"github.com/DataDog/datadog-agent/pkg/serializer"
 	"github.com/DataDog/datadog-agent/pkg/util/compression"
 	"github.com/DataDog/datadog-agent/pkg/util/compression/selector"
-	"github.com/open-telemetry/opentelemetry-collector-contrib/extension/datadogfleetautomationextension/internal/metadata"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/pkg/datadog"
 )
 
@@ -41,13 +41,13 @@ func newCompressor() compression.Compressor {
 }
 
 // The Serializer serializes the payloads prior to being forwarded by the Forwarder
-func newSerializer(fwd defaultforwarder.Forwarder, cmp compression.Compressor, cfg coreconfig.Component) *serializer.Serializer {
-	return serializer.NewSerializer(fwd, nil, cmp, cfg, metadata.Type.String())
+func newSerializer(fwd defaultforwarder.Forwarder, cmp compression.Compressor, cfg coreconfig.Component, logger corelog.Component, hostname string) *serializer.Serializer {
+	return serializer.NewSerializer(fwd, nil, cmp, cfg, logger, hostname)
 }
 
 // Config component from datadog-agent is required to use forwarder and serializer components
 func newConfigComponent(set component.TelemetrySettings, cfg *Config) coreconfig.Component {
-	pkgconfig := pkgconfigmodel.NewConfig("DD", "DD", strings.NewReplacer(".", "_"))
+	pkgconfig := viperconfig.NewConfig("DD", "DD", strings.NewReplacer(".", "_"))
 
 	// Set the API Key
 	pkgconfig.Set("api_key", string(cfg.API.Key), pkgconfigmodel.SourceFile)

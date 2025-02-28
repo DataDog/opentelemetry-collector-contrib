@@ -99,30 +99,8 @@ func (e *fleetAutomationExtension) NotifyConfig(ctx context.Context, conf *confm
 	e.telemetry.Logger.Info("Received new collector configuration")
 	e.collectorConfigStringMap = e.collectorConfig.ToStringMap()
 
-	// check for new hostname in extension config
-	// TODO: switch to conf.Sub() method on refactor
-	extensionConfig := e.getComponentSubConfigMap(e.extensionID.String(), extensionsKind)
-	if extensionConfig != nil {
-		hostname := extensionConfig["hostname"]
-		if hostname != e.hostname {
-			if hostname != "" {
-				e.hostname = hostname.(string)
-				e.hostnameSource = "config"
-			} else {
-				e.telemetry.Logger.Info("Hostname in config is empty, inferring hostname")
-				source, err := e.hostnameProvider.Source(ctx)
-				if err != nil {
-					e.telemetry.Logger.Error("Failed to infer hostname, collector will not show in Fleet Automation", zap.Error(err))
-					e.hostname = ""
-					e.hostnameSource = "unset"
-				} else {
-					e.hostname = source.Identifier
-					e.telemetry.Logger.Info("Inferred hostname", zap.String("hostname", e.hostname))
-					e.hostnameSource = "inferred"
-				}
-			}
-		}
-	}
+	e.updateHostname(ctx)
+
 	// check if healthcheckV2 is configured, enabled, and properly configured
 	// if so, set healthCheckV2Enabled to true
 	healthCheckV2Configured, healthCheckV2ID := e.isComponentConfigured("healthcheckv2", extensionsKind)
@@ -221,26 +199,56 @@ func (e *fleetAutomationExtension) Shutdown(ctx context.Context) error {
 	return nil
 }
 
-func getHostname(ctx context.Context, telemetry component.TelemetrySettings, providedHostname string, sourceProviderGetter SourceProviderGetter) (hostname string, hostnameSource string, sourceProvider *source.Provider, sourceProviderError error) {
+func getHostname(ctx context.Context, providedHostname string, sp source.Provider) (hostname string, hostnameSource string, sourceProviderError error) {
 	hostnameSource = "config"
 	hostname = providedHostname
-	sp, err := sourceProviderGetter(telemetry, providedHostname, 15*time.Second)
-	if err != nil {
-		err = fmt.Errorf("hostname detection failed to start, hostname must be set manually in config: %v", err)
-		return "", "unset", nil, err
-	}
 	if hostname == "" {
 		source, err := sp.Source(ctx)
 		if err != nil {
 			err = fmt.Errorf("hostname detection failed, please set hostname manually in config: %v", err)
 			hostnameSource = "unset"
-			return "", "unset", &sp, err
+			return "", "unset", err
 		} else {
 			hostname = source.Identifier
 			hostnameSource = "inferred"
 		}
 	}
-	return hostname, hostnameSource, &sp, err
+	return hostname, hostnameSource, nil
+}
+
+func (e *fleetAutomationExtension) updateHostname(ctx context.Context) {
+	// check for new hostname in extension config
+	// TODO: switch to conf.Sub() method on refactor
+	eCfg, err := e.collectorConfig.Sub(e.extensionID.String())
+	if err != nil {
+		e.telemetry.Logger.Error("Failed to get extension config", zap.Error(err))
+	} else {
+		hostname := eCfg.Get("hostname")
+		if err, ok := hostname.(error); ok {
+			e.telemetry.Logger.Error("Failed to get hostname from extension config", zap.Error(err))
+		} else {
+			if hostname, ok := hostname.(string); ok {
+				if hostname != "" {
+					if hostname != e.hostname {
+						e.hostname = hostname
+						e.hostnameSource = "config"
+					}
+				} else {
+					e.telemetry.Logger.Info("Hostname in config is empty, inferring hostname")
+					hn, source, err := getHostname(ctx, e.hostname, e.hostnameProvider)
+					if err != nil {
+						e.telemetry.Logger.Error("Failed to infer hostname, collector will not show in Fleet Automation", zap.Error(err))
+						e.hostname = ""
+						e.hostnameSource = "unset"
+					} else {
+						e.hostname = hn
+						e.telemetry.Logger.Info("Inferred hostname", zap.String("hostname", e.hostname))
+						e.hostnameSource = source
+					}
+				}
+			}
+		}
+	}
 }
 
 func newExtension(
@@ -270,7 +278,11 @@ func newExtension(
 
 	telemetry := settings.TelemetrySettings
 	// Get Hostname provider
-	hostname, hostnameSource, sourceProvider, err := getHostname(ctx, telemetry, config.Hostname, sourceProviderGetter)
+	sp, err := sourceProviderGetter(telemetry, config.Hostname, 15*time.Second)
+	if err != nil {
+		telemetry.Logger.Warn("hostname detection failed to start, hostname must be set manually in config: %v", zap.Error(err))
+	}
+	hostname, hostnameSource, err := getHostname(ctx, config.Hostname, sp)
 	if err != nil {
 		telemetry.Logger.Warn(err.Error())
 		return nil, err
@@ -278,13 +290,14 @@ func newExtension(
 
 	cfg := newConfigComponent(telemetry, config)
 	log := newLogComponent(telemetry)
+
 	// Initialize forwarder, compressor, and serializer components to forward OTel Inventory to REDAPL backend
 	forwarder, ok := forwarderGetter(cfg, log).(defaultForwarderInterface)
 	if !ok {
 		return nil, fmt.Errorf("failed to create forwarder")
 	}
 	compressor := newCompressor()
-	serializer := newSerializer(forwarder, compressor, cfg)
+	serializer := newSerializer(forwarder, compressor, cfg, log, hostname)
 	version := settings.BuildInfo.Version
 	return &fleetAutomationExtension{
 		extensionID:      settings.ID,
@@ -298,7 +311,7 @@ func newExtension(
 		version:          version,
 		ticker:           time.NewTicker(20 * time.Minute),
 		done:             make(chan bool),
-		hostnameProvider: *sourceProvider,
+		hostnameProvider: sp,
 		hostnameSource:   hostnameSource,
 		hostname:         hostname,
 	}, nil

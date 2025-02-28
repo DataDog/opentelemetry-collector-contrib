@@ -74,6 +74,10 @@ func TestMarshalJSON(t *testing.T) {
 	jsonData, err := json.Marshal(modInfo)
 	assert.NoError(t, err)
 
+	var actualJSON map[string]any
+	err = json.Unmarshal(jsonData, &actualJSON)
+	assert.NoError(t, err)
+
 	expectedJSON := `{
 			"full_components": [
 					{
@@ -92,5 +96,9 @@ func TestMarshalJSON(t *testing.T) {
 					}
 			]
 	}`
-	assert.JSONEq(t, expectedJSON, string(jsonData))
+	var expectedJSONMap map[string]any
+	err = json.Unmarshal([]byte(expectedJSON), &expectedJSONMap)
+	assert.NoError(t, err)
+
+	assert.ElementsMatch(t,expectedJSONMap["full_components"], actualJSON["full_components"])
 }

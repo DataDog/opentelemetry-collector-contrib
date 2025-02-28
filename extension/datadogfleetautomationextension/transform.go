@@ -94,8 +94,8 @@ func (e *fleetAutomationExtension) isModuleAvailable(componentType string, compo
 // should be ran after e.isComponentConfigured for healthcheckv2 and e.getComponentConfig for healthcheckv2
 func (e *fleetAutomationExtension) isHealthCheckV2Enabled() (bool, error) {
 	if useV2, ok := e.healthCheckV2Config["use_v2"].(bool); ok && useV2 {
-		if httpConfig, ok := e.healthCheckV2Config["http"].(map[string]interface{}); ok {
-			if statusConfig, ok := httpConfig["status"].(map[string]interface{}); ok {
+		if httpConfig, ok := e.healthCheckV2Config["http"].(map[string]any); ok {
+			if statusConfig, ok := httpConfig["status"].(map[string]any); ok {
 				if enabled, ok := statusConfig["enabled"].(bool); ok && enabled {
 					return true, nil
 				} else {
@@ -116,7 +116,7 @@ func (e *fleetAutomationExtension) isHealthCheckV2Enabled() (bool, error) {
 // TODO: allow matching of named components (only allows exact type check currently)
 func (e *fleetAutomationExtension) getComponentSubConfigMap(id string, componentsKind string) map[string]any {
 	if components, ok := e.collectorConfigStringMap[componentsKind]; ok {
-		if componentMap, ok := components.(map[string]interface{}); ok {
+		if componentMap, ok := components.(map[string]any); ok {
 			// TODO: allow matching of named components
 			// Consider on refactor, relying on Sub conf method?
 			if componentConfig, ok := componentMap[id]; ok {
@@ -252,7 +252,7 @@ func (e *fleetAutomationExtension) populateActiveComponentsJSON() (*activeCompon
 			}
 			for _, components := range pipelineMap {
 				// pipelineTelemetryKind will be "traces", "logs", etc.
-				// components will be a list of map[string]interface{} with component kinds and ids mapped
+				// components will be a list of map[string]any with component kinds and ids mapped
 				componentKindsInPipeline, ok := components.(map[string]any)
 				if !ok {
 					e.telemetry.Logger.Info("Failed to get components map from pipeline map in service map config")
