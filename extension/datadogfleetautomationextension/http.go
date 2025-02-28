@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/DataDog/datadog-agent/comp/forwarder/defaultforwarder"
@@ -22,13 +23,8 @@ const (
 )
 
 func (e *fleetAutomationExtension) startLocalConfigServer() error {
-	mux := http.NewServeMux()
-	mux.HandleFunc("/metadata", e.handleMetadata)
 	//TODO: let user specify port in config? Or remove?
-	e.httpServer = &http.Server{
-		Addr:    ":" + fmt.Sprintf("%d", serverPort),
-		Handler: mux,
-	}
+	//TODO: Consider adding non-nil error return from this function
 	go func() {
 		if err := e.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			e.telemetry.Logger.Error("HTTP server error", zap.Error(err))
@@ -78,7 +74,11 @@ func (e *fleetAutomationExtension) getHealthCheckStatus() (map[string]any, error
 	}
 
 	// Construct the URL
-	url := fmt.Sprintf("http://%s%s?verbose", endpoint, path)
+	// if endpoint doesn't start with "http://", add it
+	if !strings.HasPrefix(endpoint, "http://") {
+		endpoint = "http://" + endpoint
+	}
+	url := fmt.Sprintf("%s%s?verbose", endpoint, path)
 
 	// Make the HTTP request
 	resp, err := http.Get(url)

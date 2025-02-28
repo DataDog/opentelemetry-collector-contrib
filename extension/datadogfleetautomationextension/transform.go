@@ -46,6 +46,28 @@ var (
 	}
 )
 
+type ComponentChecker interface {
+	isComponentConfigured(string, string) (bool, *component.ID)
+	isModuleAvailable(string, string) bool
+	isHealthCheckV2Enabled() (bool, error)
+}
+
+type defaultComponentChecker struct {
+	extension *fleetAutomationExtension
+}
+
+func (d *defaultComponentChecker) isComponentConfigured(typ string, componentsKind string) (bool, *component.ID) {
+	return d.extension.isComponentConfigured(typ, componentsKind)
+}
+
+func (d *defaultComponentChecker) isModuleAvailable(componentType string, componentKind string) bool {
+	return d.extension.isModuleAvailable(componentType, componentKind)
+}
+
+func (d *defaultComponentChecker) isHealthCheckV2Enabled() (bool, error) {
+	return d.extension.isHealthCheckV2Enabled()
+}
+
 // isComponentConfigured checks if a given component is included in the collector config
 func (e *fleetAutomationExtension) isComponentConfigured(typ string, componentsKind string) (bool, *component.ID) {
 	// NOTE: this will only match the first instance of a component type in the config
@@ -110,23 +132,6 @@ func (e *fleetAutomationExtension) isHealthCheckV2Enabled() (bool, error) {
 	} else {
 		return false, errors.New("healthcheckv2 extension is enabled but is set to legacy mode; component status will not be available")
 	}
-}
-
-// getComponentConfig looks for the component type in the appropriate config section
-// TODO: allow matching of named components (only allows exact type check currently)
-func (e *fleetAutomationExtension) getComponentSubConfigMap(id string, componentsKind string) map[string]any {
-	if components, ok := e.collectorConfigStringMap[componentsKind]; ok {
-		if componentMap, ok := components.(map[string]any); ok {
-			// TODO: allow matching of named components
-			// Consider on refactor, relying on Sub conf method?
-			if componentConfig, ok := componentMap[id]; ok {
-				if configMap, ok := componentConfig.(map[string]any); ok {
-					return configMap
-				}
-			}
-		}
-	}
-	return nil
 }
 
 // getComponentHealthStatus is subject to change/removal as healthcheckv2 is in "development status"
@@ -259,10 +264,6 @@ func (e *fleetAutomationExtension) populateActiveComponentsJSON() (*activeCompon
 					continue
 				}
 				for componentsKind, componentsInterface := range componentKindsInPipeline {
-					if !ok {
-						e.telemetry.Logger.Info("Invalid component kind", zap.String("kind", componentsKind))
-						continue
-					}
 					componentsList, ok := componentsInterface.([]any)
 					if !ok {
 						e.telemetry.Logger.Info("Failed to get components list from pipeline map in service map config")

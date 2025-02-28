@@ -6,9 +6,12 @@
 package datadogfleetautomationextension
 
 import (
+	"errors"
 	"testing"
 
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 
 	"github.com/stretchr/testify/assert"
 	"go.opentelemetry.io/collector/component"
@@ -337,94 +340,6 @@ func TestIsHealthCheckV2Enabled(t *testing.T) {
 			} else {
 				assert.NoError(t, err)
 			}
-		})
-	}
-}
-
-func TestGetComponentSubConfigMap(t *testing.T) {
-	tests := []struct {
-		name                     string
-		collectorConfigStringMap map[string]any
-		id                       string
-		componentsKind           string
-		expectedConfig           map[string]any
-	}{
-		{
-			name: "Component config found",
-			collectorConfigStringMap: map[string]any{
-				"extensions": map[string]any{
-					"exampleextension": map[string]any{
-						"key": "value",
-					},
-				},
-			},
-			id:             "exampleextension",
-			componentsKind: "extensions",
-			expectedConfig: map[string]any{
-				"key": "value",
-			},
-		},
-		{
-			name: "Component config found with name",
-			collectorConfigStringMap: map[string]any{
-				"extensions": map[string]any{
-					"exampleextension/instance": map[string]any{
-						"key": "value",
-					},
-				},
-			},
-			id:             "exampleextension/instance",
-			componentsKind: "extensions",
-			expectedConfig: map[string]any{
-				"key": "value",
-			},
-		},
-		{
-			name: "Component config not found",
-			collectorConfigStringMap: map[string]any{
-				"extensions": map[string]any{
-					"otherextension": map[string]any{
-						"key": "value",
-					},
-				},
-			},
-			id:             "exampleextension",
-			componentsKind: "extensions",
-			expectedConfig: nil,
-		},
-		{
-			name: "Invalid component map structure",
-			collectorConfigStringMap: map[string]any{
-				"extensions": []any{
-					"exampleextension",
-				},
-			},
-			id:             "exampleextension",
-			componentsKind: "extensions",
-			expectedConfig: nil,
-		},
-		{
-			name: "Component kind not found",
-			collectorConfigStringMap: map[string]any{
-				"receivers": map[string]any{
-					"examplereceiver": map[string]any{
-						"key": "value",
-					},
-				},
-			},
-			id:             "exampleextension",
-			componentsKind: "extensions",
-			expectedConfig: nil,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			e := &fleetAutomationExtension{
-				collectorConfigStringMap: tt.collectorConfigStringMap,
-			}
-			config := e.getComponentSubConfigMap(tt.id, tt.componentsKind)
-			assert.Equal(t, tt.expectedConfig, config)
 		})
 	}
 }
@@ -837,6 +752,12 @@ func TestGetServiceComponent(t *testing.T) {
 				ComponentStatus: "",
 			},
 		},
+		{
+			name:                     "Invalid component ID",
+			componentString:          "extension/1/2",
+			componentsKind:           extensionsKind,
+			expectedServiceComponent: nil,
+		},
 	}
 	logger := zap.NewNop()
 	for _, tt := range tests {
@@ -917,12 +838,252 @@ func TestDataToFlattenedJSONString(t *testing.T) {
 			removeQuotes:   false,
 			expectedOutput: "null",
 		},
+		{
+			name: "removeNewLines && removeQuotes, json.Marshal fails",
+			data: map[string]any{
+				"key": make(chan int),
+			},
+			removeNewLines: true,
+			removeQuotes:   true,
+			expectedOutput: "",
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			output := dataToFlattenedJSONString(tt.data, tt.removeNewLines, tt.removeQuotes)
 			assert.Equal(t, tt.expectedOutput, output)
+		})
+	}
+}
+
+func TestPopulateActiveComponentsJSON(t *testing.T) {
+	tests := []struct {
+		name                     string
+		collectorConfigStringMap map[string]any
+		moduleInfoJSON           *moduleInfoJSON
+		expectedComponents       []serviceComponent
+		expectedError            error
+		expectedLogs             []string
+	}{
+		{
+			name: "Valid service map with extensions and pipelines",
+			collectorConfigStringMap: map[string]any{
+				"service": map[string]any{
+					"extensions": []any{"exampleextension"},
+					"pipelines": map[string]any{
+						"traces": map[string]any{
+							"receivers":  []any{"examplereceiver"},
+							"processors": []any{"exampleprocessor"},
+							"exporters":  []any{"exampleexporter"},
+						},
+					},
+				},
+			},
+			moduleInfoJSON: &moduleInfoJSON{
+				components: map[string]collectorModule{
+					"exampleextension:extension": {
+						Type:       "exampleextension",
+						Kind:       extensionKind,
+						Gomod:      "example.com/module",
+						Version:    "v1.0.0",
+						Configured: true,
+					},
+					"examplereceiver:receiver": {
+						Type:       "examplereceiver",
+						Kind:       receiverKind,
+						Gomod:      "example.com/module",
+						Version:    "v1.0.0",
+						Configured: true,
+					},
+					"exampleprocessor:processor": {
+						Type:       "exampleprocessor",
+						Kind:       processorKind,
+						Gomod:      "example.com/module",
+						Version:    "v1.0.0",
+						Configured: true,
+					},
+					"exampleexporter:exporter": {
+						Type:       "exampleexporter",
+						Kind:       exporterKind,
+						Gomod:      "example.com/module",
+						Version:    "v1.0.0",
+						Configured: true,
+					},
+				},
+			},
+			expectedComponents: []serviceComponent{
+				{
+					ID:      "exampleextension",
+					Name:    "",
+					Type:    "exampleextension",
+					Kind:    extensionKind,
+					Gomod:   "example.com/module",
+					Version: "v1.0.0",
+				},
+				{
+					ID:      "examplereceiver",
+					Name:    "",
+					Type:    "examplereceiver",
+					Kind:    receiverKind,
+					Gomod:   "example.com/module",
+					Version: "v1.0.0",
+				},
+				{
+					ID:      "exampleprocessor",
+					Name:    "",
+					Type:    "exampleprocessor",
+					Kind:    processorKind,
+					Gomod:   "example.com/module",
+					Version: "v1.0.0",
+				},
+				{
+					ID:      "exampleexporter",
+					Name:    "",
+					Type:    "exampleexporter",
+					Kind:    exporterKind,
+					Gomod:   "example.com/module",
+					Version: "v1.0.0",
+				},
+			},
+			expectedError: nil,
+			expectedLogs:  []string{},
+		},
+		{
+			name: "Invalid service map structure",
+			collectorConfigStringMap: map[string]any{
+				"service": "invalid",
+			},
+			moduleInfoJSON: &moduleInfoJSON{
+				components: map[string]collectorModule{},
+			},
+			expectedComponents: []serviceComponent(nil),
+			expectedError:      errors.New("failed to get service map from collector config, cannot populate active components table"),
+			expectedLogs:       []string{"Failed to get service map from collector config, cannot populate active components table"},
+		},
+		{
+			name: "Invalid extensions list structure",
+			collectorConfigStringMap: map[string]any{
+				"service": map[string]any{
+					"extensions": "invalid",
+				},
+			},
+			moduleInfoJSON: &moduleInfoJSON{
+				components: map[string]collectorModule{},
+			},
+			expectedComponents: []serviceComponent(nil),
+			expectedError:      nil,
+			expectedLogs:       []string{"Failed to get extensions list from service map"},
+		},
+		{
+			name: "Invalid extension value type",
+			collectorConfigStringMap: map[string]any{
+				"service": map[string]any{
+					"extensions": []any{123},
+				},
+			},
+			moduleInfoJSON: &moduleInfoJSON{
+				components: map[string]collectorModule{},
+			},
+			expectedComponents: []serviceComponent(nil),
+			expectedError:      nil,
+			expectedLogs:       []string{"Extensions list in service map config contains non-string value"},
+		},
+		{
+			name: "Invalid pipelines map structure",
+			collectorConfigStringMap: map[string]any{
+				"service": map[string]any{
+					"pipelines": "invalid",
+				},
+			},
+			moduleInfoJSON: &moduleInfoJSON{
+				components: map[string]collectorModule{},
+			},
+			expectedComponents: []serviceComponent(nil),
+			expectedError:      nil,
+			expectedLogs:       []string{"Failed to get pipeline map from service map config"},
+		},
+		{
+			name: "Invalid components map structure in pipeline",
+			collectorConfigStringMap: map[string]any{
+				"service": map[string]any{
+					"pipelines": map[string]any{
+						"traces": "invalid",
+					},
+				},
+			},
+			moduleInfoJSON: &moduleInfoJSON{
+				components: map[string]collectorModule{},
+			},
+			expectedComponents: []serviceComponent(nil),
+			expectedError:      nil,
+			expectedLogs:       []string{"Failed to get components map from pipeline map in service map config"},
+		},
+		{
+			name: "Invalid component value type in pipeline",
+			collectorConfigStringMap: map[string]any{
+				"service": map[string]any{
+					"pipelines": map[string]any{
+						"traces": map[string]any{
+							"receivers": []any{123},
+						},
+					},
+				},
+			},
+			moduleInfoJSON: &moduleInfoJSON{
+				components: map[string]collectorModule{},
+			},
+			expectedComponents: []serviceComponent(nil),
+			expectedError:      nil,
+			expectedLogs:       []string{"Components list in pipeline map in service map config contains non-string value"},
+		},
+		{
+			name: "pipelinesKind componentsInterface does not cast to []any",
+			collectorConfigStringMap: map[string]any{
+				"service": map[string]any{
+					"pipelines": map[string]any{
+						"traces": map[string]any{
+							"receivers": "invalid",
+						},
+					},
+				},
+			},
+			moduleInfoJSON: &moduleInfoJSON{
+				components: map[string]collectorModule{},
+			},
+			expectedComponents: []serviceComponent(nil),
+			expectedError:      nil,
+			expectedLogs:       []string{"Failed to get components list from pipeline map in service map config"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			core, logs := observer.New(zapcore.InfoLevel)
+			logger := zap.New(core)
+
+			e := &fleetAutomationExtension{
+				collectorConfigStringMap: tt.collectorConfigStringMap,
+				moduleInfoJSON:           tt.moduleInfoJSON,
+				telemetry: component.TelemetrySettings{
+					Logger: logger,
+				},
+			}
+
+			components, err := e.populateActiveComponentsJSON()
+			assert.ElementsMatch(t, tt.expectedComponents, components.Components)
+			assert.Equal(t, tt.expectedError, err)
+
+			for _, expectedLog := range tt.expectedLogs {
+				found := false
+				for _, log := range logs.All() {
+					if log.Message == expectedLog {
+						found = true
+						break
+					}
+				}
+				assert.True(t, found, "Expected log message not found: %s", expectedLog)
+			}
 		})
 	}
 }

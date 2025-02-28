@@ -67,7 +67,7 @@ type fleetAutomationExtension struct {
 
 	forwarder  defaultForwarderInterface
 	compressor *compression.Compressor
-	serializer *serializer.Serializer
+	serializer serializer.MetricSerializer
 
 	agentMetadataPayload AgentMetadata
 	otelMetadataPayload  OtelMetadata
@@ -81,6 +81,7 @@ type fleetAutomationExtension struct {
 	hostnameProvider source.Provider
 	hostnameSource   string // can be "unset", "config", or "inferred"
 	hostname         string // unique identifier for host where collector is running
+	componentChecker ComponentChecker
 }
 
 var _ extensioncapabilities.ConfigWatcher = (*fleetAutomationExtension)(nil)
@@ -101,29 +102,7 @@ func (e *fleetAutomationExtension) NotifyConfig(ctx context.Context, conf *confm
 
 	e.updateHostname(ctx)
 
-	// check if healthcheckV2 is configured, enabled, and properly configured
-	// if so, set healthCheckV2Enabled to true
-	healthCheckV2Configured, healthCheckV2ID := e.isComponentConfigured("healthcheckv2", extensionsKind)
-	if healthCheckV2ID != nil {
-		e.healthCheckV2ID = healthCheckV2ID
-	}
-	if healthCheckV2Configured {
-		// TODO: switch to conf.Sub() method on refactor
-		e.healthCheckV2Config = e.getComponentSubConfigMap(e.healthCheckV2ID.String(), extensionsKind)
-		enabled, err := e.isHealthCheckV2Enabled()
-		e.healthCheckV2Enabled = false
-		if err != nil {
-			e.telemetry.Logger.Warn(err.Error())
-		} else if !enabled {
-			e.telemetry.Logger.Info("healthcheckv2 extension is included in your collector config but not properly configured")
-		} else {
-			e.healthCheckV2Enabled = true
-		}
-	} else {
-		if e.isModuleAvailable("healthcheckv2", extensionKind) {
-			e.telemetry.Logger.Info("healthcheckv2 extension is included with your collector but not configured; component status will not be available in Datadog Fleet page")
-		}
-	}
+	e.checkHealthCheckV2()
 
 	// create agent metadata payload. most fields are not relevant to OSS collector.
 	e.agentMetadataPayload = prepareAgentMetadataPayload(
@@ -176,8 +155,15 @@ func (e *fleetAutomationExtension) Start(_ context.Context, host component.Host)
 		e.telemetry.Logger.Warn("Collector component/module info not available; Datadog Fleet Automation will only show the active collector config")
 	}
 
+	mux := http.NewServeMux()
+	mux.HandleFunc("/metadata", e.handleMetadata)
+	e.httpServer = &http.Server{
+		Addr:    ":" + fmt.Sprintf("%d", serverPort),
+		Handler: mux,
+	}
 	err := e.startLocalConfigServer()
 	if err != nil {
+		// Currently should not happen; startLocalConfigServer does not return errors
 		e.telemetry.Logger.Warn("Failed to start local config server; local fleet metadata requests will not be available", zap.Error(err))
 	}
 
@@ -220,33 +206,65 @@ func (e *fleetAutomationExtension) updateHostname(ctx context.Context) {
 	// check for new hostname in extension config
 	// TODO: switch to conf.Sub() method on refactor
 	eCfg, err := e.collectorConfig.Sub(e.extensionID.String())
-	if err != nil {
+	if err != nil || len(eCfg.AllKeys()) == 0 {
 		e.telemetry.Logger.Error("Failed to get extension config", zap.Error(err))
 	} else {
 		hostname := eCfg.Get("hostname")
-		if err, ok := hostname.(error); ok {
-			e.telemetry.Logger.Error("Failed to get hostname from extension config", zap.Error(err))
-		} else {
-			if hostname, ok := hostname.(string); ok {
-				if hostname != "" {
-					if hostname != e.hostname {
-						e.hostname = hostname
-						e.hostnameSource = "config"
-					}
+		if hostname, ok := hostname.(string); ok {
+			if hostname != "" {
+				if hostname != e.hostname {
+					e.hostname = hostname
+					e.hostnameSource = "config"
+				}
+			} else {
+				e.telemetry.Logger.Info("Hostname in config is empty, inferring hostname")
+				hn, source, err := getHostname(ctx, e.hostname, e.hostnameProvider)
+				if err != nil {
+					e.telemetry.Logger.Error("Failed to infer hostname, collector will not show in Fleet Automation", zap.Error(err))
+					e.hostname = ""
+					e.hostnameSource = "unset"
 				} else {
-					e.telemetry.Logger.Info("Hostname in config is empty, inferring hostname")
-					hn, source, err := getHostname(ctx, e.hostname, e.hostnameProvider)
-					if err != nil {
-						e.telemetry.Logger.Error("Failed to infer hostname, collector will not show in Fleet Automation", zap.Error(err))
-						e.hostname = ""
-						e.hostnameSource = "unset"
-					} else {
-						e.hostname = hn
-						e.telemetry.Logger.Info("Inferred hostname", zap.String("hostname", e.hostname))
-						e.hostnameSource = source
-					}
+					e.hostname = hn
+					e.telemetry.Logger.Info("Inferred hostname", zap.String("hostname", e.hostname))
+					e.hostnameSource = source
 				}
 			}
+		}
+
+	}
+}
+
+func (e *fleetAutomationExtension) checkHealthCheckV2() {
+	// check if healthcheckV2 is configured, enabled, and properly configured
+	// if so, set healthCheckV2Enabled to true
+	healthCheckV2Configured, healthCheckV2ID := e.componentChecker.isComponentConfigured("healthcheckv2", extensionsKind)
+	if healthCheckV2ID != nil {
+		e.healthCheckV2ID = healthCheckV2ID
+	}
+	if healthCheckV2Configured {
+		extensionsConf, err := e.collectorConfig.Sub(extensionsKind)
+		if err != nil || len(extensionsConf.AllKeys()) == 0 {
+			e.telemetry.Logger.Error("Failed to get extensions config", zap.Error(err))
+		}
+		healthCheckV2Conf, err := extensionsConf.Sub(e.healthCheckV2ID.String())
+		if err != nil || len(healthCheckV2Conf.AllKeys()) == 0 {
+			// This should never happen because we already got the exact component ID above with isComponentConfigured
+			e.telemetry.Logger.Error("Failed to get healthcheckv2 config", zap.Error(err))
+			return
+		} else {
+			e.healthCheckV2Config = healthCheckV2Conf.ToStringMap()
+		}
+
+		// if healthCheckV2 is in config, are the settings configured properly to enable health check functionality?
+		e.healthCheckV2Enabled, err = e.componentChecker.isHealthCheckV2Enabled()
+		if err != nil {
+			e.telemetry.Logger.Warn(err.Error())
+		} else if !e.healthCheckV2Enabled {
+			e.telemetry.Logger.Info("healthcheckv2 extension is included in your collector config but not properly configured")
+		}
+	} else {
+		if e.componentChecker.isModuleAvailable("healthcheckv2", extensionKind) {
+			e.telemetry.Logger.Info("healthcheckv2 extension is included with your collector but not configured; component status will not be available in Datadog Fleet page")
 		}
 	}
 }

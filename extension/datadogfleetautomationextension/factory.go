@@ -34,5 +34,12 @@ func createDefaultConfig() component.Config {
 func create(ctx context.Context, set extension.Settings, cfg component.Config) (extension.Extension, error) {
 	apiKeyValidator := clientutil.ValidateAPIKey
 	sourceProviderGetter := hostmetadata.GetSourceProvider
-	return newExtension(ctx, cfg.(*Config), set, apiKeyValidator, sourceProviderGetter, newForwarder)
+	ext, err := newExtension(ctx, cfg.(*Config), set, apiKeyValidator, sourceProviderGetter, newForwarder)
+	if err != nil {
+		return nil, err
+	}
+	// componentChecker interface allows certain component check modules to be mocked/overwritten on testing
+	componentChecker := &defaultComponentChecker{extension: ext}
+	ext.componentChecker = componentChecker
+	return ext, nil
 }
