@@ -148,6 +148,7 @@ extension/awsproxy
 extension/basicauthextension
 extension/bearertokenauthextension
 extension/cgroupruntimeextension
+extension/datadogfleetautomationextension
 extension/encoding/avrologencodingextension
 extension/encoding/googlecloudlogentryencodingextension
 extension/encoding/jaegerencodingextension
