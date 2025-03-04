@@ -33,8 +33,8 @@ const (
 	DefaultSite = datadogconfig.DefaultSite
 	// NonHexChars is a regex of characters that are always invalid in a Datadog API key.
 	NonHexChars = datadogconfig.NonHexChars
-	// DefaultReporterPeriod is the default amount of time between sending fleet automation payloads to Datadog.
-	DefaultReporterPeriod = 20 * time.Minute
+	// defaultReporterPeriod is the default amount of time between sending fleet automation payloads to Datadog.
+	defaultReporterPeriod = 20 * time.Minute
 )
 
 // Config contains the information necessary for enabling the Datadog Fleet

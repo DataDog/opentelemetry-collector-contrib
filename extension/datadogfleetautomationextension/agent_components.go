@@ -28,8 +28,8 @@ func newLogComponent(set component.TelemetrySettings) corelog.Component {
 }
 
 // The Forwarder sends the payloads to Datadog backend
-func newForwarder(cfg coreconfig.Component, log corelog.Component) defaultforwarder.Forwarder {
-	keysPerDomain := map[string][]string{"https://api." + cfg.GetString("site"): {cfg.GetString("api_key")}}
+func newForwarder(cfg coreconfig.Component, log corelog.Component, endpoint string) defaultforwarder.Forwarder {
+	keysPerDomain := map[string][]string{endpoint: {cfg.GetString("api_key")}}
 	forwarderOptions := defaultforwarder.NewOptions(cfg, log, keysPerDomain)
 	forwarderOptions.DisableAPIKeyChecking = true
 	return defaultforwarder.NewDefaultForwarder(cfg, log, forwarderOptions)

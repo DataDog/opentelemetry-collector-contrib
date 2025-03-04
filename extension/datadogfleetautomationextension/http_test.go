@@ -53,7 +53,7 @@ func TestStartLocalConfigServer(t *testing.T) {
 					telemetry: component.TelemetrySettings{
 						Logger: logger,
 					},
-					ticker: time.NewTicker(DefaultReporterPeriod),
+					ticker: time.NewTicker(defaultReporterPeriod),
 					done:   make(chan bool),
 					httpServer: &http.Server{
 						Addr:         server.Listener.Addr().String(),
@@ -276,7 +276,7 @@ func TestPrepareAndSendFleetAutomationPayloads(t *testing.T) {
 						},
 					},
 					hostname: "test-hostname",
-					ticker:   time.NewTicker(DefaultReporterPeriod),
+					ticker:   time.NewTicker(defaultReporterPeriod),
 					done:     make(chan bool),
 				}, logs
 			},
@@ -316,7 +316,7 @@ func TestPrepareAndSendFleetAutomationPayloads(t *testing.T) {
 						},
 					},
 					hostname: "test-hostname",
-					ticker:   time.NewTicker(DefaultReporterPeriod),
+					ticker:   time.NewTicker(defaultReporterPeriod),
 					done:     make(chan bool),
 				}, logs
 			},
@@ -350,7 +350,7 @@ func TestPrepareAndSendFleetAutomationPayloads(t *testing.T) {
 						},
 					},
 					hostname: "test-hostname",
-					ticker:   time.NewTicker(DefaultReporterPeriod),
+					ticker:   time.NewTicker(defaultReporterPeriod),
 					done:     make(chan bool),
 				}, logs
 			},
@@ -382,7 +382,7 @@ func TestPrepareAndSendFleetAutomationPayloads(t *testing.T) {
 						},
 					},
 					hostname: "test-hostname",
-					ticker:   time.NewTicker(DefaultReporterPeriod),
+					ticker:   time.NewTicker(defaultReporterPeriod),
 					done:     make(chan bool),
 				}, logs
 			},
@@ -407,7 +407,7 @@ func TestPrepareAndSendFleetAutomationPayloads(t *testing.T) {
 					},
 					serializer: &mockSerializer{},
 					hostname:   "test-hostname",
-					ticker:     time.NewTicker(DefaultReporterPeriod),
+					ticker:     time.NewTicker(defaultReporterPeriod),
 					done:       make(chan bool),
 				}, logs
 			},
@@ -545,7 +545,7 @@ func TestHandleMetadata(t *testing.T) {
 							return nil
 						},
 					},
-					ticker: time.NewTicker(DefaultReporterPeriod),
+					ticker: time.NewTicker(defaultReporterPeriod),
 					done:   make(chan bool),
 					uuid:   googleuuid.MustParse(mockUUID),
 				}, logs
@@ -565,7 +565,7 @@ func TestHandleMetadata(t *testing.T) {
 						Logger: logger,
 					},
 					hostnameSource: "unset",
-					ticker:         time.NewTicker(DefaultReporterPeriod),
+					ticker:         time.NewTicker(defaultReporterPeriod),
 					done:           make(chan bool),
 					uuid:           googleuuid.MustParse(mockUUID),
 				}, logs
@@ -590,7 +590,7 @@ func TestHandleMetadata(t *testing.T) {
 							return errors.New("failed to send payload")
 						},
 					},
-					ticker: time.NewTicker(DefaultReporterPeriod),
+					ticker: time.NewTicker(defaultReporterPeriod),
 					done:   make(chan bool),
 					uuid:   googleuuid.MustParse(mockUUID),
 				}, logs

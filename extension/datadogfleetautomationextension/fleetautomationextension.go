@@ -34,7 +34,7 @@ type (
 	// SourceProviderGetter is a function that returns a source.Provider, provided to newExtension for mocking
 	SourceProviderGetter func(component.TelemetrySettings, string, time.Duration) (source.Provider, error)
 	// ForwarderGetter is a function that returns a defaultforwarder.Forwarder, provided to newExtension for mocking
-	ForwarderGetter func(coreconfig.Component, corelog.Component) defaultforwarder.Forwarder
+	ForwarderGetter func(coreconfig.Component, corelog.Component, string) defaultforwarder.Forwarder
 )
 
 // defaultForwarderInterface is wrapper for methods in datadog-agent DefaultForwarder struct
@@ -300,7 +300,8 @@ func newExtension(
 	log := newLogComponent(telemetry)
 
 	// Initialize forwarder, compressor, and serializer components to forward OTel Inventory to REDAPL backend
-	forwarder, ok := forwarderGetter(cfg, log).(defaultForwarderInterface)
+	forwarderEndpoint := "https://api." + config.API.Site
+	forwarder, ok := forwarderGetter(cfg, log, forwarderEndpoint).(defaultForwarderInterface)
 	if !ok {
 		return nil, fmt.Errorf("failed to create forwarder")
 	}

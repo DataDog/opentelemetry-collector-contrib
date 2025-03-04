@@ -16,6 +16,10 @@ import (
 	"github.com/open-telemetry/opentelemetry-collector-contrib/pkg/datadog"
 )
 
+const (
+	defaultForwarderEndpoint = "https://api." + DefaultSite
+)
+
 func TestAgentComponents_NewSerializer(t *testing.T) {
 	// Create a zap logger for testing
 	config := zap.NewProductionConfig()
@@ -37,6 +41,7 @@ func TestAgentComponents_NewSerializer(t *testing.T) {
 	cfg := &Config{}
 	cfg.API.Key = "test-api-key"
 	cfg.API.Site = "test-site"
+	cfg.ReporterPeriod = defaultReporterPeriod
 
 	// Create a config component
 	configComponent := newConfigComponent(telemetrySettings, cfg)
@@ -45,7 +50,7 @@ func TestAgentComponents_NewSerializer(t *testing.T) {
 	logComponent := newLogComponent(telemetrySettings)
 
 	// Create a forwarder
-	forwarder := newForwarder(configComponent, logComponent)
+	forwarder := newForwarder(configComponent, logComponent, defaultForwarderEndpoint)
 
 	// Create a compressor
 	compressor := newCompressor()
@@ -91,6 +96,7 @@ func TestAgentComponents_NewForwarder(t *testing.T) {
 	cfg := &Config{}
 	cfg.API.Key = "test-api-key"
 	cfg.API.Site = "test-site"
+	cfg.ReporterPeriod = defaultReporterPeriod
 
 	// Create a config component
 	configComponent := newConfigComponent(telemetrySettings, cfg)
@@ -99,7 +105,7 @@ func TestAgentComponents_NewForwarder(t *testing.T) {
 	logComponent := newLogComponent(telemetrySettings)
 
 	// Call newForwarder
-	forwarder := newForwarder(configComponent, logComponent)
+	forwarder := newForwarder(configComponent, logComponent, defaultForwarderEndpoint)
 
 	// Assert that the returned forwarder is not nil
 	assert.NotNil(t, forwarder)

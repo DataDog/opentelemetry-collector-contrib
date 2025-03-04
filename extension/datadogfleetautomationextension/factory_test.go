@@ -22,7 +22,7 @@ func TestFactory_CreateDefaultConfig(t *testing.T) {
 		API: APIConfig{
 			Site: DefaultSite,
 		},
-		ReporterPeriod: DefaultReporterPeriod,
+		ReporterPeriod: defaultReporterPeriod,
 	}
 	cfg := createDefaultConfig()
 	assert.Equal(t, expectedConfig, cfg)
@@ -52,7 +52,7 @@ func TestFactory_NewFactory(t *testing.T) {
 		API: APIConfig{
 			Site: DefaultSite,
 		},
-		ReporterPeriod: DefaultReporterPeriod,
+		ReporterPeriod: defaultReporterPeriod,
 	}
 	assert.Equal(t, expectedConfig, defaultConfig)
 

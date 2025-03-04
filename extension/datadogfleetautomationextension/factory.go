@@ -26,7 +26,7 @@ func createDefaultConfig() component.Config {
 		API: APIConfig{
 			Site: DefaultSite,
 		},
-		ReporterPeriod: DefaultReporterPeriod,
+		ReporterPeriod: defaultReporterPeriod,
 	}
 }
 

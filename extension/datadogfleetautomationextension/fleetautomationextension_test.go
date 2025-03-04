@@ -52,7 +52,7 @@ func Test_NotifyConfig(t *testing.T) {
 				"service": map[string]any{},
 			},
 			expectedError: "failed to send datadog_agent payload",
-			forwarder: func(coreconfig.Component, corelog.Component) defaultforwarder.Forwarder {
+			forwarder: func(coreconfig.Component, corelog.Component, string) defaultforwarder.Forwarder {
 				return mockForwarder{failSendMetadata: true, state: 1}
 			},
 		},
@@ -66,7 +66,7 @@ func Test_NotifyConfig(t *testing.T) {
 			},
 			expectedError: "",
 			expectedLog:   "Failed to populate active components JSON",
-			forwarder: func(coreconfig.Component, corelog.Component) defaultforwarder.Forwarder {
+			forwarder: func(coreconfig.Component, corelog.Component, string) defaultforwarder.Forwarder {
 				return mockForwarder{state: 1}
 			},
 		},
@@ -93,7 +93,7 @@ func Test_NotifyConfig(t *testing.T) {
 				},
 			},
 			expectedError: "",
-			forwarder: func(coreconfig.Component, corelog.Component) defaultforwarder.Forwarder {
+			forwarder: func(coreconfig.Component, corelog.Component, string) defaultforwarder.Forwarder {
 				return mockForwarder{state: 1}
 			},
 		},
@@ -106,7 +106,7 @@ func Test_NotifyConfig(t *testing.T) {
 				"service": map[string]any{},
 			},
 			expectedError: "",
-			forwarder: func(coreconfig.Component, corelog.Component) defaultforwarder.Forwarder {
+			forwarder: func(coreconfig.Component, corelog.Component, string) defaultforwarder.Forwarder {
 				return mockForwarder{}
 			},
 		},
@@ -150,7 +150,7 @@ func Test_NotifyConfig(t *testing.T) {
 				tt.apikey = api.ValidateAPIKey
 			}
 
-			faExt, err := newExtension(ctx, &Config{ReporterPeriod: DefaultReporterPeriod}, set, clientutil.ValidateAPIKey, tt.provider, tt.forwarder)
+			faExt, err := newExtension(ctx, &Config{ReporterPeriod: defaultReporterPeriod}, set, clientutil.ValidateAPIKey, tt.provider, tt.forwarder)
 			assert.NoError(t, err)
 			mcc := &mockComponentChecker{
 				ccFunc: faExt.isComponentConfigured,
@@ -260,7 +260,7 @@ func TestNewExtension(t *testing.T) {
 					Key:  "valid-api-key",
 				},
 				Hostname:       "test-hostname",
-				ReporterPeriod: DefaultReporterPeriod,
+				ReporterPeriod: defaultReporterPeriod,
 			},
 			apiKeyValidator: &mockAPIKeyValidator{
 				err: nil,
@@ -298,7 +298,7 @@ func TestNewExtension(t *testing.T) {
 					Key:  "valid-api-key",
 				},
 				Hostname:       "",
-				ReporterPeriod: DefaultReporterPeriod,
+				ReporterPeriod: defaultReporterPeriod,
 			},
 			apiKeyValidator: &mockAPIKeyValidator{
 				err: nil,
@@ -317,7 +317,7 @@ func TestNewExtension(t *testing.T) {
 					Key:  "valid-api-key",
 				},
 				Hostname:       "test-hostname",
-				ReporterPeriod: DefaultReporterPeriod,
+				ReporterPeriod: defaultReporterPeriod,
 			},
 			apiKeyValidator: &mockAPIKeyValidator{
 				err: nil,
@@ -813,7 +813,7 @@ func (m *mockComponentChecker) isHealthCheckV2Enabled() (bool, error) {
 	return m.hcFunc()
 }
 
-func newNilForwarder(coreconfig.Component, corelog.Component) defaultforwarder.Forwarder {
+func newNilForwarder(coreconfig.Component, corelog.Component, string) defaultforwarder.Forwarder {
 	return nil
 }
 
