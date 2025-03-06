@@ -1,0 +1,48 @@
+receivers:
+  otlp:
+    protocols:
+      http:
+  otlp/log:
+    protocols:
+      grpc:
+  jaeger:
+    protocols:
+      grpc:
+      thrift_http:
+exporters:
+  datadog:
+    api:
+      key: ${env:DD_API_KEY}
+  debug:
+  logging:
+processors:
+  batch:
+    timeout: 10s
+  memory_limiter:
+    check_interval: 5s
+    limit_mib: 4000
+extensions:
+  datadogfleetautomation/test:
+    api:
+      key: ${env:DD_API_KEY}
+      site: datadoghq.com
+    hostname: "datadogfleetautomation-confighostname"
+  healthcheckv2:
+    use_v2: true
+    component_health:
+      include_permanent_errors: false
+      include_recoverable_errors: true
+      recovery_duration: 5m
+    http:
+  zpages:
+service:
+  extensions: [healthcheckv2, datadogfleetautomation/test, zpages]
+  pipelines:
+    traces:
+      receivers: [otlp, jaeger]
+      processors: [batch, memory_limiter]
+      exporters: [datadog, logging]
+    logs:
+      receivers: [otlp/log]
+      processors: [batch]
+      exporters: [datadog, logging]
