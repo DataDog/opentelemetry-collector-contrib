@@ -1,0 +1,49 @@
+receivers:
+  otlp:
+    protocols:
+      http:
+  otlp/log:
+    protocols:
+      grpc:
+  otlp/metrics:
+    protocols:
+      http:
+        endpoint: "0.0.0.0:55681"
+exporters:
+  datadog:
+    api:
+      key: ${env:DD_API_KEY}
+  debug:
+processors:
+  batch:
+    timeout: 10s
+  batch/logs:
+    timeout: 5s
+extensions:
+  datadogfleetautomation:
+    api:
+      key: ${env:DD_API_KEY}
+      site: datadoghq.com
+    hostname: "datadogfleetautomation-confighostname"
+  healthcheckv2:
+    use_v2: true
+    component_health:
+      include_permanent_errors: false
+      include_recoverable_errors: true
+      recovery_duration: 5m
+    http:
+service:
+  extensions: [healthcheckv2, datadogfleetautomation]
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [debug]
+    logs:
+      receivers: [otlp/log]
+      processors: [batch/logs]
+      exporters: [debug]
+    metrics:
+      receivers: [otlp/metrics]
+      processors: [batch]
+      exporters: [debug]
