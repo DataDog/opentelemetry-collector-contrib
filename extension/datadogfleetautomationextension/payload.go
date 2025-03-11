@@ -8,22 +8,28 @@ import (
 	"fmt"
 
 	"github.com/DataDog/datadog-agent/pkg/serializer/marshaler"
-	"go.opentelemetry.io/collector/component"
 )
 
+// CustomBuildInfo is a struct that duplicates the fields of component.BuildInfo with custom JSON tags
+type CustomBuildInfo struct {
+	Command     string `json:"command"`
+	Description string `json:"description"`
+	Version     string `json:"version"`
+}
+
 type OtelCollector struct {
-	HostKey           string              `json:"host_key"`
-	Hostname          string              `json:"hostname"`
-	HostnameSource    string              `json:"hostname_source"`
-	CollectorID       string              `json:"collector_id"`
-	CollectorVersion  string              `json:"collector_version"`
-	ConfigSite        string              `json:"config_site"`
-	APIKeyUUID        string              `json:"api_key_uuid"`
-	FullComponents    []collectorModule   `json:"full_components"`
-	ActiveComponents  []serviceComponent  `json:"active_components"`
-	BuildInfo         component.BuildInfo `json:"build_info"`
-	FullConfiguration string              `json:"full_configuration"` // JSON passed as string
-	HealthStatus      string              `json:"health_status"`      // JSON passed as string
+	HostKey           string             `json:"host_key"`
+	Hostname          string             `json:"hostname"`
+	HostnameSource    string             `json:"hostname_source"`
+	CollectorID       string             `json:"collector_id"`
+	CollectorVersion  string             `json:"collector_version"`
+	ConfigSite        string             `json:"config_site"`
+	APIKeyUUID        string             `json:"api_key_uuid"`
+	FullComponents    []collectorModule  `json:"full_components"`
+	ActiveComponents  []serviceComponent `json:"active_components"`
+	BuildInfo         CustomBuildInfo    `json:"build_info"`
+	FullConfiguration string             `json:"full_configuration"` // JSON passed as string
+	HealthStatus      string             `json:"health_status"`      // JSON passed as string
 }
 
 type OtelMetadata struct {
@@ -39,8 +45,9 @@ type OtelMetadata struct {
 }
 
 type CombinedPayload struct {
-	OtelPayload  otelAgentPayload `json:"otel_payload"`
-	AgentPayload agentPayload     `json:"agent_payload"`
+	CollectorPayload otelCollectorPayload `json:"collector_payload"`
+	OtelPayload      otelAgentPayload     `json:"otel_payload"`
+	AgentPayload     agentPayload         `json:"agent_payload"`
 }
 
 type AgentMetadata struct {
@@ -115,6 +122,13 @@ type agentPayload struct {
 	UUID      string        `json:"uuid"`
 }
 
+type otelCollectorPayload struct {
+	Hostname  string        `json:"hostname"`
+	Timestamp int64         `json:"timestamp"`
+	Metadata  OtelCollector `json:"otel_collector"`
+	UUID      string        `json:"uuid"`
+}
+
 type collectorModule struct {
 	Type       string `json:"type"`
 	Kind       string `json:"kind"`
@@ -177,6 +191,14 @@ func (m *moduleInfoJSON) MarshalJSON() ([]byte, error) {
 	return json.Marshal(alias)
 }
 
+func (m *moduleInfoJSON) GetFullComponentsList() []collectorModule {
+	fullComponents := make([]collectorModule, 0, len(m.components))
+	for _, comp := range m.components {
+		fullComponents = append(fullComponents, comp)
+	}
+	return fullComponents
+}
+
 type activeComponentsJSON struct {
 	Components []serviceComponent `json:"active_components"`
 }
@@ -202,5 +224,16 @@ func (p *agentPayload) MarshalJSON() ([]byte, error) {
 
 // SplitPayload implements marshaler.AbstractMarshaler#SplitPayload.
 func (p *agentPayload) SplitPayload(_ int) ([]marshaler.AbstractMarshaler, error) {
+	return nil, fmt.Errorf("could not split inventories agent payload any more, payload is too big for intake")
+}
+
+// MarshalJSON serializes a agentPayload to JSON
+func (p *otelCollectorPayload) MarshalJSON() ([]byte, error) {
+	type collectorPayloadAlias otelCollectorPayload
+	return json.Marshal((*collectorPayloadAlias)(p))
+}
+
+// SplitPayload implements marshaler.AbstractMarshaler#SplitPayload.
+func (p *otelCollectorPayload) SplitPayload(_ int) ([]marshaler.AbstractMarshaler, error) {
 	return nil, fmt.Errorf("could not split inventories agent payload any more, payload is too big for intake")
 }
