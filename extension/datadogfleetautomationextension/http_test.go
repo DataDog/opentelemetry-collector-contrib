@@ -486,6 +486,29 @@ func TestPrepareAndSendFleetAutomationPayloads(t *testing.T) {
 }
 
 const successfulInstanceResponse = `{
+  "collector_payload": {
+    "hostname": "test-hostname",
+    "timestamp": 1741003200000000000,
+    "otel_collector": {
+      "host_key": "",
+      "hostname": "",
+      "hostname_source": "",
+      "collector_id": "",
+      "collector_version": "",
+      "config_site": "",
+      "api_key_uuid": "",
+      "full_components": [],
+      "active_components": null,
+      "build_info": {
+        "command": "",
+        "description": "",
+        "version": ""
+      },
+      "full_configuration": "",
+      "health_status": ""
+    },
+    "uuid": "123e4567-e89b-12d3-a456-426614174000"
+  },
   "otel_payload": {
     "hostname": "test-hostname",
     "timestamp": 1741003200000000000,

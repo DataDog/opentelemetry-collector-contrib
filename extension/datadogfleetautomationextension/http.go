@@ -151,13 +151,16 @@ func makeGetRequest(uri string) (*http.Response, error) {
 
 func (e *fleetAutomationExtension) prepareAndSendFleetAutomationPayloads() (*CombinedPayload, error) {
 	// If health check v2 enabled, set Environment Variable Configuration to health check verbose query response
+	var healthStatus string
 	if e.healthCheckV2Enabled {
 		componentStatus, err := e.getHealthCheckStatus()
 		if err != nil {
 			e.telemetry.Logger.Error("Failed to get health check status", zap.Error(err))
+			healthStatus = ""
 		} else {
 			e.componentStatus = componentStatus
-			e.otelMetadataPayload.EnvironmentVariableConfiguration = dataToFlattenedJSONString(e.componentStatus, false, false)
+			healthStatus = dataToFlattenedJSONString(e.componentStatus, false, false)
+			e.otelMetadataPayload.EnvironmentVariableConfiguration = healthStatus
 		}
 	}
 
@@ -174,6 +177,13 @@ func (e *fleetAutomationExtension) prepareAndSendFleetAutomationPayloads() (*Com
 		e.otelMetadataPayload.ProvidedConfiguration = dataToFlattenedJSONString(e.activeComponentsJSON, false, false) + "\n" + e.otelMetadataPayload.ProvidedConfiguration
 	}
 
+	// add remaining data to otelCollectorPayload
+	e.otelCollectorPayload.FullComponents = e.moduleInfoJSON.GetFullComponentsList()
+	if e.activeComponentsJSON != nil {
+		e.otelCollectorPayload.ActiveComponents = e.activeComponentsJSON.Components
+	}
+	e.otelCollectorPayload.HealthStatus = healthStatus
+
 	// Create the datadog_agent and the datadog_agent_otel payloads
 	ap := agentPayload{
 		Hostname:  e.hostname,
@@ -188,6 +198,13 @@ func (e *fleetAutomationExtension) prepareAndSendFleetAutomationPayloads() (*Com
 		UUID:      e.uuid.String(),
 	}
 
+	oc := otelCollectorPayload{
+		Hostname:  e.hostname,
+		Timestamp: nowFunc().UnixNano(),
+		Metadata:  e.otelCollectorPayload,
+		UUID:      e.uuid.String(),
+	}
+
 	// Use datadog-agent serializer to send these payloads
 	if e.forwarder.State() == defaultforwarder.Started {
 		err = e.serializer.SendMetadata(&ap)
@@ -198,13 +215,18 @@ func (e *fleetAutomationExtension) prepareAndSendFleetAutomationPayloads() (*Com
 		if err != nil {
 			return nil, fmt.Errorf("failed to send datadog_agent_otel payload: %w", err)
 		}
+		err = e.serializer.SendMetadata(&oc)
+		if err != nil {
+			return nil, fmt.Errorf("failed to send otel_collector payload: %w", err)
+		}
 	} else {
 		e.telemetry.Logger.Warn("Forwarder is not started, skipping sending payloads")
 	}
 
 	combinedPayload := &CombinedPayload{
-		AgentPayload: ap,
-		OtelPayload:  p,
+		CollectorPayload: oc,
+		AgentPayload:     ap,
+		OtelPayload:      p,
 	}
 	return combinedPayload, nil
 }

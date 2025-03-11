@@ -498,7 +498,7 @@ func TestUpdateHostname(t *testing.T) {
 				hostname:         tt.initialHostname,
 				hostnameProvider: mockProvider,
 				extensionID:      component.MustNewID(metadata.Type.String()),
-				collectorConfig:  confmap.NewFromStringMap(map[string]any{metadata.Type.String(): map[string]any{"hostname": tt.configHostname}}),
+				collectorConfig:  confmap.NewFromStringMap(map[string]any{extensionsKind: map[string]any{metadata.Type.String(): map[string]any{"hostname": tt.configHostname}}}),
 			}
 
 			// Call updateHostname
