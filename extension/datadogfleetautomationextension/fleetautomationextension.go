@@ -58,7 +58,7 @@ type fleetAutomationExtension struct {
 	mu                       sync.RWMutex
 	uuid                     uuid.UUID
 
-	buildInfo            component.BuildInfo
+	buildInfo            CustomBuildInfo
 	moduleInfo           service.ModuleInfos
 	moduleInfoJSON       *moduleInfoJSON
 	activeComponentsJSON *activeComponentsJSON
@@ -70,6 +70,7 @@ type fleetAutomationExtension struct {
 
 	agentMetadataPayload AgentMetadata
 	otelMetadataPayload  OtelMetadata
+	otelCollectorPayload OtelCollector
 
 	httpServer           *http.Server
 	healthCheckV2Enabled bool
@@ -121,6 +122,16 @@ func (e *fleetAutomationExtension) NotifyConfig(ctx context.Context, conf *confm
 		e.version,
 		e.buildInfo.Command,
 		fullConfig,
+	)
+
+	e.otelCollectorPayload = prepareOtelCollectorPayload(
+		e.hostname,
+		e.hostnameSource,
+		e.uuid.String(),
+		e.version,
+		e.extensionConfig.API.Site,
+		fullConfig,
+		e.buildInfo,
 	)
 
 	// send payloads to Datadog backend
@@ -197,31 +208,36 @@ func getHostname(ctx context.Context, providedHostname string, sp source.Provide
 func (e *fleetAutomationExtension) updateHostname(ctx context.Context) {
 	// check for new hostname in extension config
 	// TODO: switch to conf.Sub() method on refactor
-	eCfg, err := e.collectorConfig.Sub(e.extensionID.String())
+	extensionsConfig, err := e.collectorConfig.Sub(extensionsKind)
+	if err != nil || len(extensionsConfig.AllKeys()) == 0 {
+		e.telemetry.Logger.Error("Failed to get extensions config")
+		return
+	}
+	eCfg, err := extensionsConfig.Sub(e.extensionID.String())
 	if err != nil || len(eCfg.AllKeys()) == 0 {
-		e.telemetry.Logger.Error("Failed to get extension config", zap.Error(err))
-	} else {
-		hostname := eCfg.Get("hostname")
-		if hostname, ok := hostname.(string); ok {
-			if hostname != "" {
-				if hostname != e.hostname {
-					e.hostname = hostname
-					e.hostnameSource = "config"
-				}
-			} else {
-				e.telemetry.Logger.Info("Hostname in config is empty, inferring hostname")
-				hn, source, err := getHostname(ctx, e.hostname, e.hostnameProvider)
-				if err != nil {
-					e.telemetry.Logger.Error("Failed to infer hostname, collector will not show in Fleet Automation", zap.Error(err))
-					e.hostname = ""
-					e.hostnameSource = "unset"
-				} else {
-					e.hostname = hn
-					e.telemetry.Logger.Info("Inferred hostname", zap.String("hostname", e.hostname))
-					e.hostnameSource = source
-				}
+		e.telemetry.Logger.Error("Failed to get datadogfleetautomationextension config", zap.Error(err))
+		return
+	}
+	hostname := eCfg.Get("hostname")
+	if hostname, ok := hostname.(string); ok {
+		if hostname != "" {
+			if hostname != e.hostname {
+				e.hostname = hostname
 			}
+			e.hostnameSource = "config"
+			return
 		}
+		e.telemetry.Logger.Info("Hostname in config is empty, inferring hostname")
+		hn, source, err := getHostname(ctx, e.hostname, e.hostnameProvider)
+		if err != nil {
+			e.telemetry.Logger.Error("Failed to infer hostname, collector will not show in Fleet Automation", zap.Error(err))
+			e.hostname = ""
+			e.hostnameSource = "unset"
+			return
+		}
+		e.hostname = hn
+		e.telemetry.Logger.Info("Inferred hostname", zap.String("hostname", e.hostname))
+		e.hostnameSource = source
 	}
 }
 
@@ -307,6 +323,11 @@ func newExtension(
 	compressor := newCompressor()
 	serializer := newSerializer(forwarder, compressor, cfg, log, hostname)
 	version := settings.BuildInfo.Version
+	buildInfo := CustomBuildInfo{
+		Command:     settings.BuildInfo.Command,
+		Description: settings.BuildInfo.Description,
+		Version:     settings.BuildInfo.Version,
+	}
 	return &fleetAutomationExtension{
 		extensionID:      settings.ID,
 		extensionConfig:  config,
@@ -315,7 +336,7 @@ func newExtension(
 		forwarder:        forwarder,
 		compressor:       &compressor,
 		serializer:       serializer,
-		buildInfo:        settings.BuildInfo,
+		buildInfo:        buildInfo,
 		version:          version,
 		ticker:           time.NewTicker(config.ReporterPeriod),
 		done:             make(chan bool),
@@ -352,5 +373,26 @@ func prepareOtelMetadataPayload(version, extensionVersion, command, fullConfig s
 		ProvidedConfiguration:            "",
 		EnvironmentVariableConfiguration: "",
 		FullConfiguration:                fullConfig,
+	}
+}
+
+func prepareOtelCollectorPayload(
+	hostname,
+	hostnameSource,
+	extensionUUID,
+	version,
+	site,
+	fullConfig string,
+	buildInfo CustomBuildInfo) OtelCollector {
+	return OtelCollector{
+		HostKey:           "",
+		Hostname:          hostname,
+		HostnameSource:    hostnameSource,
+		CollectorID:       hostname + "-" + extensionUUID,
+		CollectorVersion:  version,
+		ConfigSite:        site,
+		APIKeyUUID:        "",
+		BuildInfo:         buildInfo,
+		FullConfiguration: fullConfig,
 	}
 }
