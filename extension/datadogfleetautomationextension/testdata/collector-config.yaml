@@ -9,6 +9,7 @@ exporters:
   datadog:
     api:
       key: ${env:DD_API_KEY}
+      site: ${env:DD_SITE}
   debug:
 processors:
   batch:
@@ -17,7 +18,7 @@ extensions:
   datadogfleetautomation/test:
     api: 
       key: ${env:DD_API_KEY}
-      site: datad0g.com
+      site: ${env:DD_SITE}
     hostname: "datadogfleetautomation-confighostname"
     reporter_period: 20m
   healthcheckv2:
@@ -33,7 +34,7 @@ service:
     traces:
       receivers: [otlp]
       processors: [batch]
-      exporters: [debug]
+      exporters: [debug, datadog]
     logs:
       receivers: [otlp/log]
       processors: [batch]
