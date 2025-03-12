@@ -90,6 +90,7 @@ config:
         trace_buffer: 1000
       api:
         key: "${env:DD_API_KEY}"
+        site: datad0g.com
   processors:
     attributes:
       actions:
@@ -222,7 +223,19 @@ config:
     datadog/connector:
       traces:
         span_name_as_resource_name: true
+  extensions:
+    datadogfleetautomation/test:
+      api:
+        key: "${env:DD_API_KEY}"
+        site: datad0g.com
+    healthcheckv2/test:
+      use_v2: true
+      component_health:
+        include_permanent_errors: false
+        include_recoverable_errors: true
+        recovery_duration: 5m
   service:
+    extensions: [healthcheckv2/test, datadogfleetautomation/test]
     telemetry:
       logs:
         encoding: "json"
