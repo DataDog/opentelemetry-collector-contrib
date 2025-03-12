@@ -1,0 +1,148 @@
+mode: deployment
+replicaCount: 5
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 80
+image:
+  repository: registry.ddbuild.io/ci/opentelemetry-collector-contrib
+  tag: "otelcolcontrib-vc6e612a6" # UPDATE TO MOST RECENT CI BUILD TAG BEFORE RUNNING
+resources:
+  limits:
+    cpu: 512m
+    memory: 2Gi
+useGOMEMLIMIT: true
+presets:
+  logsCollection:
+    enabled: false
+  hostMetrics:
+    enabled: false
+  kubernetesAttributes:
+    enabled: false
+  kubernetesEvents:
+    enabled: false
+  kubeletMetrics:
+    enabled: false
+
+extraEnvs:
+  - name: OTEL_RESOURCE_ATTRIBUTES
+    value: "k8s.pod.ip=$(POD_IP)"
+  - name: OTEL_K8S_NAMESPACE
+    valueFrom:
+      fieldRef:
+        apiVersion: v1
+        fieldPath: metadata.namespace
+readinessProbe:
+  initialDelaySeconds: 120
+livenessProbe:
+  initialDelaySeconds: 120
+config:
+  receivers:
+    jaeger: null
+    zipkin: null
+  exporters:
+    debug:
+      verbosity: detailed
+    datadog:
+      metrics:
+        resource_attributes_as_tags: true
+        histograms:
+          mode: counters
+          send_count_sum_metrics: true
+      traces:
+        span_name_as_resource_name: true
+        compute_stats_by_span_kind: true
+        trace_buffer: 1000
+      api:
+        key: ""
+        fail_on_invalid_key: false
+        site: datad0g.com
+  processors:
+    transform:
+      metric_statements: &statements
+        - context: resource
+          statements:
+            - set(attributes["datadog.host.use_as_metadata"],true)
+      trace_statements: *statements
+      log_statements: *statements
+    memory_limiter:
+      check_interval: 1s
+      limit_mib: 500
+    resourcedetection:
+      # ensures host.name and other important resource tags
+      # get picked up
+      detectors: [env, gcp, ecs, ec2, azure, system]
+      timeout: 5s
+      override: false
+      system:
+        # Enable optional system attributes
+        resource_attributes:
+          os.type:
+            enabled: true
+          os.description:
+            enabled: true
+          host.ip:
+            enabled: true
+          host.mac:
+            enabled: true
+          host.arch:
+            enabled: true
+          host.cpu.vendor.id:
+            enabled: true
+          host.cpu.model.name:
+            enabled: true
+          host.cpu.family:
+            enabled: true
+          host.cpu.model.id:
+            enabled: true
+          host.cpu.stepping:
+            enabled: true
+          host.cpu.cache.l2.size:
+            enabled: true
+          host.id:
+            enabled: false
+    batch:
+      send_batch_max_size: 1000
+      send_batch_size: 100
+      timeout: 10s
+    probabilistic_sampler:
+      hash_seed: 22
+      sampling_percentage: 15.3
+  connectors:
+    datadog/connector:
+      traces:
+        span_name_as_resource_name: true
+  extensions:
+    datadogfleetautomation:
+      api:
+        key: ""
+        site: datad0g.com
+    healthcheckv2:
+      use_v2: true
+      component_health:
+        include_permanent_errors: false
+        include_recoverable_errors: true
+        recovery_duration: 5m
+      http:
+  service:
+    extensions: [healthcheckv2, datadogfleetautomation]
+    telemetry:
+      logs:
+        encoding: "json"
+    pipelines:
+      metrics:
+        receivers: [otlp, prometheus, datadog/connector]
+        processors: [resourcedetection, transform, batch]
+        exporters: [debug, datadog]
+      traces:
+        receivers: [otlp]
+        processors: [resourcedetection, transform, batch]
+        exporters: [datadog/connector]
+      traces/sampled:
+        receivers: [datadog/connector]
+        processors: [probabilistic_sampler, batch]
+        exporters: [debug, datadog]
+      logs:
+        processors: [memory_limiter, resourcedetection, transform, batch]
+        exporters: [debug, datadog]
