@@ -8,6 +8,7 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/open-telemetry/opentelemetry-collector-contrib/extension/datadogfleetautomationextension/internal/payload"
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/service"
 	"go.uber.org/zap"
@@ -178,9 +179,9 @@ func (e *fleetAutomationExtension) getComponentHealthStatus(id string, component
 	return result
 }
 
-// populateFullComponentsJSON creates a moduleInfoJSON struct with all components from ModuleInfos
-func (e *fleetAutomationExtension) populateFullComponentsJSON() *moduleInfoJSON {
-	modInfo := newModuleInfoJSON()
+// populateFullComponentsJSON creates a ModuleInfoJSON struct with all components from ModuleInfos
+func (e *fleetAutomationExtension) populateFullComponentsJSON() *payload.ModuleInfoJSON {
+	modInfo := payload.NewModuleInfoJSON()
 	for _, field := range []struct {
 		kinds string
 		data  map[component.Type]service.ModuleInfo
@@ -200,7 +201,7 @@ func (e *fleetAutomationExtension) populateFullComponentsJSON() *moduleInfoJSON 
 				continue
 			}
 			enabled, _ := e.isComponentConfigured(comp.String(), field.kinds)
-			modInfo.addComponent(collectorModule{
+			modInfo.AddComponent(payload.CollectorModule{
 				Type:       comp.String(),
 				Kind:       field.kind,
 				Gomod:      parts[0],
@@ -213,12 +214,12 @@ func (e *fleetAutomationExtension) populateFullComponentsJSON() *moduleInfoJSON 
 }
 
 // populateActiveComponentsJSON creates an activeComponentsJSON struct with all active components from the collector service pipelines
-func (e *fleetAutomationExtension) populateActiveComponentsJSON() (*activeComponentsJSON, error) {
-	var serviceComponents []serviceComponent
+func (e *fleetAutomationExtension) populateActiveComponentsJSON() (*payload.ActiveComponentsJSON, error) {
+	var serviceComponents []payload.ServiceComponent
 	serviceMap, ok := e.collectorConfigStringMap["service"].(map[string]any)
 	if !ok {
 		e.telemetry.Logger.Error("Failed to get service map from collector config, cannot populate active components table")
-		return &activeComponentsJSON{
+		return &payload.ActiveComponentsJSON{
 			Components: serviceComponents,
 		}, errors.New("failed to get service map from collector config, cannot populate active components table")
 	}
@@ -275,12 +276,12 @@ func (e *fleetAutomationExtension) populateActiveComponentsJSON() (*activeCompon
 			}
 		}
 	}
-	return &activeComponentsJSON{Components: serviceComponents}, nil
+	return &payload.ActiveComponentsJSON{Components: serviceComponents}, nil
 }
 
 // TODO: Work to support instancing of components (non-trivial problem)
 // https://github.com/open-telemetry/opentelemetry-collector/issues/10534#issue-2389523504
-func (e *fleetAutomationExtension) getServiceComponent(componentString, componentsKind string) *serviceComponent {
+func (e *fleetAutomationExtension) getServiceComponent(componentString, componentsKind string) *payload.ServiceComponent {
 	var id, name, typ, kind, gomod, version, status string
 	componentKind, ok := kindsToKind[componentsKind]
 	if !ok {
@@ -302,7 +303,7 @@ func (e *fleetAutomationExtension) getServiceComponent(componentString, componen
 	}
 	typ = fullID[0]
 	kind = componentKind
-	comp, ok := e.moduleInfoJSON.getComponent(typ, kind)
+	comp, ok := e.ModuleInfoJSON.GetComponent(typ, kind)
 	if !ok {
 		e.telemetry.Logger.Info("service component not found in module info", zap.String("component", componentString))
 		gomod = "unknown"
@@ -318,7 +319,7 @@ func (e *fleetAutomationExtension) getServiceComponent(componentString, componen
 			status = dataToFlattenedJSONString(statusMap, true, true)
 		}
 	}
-	return &serviceComponent{
+	return &payload.ServiceComponent{
 		ID:              id,
 		Name:            name,
 		Type:            typ,

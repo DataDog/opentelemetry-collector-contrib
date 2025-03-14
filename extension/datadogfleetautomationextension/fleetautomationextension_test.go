@@ -195,54 +195,6 @@ func Test_NotifyConfig(t *testing.T) {
 	}
 }
 
-func TestPrepareAgentMetadataPayload(t *testing.T) {
-	site := "datadoghq.com"
-	tool := "otelcol"
-	toolVersion := "1.0.0"
-	installerVersion := "1.0.0"
-	hostname := "test-hostname"
-
-	expectedPayload := AgentMetadata{
-		AgentVersion:                      "7.64.0-collector",
-		AgentStartupTimeMs:                1234567890123,
-		AgentFlavor:                       "agent",
-		ConfigSite:                        site,
-		ConfigEKSFargate:                  false,
-		InstallMethodTool:                 tool,
-		InstallMethodToolVersion:          toolVersion,
-		InstallMethodInstallerVersion:     installerVersion,
-		FeatureRemoteConfigurationEnabled: true,
-		FeatureOTLPEnabled:                true,
-		Hostname:                          hostname,
-	}
-
-	actualPayload := prepareAgentMetadataPayload(site, tool, toolVersion, installerVersion, hostname)
-
-	assert.Equal(t, expectedPayload, actualPayload)
-}
-
-func TestPrepareOtelMetadataPayload(t *testing.T) {
-	version := "1.0.0"
-	extensionVersion := "1.0.0"
-	command := "otelcol"
-	fullConfig := "{\"service\":{\"pipelines\":{\"traces\":{\"receivers\":[\"otlp\"],\"exporters\":[\"debug\"]}}}}"
-
-	expectedPayload := OtelMetadata{
-		Enabled:                          true,
-		Version:                          version,
-		ExtensionVersion:                 extensionVersion,
-		Command:                          command,
-		Description:                      "OSS Collector with Datadog Fleet Automation Extension",
-		ProvidedConfiguration:            "",
-		EnvironmentVariableConfiguration: "",
-		FullConfiguration:                fullConfig,
-	}
-
-	actualPayload := prepareOtelMetadataPayload(version, extensionVersion, command, fullConfig)
-
-	assert.Equal(t, expectedPayload, actualPayload)
-}
-
 func TestNewExtension(t *testing.T) {
 	tests := []struct {
 		name                 string

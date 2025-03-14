@@ -26,6 +26,8 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/datadog/clientutil"
+
+	"github.com/open-telemetry/opentelemetry-collector-contrib/extension/datadogfleetautomationextension/internal/payload"
 )
 
 type (
@@ -58,19 +60,19 @@ type fleetAutomationExtension struct {
 	mu                       sync.RWMutex
 	uuid                     uuid.UUID
 
-	buildInfo            CustomBuildInfo
+	buildInfo            payload.CustomBuildInfo
 	moduleInfo           service.ModuleInfos
-	moduleInfoJSON       *moduleInfoJSON
-	activeComponentsJSON *activeComponentsJSON
+	ModuleInfoJSON       *payload.ModuleInfoJSON
+	activeComponentsJSON *payload.ActiveComponentsJSON
 	version              string
 
 	forwarder  defaultForwarderInterface
 	compressor *compression.Compressor
 	serializer serializer.MetricSerializer
 
-	agentMetadataPayload AgentMetadata
-	otelMetadataPayload  OtelMetadata
-	otelCollectorPayload OtelCollector
+	agentMetadataPayload payload.AgentMetadata
+	otelMetadataPayload  payload.OtelMetadata
+	otelCollectorPayload payload.OtelCollector
 
 	httpServer           *http.Server
 	healthCheckV2Enabled bool
@@ -105,7 +107,7 @@ func (e *fleetAutomationExtension) NotifyConfig(ctx context.Context, conf *confm
 	e.checkHealthCheckV2()
 
 	// create agent metadata payload. most fields are not relevant to OSS collector.
-	e.agentMetadataPayload = prepareAgentMetadataPayload(
+	e.agentMetadataPayload = payload.PrepareAgentMetadataPayload(
 		e.extensionConfig.API.Site,
 		e.buildInfo.Command,
 		e.buildInfo.Version,
@@ -117,14 +119,14 @@ func (e *fleetAutomationExtension) NotifyConfig(ctx context.Context, conf *confm
 	fullConfig := dataToFlattenedJSONString(e.collectorConfigStringMap, false, false)
 
 	// create otel metadata payload
-	e.otelMetadataPayload = prepareOtelMetadataPayload(
+	e.otelMetadataPayload = payload.PrepareOtelMetadataPayload(
 		e.buildInfo.Version,
 		e.version,
 		e.buildInfo.Command,
 		fullConfig,
 	)
 
-	e.otelCollectorPayload = prepareOtelCollectorPayload(
+	e.otelCollectorPayload = payload.PrepareOtelCollectorPayload(
 		e.hostname,
 		e.hostnameSource,
 		e.uuid.String(),
@@ -323,7 +325,7 @@ func newExtension(
 	compressor := newCompressor()
 	serializer := newSerializer(forwarder, compressor, cfg, log, hostname)
 	version := settings.BuildInfo.Version
-	buildInfo := CustomBuildInfo{
+	buildInfo := payload.CustomBuildInfo{
 		Command:     settings.BuildInfo.Command,
 		Description: settings.BuildInfo.Description,
 		Version:     settings.BuildInfo.Version,
@@ -345,54 +347,4 @@ func newExtension(
 		hostname:         hostname,
 		uuid:             extUUID,
 	}, nil
-}
-
-func prepareAgentMetadataPayload(site, tool, toolversion, installerversion, hostname string) AgentMetadata {
-	return AgentMetadata{
-		AgentVersion:                      "7.64.0-collector",
-		AgentStartupTimeMs:                1234567890123,
-		AgentFlavor:                       "",
-		ConfigSite:                        site,
-		ConfigEKSFargate:                  false,
-		InstallMethodTool:                 tool,
-		InstallMethodToolVersion:          toolversion,
-		InstallMethodInstallerVersion:     installerversion,
-		FeatureRemoteConfigurationEnabled: true,
-		FeatureOTLPEnabled:                true,
-		Hostname:                          hostname,
-	}
-}
-
-func prepareOtelMetadataPayload(version, extensionVersion, command, fullConfig string) OtelMetadata {
-	return OtelMetadata{
-		Enabled:                          true,
-		Version:                          version,
-		ExtensionVersion:                 extensionVersion,
-		Command:                          command,
-		Description:                      "OSS Collector with Datadog Fleet Automation Extension",
-		ProvidedConfiguration:            "",
-		EnvironmentVariableConfiguration: "",
-		FullConfiguration:                fullConfig,
-	}
-}
-
-func prepareOtelCollectorPayload(
-	hostname,
-	hostnameSource,
-	extensionUUID,
-	version,
-	site,
-	fullConfig string,
-	buildInfo CustomBuildInfo) OtelCollector {
-	return OtelCollector{
-		HostKey:           "",
-		Hostname:          hostname,
-		HostnameSource:    hostnameSource,
-		CollectorID:       hostname + "-" + extensionUUID,
-		CollectorVersion:  version,
-		ConfigSite:        site,
-		APIKeyUUID:        "",
-		BuildInfo:         buildInfo,
-		FullConfiguration: fullConfig,
-	}
 }
