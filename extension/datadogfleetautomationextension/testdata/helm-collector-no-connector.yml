@@ -132,16 +132,12 @@ config:
         encoding: "json"
     pipelines:
       metrics:
-        receivers: [otlp, prometheus, datadog/connector]
+        receivers: [otlp, prometheus]
         processors: [resourcedetection, transform, batch]
         exporters: [debug, datadog]
       traces:
         receivers: [otlp]
-        processors: [resourcedetection, transform, batch]
-        exporters: [datadog/connector]
-      traces/sampled:
-        receivers: [datadog/connector]
-        processors: [probabilistic_sampler, batch]
+        processors: [resourcedetection, transform, probabilistic_sampler, batch]
         exporters: [debug, datadog]
       logs:
         processors: [memory_limiter, resourcedetection, transform, batch]
