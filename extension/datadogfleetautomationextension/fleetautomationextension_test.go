@@ -205,7 +205,7 @@ func TestPrepareAgentMetadataPayload(t *testing.T) {
 	expectedPayload := AgentMetadata{
 		AgentVersion:                      "7.64.0-collector",
 		AgentStartupTimeMs:                1234567890123,
-		AgentFlavor:                       "agent",
+		AgentFlavor:                       "",
 		ConfigSite:                        site,
 		ConfigEKSFargate:                  false,
 		InstallMethodTool:                 tool,

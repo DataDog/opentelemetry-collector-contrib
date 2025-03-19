@@ -57,13 +57,13 @@ func TestFactory_NewFactory(t *testing.T) {
 	assert.Equal(t, expectedConfig, defaultConfig)
 
 	// Test CreateExtension
-	ext, err := factory.Create(context.Background(), extensiontest.NewNopSettingsWithType(metadata.Type), defaultConfig)
+	ext, err := factory.Create(context.Background(), extensiontest.NewNopSettings(metadata.Type), defaultConfig)
 	assert.NoError(t, err)
 	assert.NotNil(t, ext)
 
 	expectedConfig.API.FailOnInvalidKey = true
 	expectedConfig.API.Key = "bad-key"
-	ext, err = factory.Create(context.Background(), extensiontest.NewNopSettingsWithType(metadata.Type), expectedConfig)
+	ext, err = factory.Create(context.Background(), extensiontest.NewNopSettings(metadata.Type), expectedConfig)
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "API Key validation failed")
 	assert.Nil(t, ext)
