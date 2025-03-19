@@ -15,6 +15,8 @@ import (
 
 	"github.com/DataDog/datadog-agent/comp/forwarder/defaultforwarder"
 	"go.uber.org/zap"
+
+	"github.com/open-telemetry/opentelemetry-collector-contrib/extension/datadogfleetautomationextension/internal/payload"
 )
 
 const (
@@ -149,7 +151,7 @@ func makeGetRequest(uri string) (*http.Response, error) {
 	return res, nil
 }
 
-func (e *fleetAutomationExtension) prepareAndSendFleetAutomationPayloads() (*CombinedPayload, error) {
+func (e *fleetAutomationExtension) prepareAndSendFleetAutomationPayloads() (*payload.CombinedPayload, error) {
 	// If health check v2 enabled, set Environment Variable Configuration to health check verbose query response
 	var healthStatus string
 	if e.healthCheckV2Enabled {
@@ -165,8 +167,8 @@ func (e *fleetAutomationExtension) prepareAndSendFleetAutomationPayloads() (*Com
 	}
 
 	// add full components list to Provided Configuration
-	e.moduleInfoJSON = e.populateFullComponentsJSON()
-	e.otelMetadataPayload.ProvidedConfiguration = dataToFlattenedJSONString(e.moduleInfoJSON, false, false)
+	e.ModuleInfoJSON = e.populateFullComponentsJSON()
+	e.otelMetadataPayload.ProvidedConfiguration = dataToFlattenedJSONString(e.ModuleInfoJSON, false, false)
 
 	// add active components list to Provided Configuration, if available
 	activeComponentsJSON, err := e.populateActiveComponentsJSON()
@@ -178,27 +180,28 @@ func (e *fleetAutomationExtension) prepareAndSendFleetAutomationPayloads() (*Com
 	}
 
 	// add remaining data to otelCollectorPayload
-	e.otelCollectorPayload.FullComponents = e.moduleInfoJSON.GetFullComponentsList()
+	e.otelCollectorPayload.FullComponents = e.ModuleInfoJSON.GetFullComponentsList()
 	if e.activeComponentsJSON != nil {
 		e.otelCollectorPayload.ActiveComponents = e.activeComponentsJSON.Components
 	}
 	e.otelCollectorPayload.HealthStatus = healthStatus
 
-	// Create the datadog_agent and the datadog_agent_otel payloads
-	ap := agentPayload{
+	// Create the combined payload
+	ap := payload.AgentPayload{
 		Hostname:  e.hostname,
 		Timestamp: nowFunc().UnixNano(),
 		Metadata:  e.agentMetadataPayload,
 		UUID:      e.uuid.String(),
 	}
-	p := otelAgentPayload{
+
+	p := payload.OtelAgentPayload{
 		Hostname:  e.hostname,
 		Timestamp: nowFunc().UnixNano(),
 		Metadata:  e.otelMetadataPayload,
 		UUID:      e.uuid.String(),
 	}
 
-	oc := otelCollectorPayload{
+	oc := payload.OtelCollectorPayload{
 		Hostname:  e.hostname,
 		Timestamp: nowFunc().UnixNano(),
 		Metadata:  e.otelCollectorPayload,
@@ -223,12 +226,12 @@ func (e *fleetAutomationExtension) prepareAndSendFleetAutomationPayloads() (*Com
 		e.telemetry.Logger.Warn("Forwarder is not started, skipping sending payloads")
 	}
 
-	combinedPayload := &CombinedPayload{
+	combinedPayload := payload.CombinedPayload{
 		CollectorPayload: oc,
-		AgentPayload:     ap,
 		OtelPayload:      p,
+		AgentPayload:     ap,
 	}
-	return combinedPayload, nil
+	return &combinedPayload, nil
 }
 
 // handleMetadata writes the metadata payloads to the response writer.

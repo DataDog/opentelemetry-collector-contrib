@@ -1,7 +1,7 @@
 // Copyright The OpenTelemetry Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package datadogfleetautomationextension // import "github.com/open-telemetry/opentelemetry-collector-contrib/extension/datadogfleetautomationextension"
+package payload // import "github.com/open-telemetry/opentelemetry-collector-contrib/extension/datadogfleetautomationextension/internal/payload"
 
 import (
 	"encoding/json"
@@ -25,8 +25,8 @@ type OtelCollector struct {
 	CollectorVersion  string             `json:"collector_version"`
 	ConfigSite        string             `json:"config_site"`
 	APIKeyUUID        string             `json:"api_key_uuid"`
-	FullComponents    []collectorModule  `json:"full_components"`
-	ActiveComponents  []serviceComponent `json:"active_components"`
+	FullComponents    []CollectorModule  `json:"full_components"`
+	ActiveComponents  []ServiceComponent `json:"active_components"`
 	BuildInfo         CustomBuildInfo    `json:"build_info"`
 	FullConfiguration string             `json:"full_configuration"` // JSON passed as string
 	HealthStatus      string             `json:"health_status"`      // JSON passed as string
@@ -45,9 +45,9 @@ type OtelMetadata struct {
 }
 
 type CombinedPayload struct {
-	CollectorPayload otelCollectorPayload `json:"collector_payload"`
-	OtelPayload      otelAgentPayload     `json:"otel_payload"`
-	AgentPayload     agentPayload         `json:"agent_payload"`
+	CollectorPayload OtelCollectorPayload `json:"collector_payload"`
+	OtelPayload      OtelAgentPayload     `json:"otel_payload"`
+	AgentPayload     AgentPayload         `json:"agent_payload"`
 }
 
 type AgentMetadata struct {
@@ -103,33 +103,33 @@ type AgentMetadata struct {
 
 // Explicitly implement the JSONMarshaler interface
 var (
-	_ marshaler.JSONMarshaler = (*otelAgentPayload)(nil)
-	_ marshaler.JSONMarshaler = (*agentPayload)(nil)
+	_ marshaler.JSONMarshaler = (*OtelAgentPayload)(nil)
+	_ marshaler.JSONMarshaler = (*AgentPayload)(nil)
 )
 
-// Payload handles the JSON unmarshalling of the otel metadata payload
-type otelAgentPayload struct {
+// OtelAgentPayload handles the JSON unmarshalling of the otel metadata payload
+type OtelAgentPayload struct {
 	Hostname  string       `json:"hostname"`
 	Timestamp int64        `json:"timestamp"`
 	Metadata  OtelMetadata `json:"otel_metadata"`
 	UUID      string       `json:"uuid"`
 }
 
-type agentPayload struct {
+type AgentPayload struct {
 	Hostname  string        `json:"hostname"`
 	Timestamp int64         `json:"timestamp"`
 	Metadata  AgentMetadata `json:"agent_metadata"`
 	UUID      string        `json:"uuid"`
 }
 
-type otelCollectorPayload struct {
+type OtelCollectorPayload struct {
 	Hostname  string        `json:"hostname"`
 	Timestamp int64         `json:"timestamp"`
 	Metadata  OtelCollector `json:"otel_collector"`
 	UUID      string        `json:"uuid"`
 }
 
-type collectorModule struct {
+type CollectorModule struct {
 	Type       string `json:"type"`
 	Kind       string `json:"kind"`
 	Gomod      string `json:"gomod"`
@@ -137,7 +137,7 @@ type collectorModule struct {
 	Configured bool   `json:"configured"`
 }
 
-type serviceComponent struct {
+type ServiceComponent struct {
 	ID              string `json:"id"`
 	Name            string `json:"name"`
 	Type            string `json:"type"`
@@ -148,24 +148,24 @@ type serviceComponent struct {
 	ComponentStatus string `json:"component_status"`
 }
 
-// moduleInfoJSON holds data on all modules in the collector
+// ModuleInfoJSON holds data on all modules in the collector
 // It is built to make checking module info quicker when building active/configured components list
 // (don't need to iterate through a whole list of modules, just do key/value pair in map)
-type moduleInfoJSON struct {
-	components map[string]collectorModule
+type ModuleInfoJSON struct {
+	components map[string]CollectorModule
 }
 
-func newModuleInfoJSON() *moduleInfoJSON {
-	return &moduleInfoJSON{
-		components: make(map[string]collectorModule),
+func NewModuleInfoJSON() *ModuleInfoJSON {
+	return &ModuleInfoJSON{
+		components: make(map[string]CollectorModule),
 	}
 }
 
-func (m *moduleInfoJSON) getKey(typeStr, kindStr string) string {
+func (m *ModuleInfoJSON) getKey(typeStr, kindStr string) string {
 	return typeStr + ":" + kindStr
 }
 
-func (m *moduleInfoJSON) addComponent(comp collectorModule) {
+func (m *ModuleInfoJSON) AddComponent(comp CollectorModule) {
 	key := m.getKey(comp.Type, comp.Kind)
 	m.components[key] = comp
 	// We don't ever expect two modules to have the same type and kind
@@ -173,17 +173,23 @@ func (m *moduleInfoJSON) addComponent(comp collectorModule) {
 	// and service/pipeline purposes.
 }
 
-func (m *moduleInfoJSON) getComponent(typeStr, kindStr string) (collectorModule, bool) {
+func (m *ModuleInfoJSON) GetComponent(typeStr, kindStr string) (CollectorModule, bool) {
 	key := m.getKey(typeStr, kindStr)
 	comp, ok := m.components[key]
 	return comp, ok
 }
 
-func (m *moduleInfoJSON) MarshalJSON() ([]byte, error) {
+func (m *ModuleInfoJSON) PutComponents(components []CollectorModule) {
+	for _, comp := range components {
+		m.AddComponent(comp)
+	}
+}
+
+func (m *ModuleInfoJSON) MarshalJSON() ([]byte, error) {
 	alias := struct {
-		Components []collectorModule `json:"full_components"`
+		Components []CollectorModule `json:"full_components"`
 	}{
-		Components: make([]collectorModule, 0o0, len(m.components)),
+		Components: make([]CollectorModule, 0, len(m.components)),
 	}
 	for _, comp := range m.components {
 		alias.Components = append(alias.Components, comp)
@@ -191,49 +197,102 @@ func (m *moduleInfoJSON) MarshalJSON() ([]byte, error) {
 	return json.Marshal(alias)
 }
 
-func (m *moduleInfoJSON) GetFullComponentsList() []collectorModule {
-	fullComponents := make([]collectorModule, 0, len(m.components))
+func (m *ModuleInfoJSON) GetFullComponentsList() []CollectorModule {
+	fullComponents := make([]CollectorModule, 0, len(m.components))
 	for _, comp := range m.components {
 		fullComponents = append(fullComponents, comp)
 	}
 	return fullComponents
 }
 
-type activeComponentsJSON struct {
-	Components []serviceComponent `json:"active_components"`
+type ActiveComponentsJSON struct {
+	Components []ServiceComponent `json:"active_components"`
 }
 
 // MarshalJSON serializes a Payload to JSON
-func (p *otelAgentPayload) MarshalJSON() ([]byte, error) {
-	type payloadAlias otelAgentPayload
+func (p *OtelAgentPayload) MarshalJSON() ([]byte, error) {
+	type payloadAlias OtelAgentPayload
 	return json.Marshal((*payloadAlias)(p))
 }
 
 // SplitPayload implements marshaler.AbstractMarshaler#SplitPayload.
 //
 // In this case, the payload can't be split any further.
-func (p *otelAgentPayload) SplitPayload(_ int) ([]marshaler.AbstractMarshaler, error) {
+func (p *OtelAgentPayload) SplitPayload(_ int) ([]marshaler.AbstractMarshaler, error) {
 	return nil, fmt.Errorf("could not split inventories otel payload any more, payload is too big for intake")
 }
 
-// MarshalJSON serializes a agentPayload to JSON
-func (p *agentPayload) MarshalJSON() ([]byte, error) {
-	type agentPayloadAlias agentPayload
+// MarshalJSON serializes a AgentPayload to JSON
+func (p *AgentPayload) MarshalJSON() ([]byte, error) {
+	type agentPayloadAlias AgentPayload
 	return json.Marshal((*agentPayloadAlias)(p))
 }
 
 // SplitPayload implements marshaler.AbstractMarshaler#SplitPayload.
-func (p *agentPayload) SplitPayload(_ int) ([]marshaler.AbstractMarshaler, error) {
+func (p *AgentPayload) SplitPayload(_ int) ([]marshaler.AbstractMarshaler, error) {
 	return nil, fmt.Errorf("could not split inventories agent payload any more, payload is too big for intake")
 }
 
-// MarshalJSON serializes a agentPayload to JSON
-func (p *otelCollectorPayload) MarshalJSON() ([]byte, error) {
-	type collectorPayloadAlias otelCollectorPayload
+// MarshalJSON serializes a OtelCollectorPayload to JSON
+func (p *OtelCollectorPayload) MarshalJSON() ([]byte, error) {
+	type collectorPayloadAlias OtelCollectorPayload
 	return json.Marshal((*collectorPayloadAlias)(p))
 }
 
 // SplitPayload implements marshaler.AbstractMarshaler#SplitPayload.
-func (p *otelCollectorPayload) SplitPayload(_ int) ([]marshaler.AbstractMarshaler, error) {
+func (p *OtelCollectorPayload) SplitPayload(_ int) ([]marshaler.AbstractMarshaler, error) {
 	return nil, fmt.Errorf("could not split inventories agent payload any more, payload is too big for intake")
+}
+
+// PrepareAgentMetadataPayload prepares an AgentMetadata payload
+func PrepareAgentMetadataPayload(site, tool, toolversion, installerversion, hostname string) AgentMetadata {
+	return AgentMetadata{
+		AgentVersion:                      "7.64.0-collector",
+		AgentStartupTimeMs:                1234567890123,
+		AgentFlavor:                       "",
+		ConfigSite:                        site,
+		ConfigEKSFargate:                  false,
+		InstallMethodTool:                 tool,
+		InstallMethodToolVersion:          toolversion,
+		InstallMethodInstallerVersion:     installerversion,
+		FeatureRemoteConfigurationEnabled: true,
+		FeatureOTLPEnabled:                true,
+		Hostname:                          hostname,
+	}
+}
+
+// PrepareOtelMetadataPayload prepares an OtelMetadata payload
+func PrepareOtelMetadataPayload(version, extensionVersion, command, fullConfig string) OtelMetadata {
+	return OtelMetadata{
+		Enabled:                          true,
+		Version:                          version,
+		ExtensionVersion:                 extensionVersion,
+		Command:                          command,
+		Description:                      "OSS Collector with Datadog Fleet Automation Extension",
+		ProvidedConfiguration:            "",
+		EnvironmentVariableConfiguration: "",
+		FullConfiguration:                fullConfig,
+	}
+}
+
+// PrepareOtelCollectorPayload prepares an OtelCollector payload
+func PrepareOtelCollectorPayload(
+	hostname,
+	hostnameSource,
+	extensionUUID,
+	version,
+	site,
+	fullConfig string,
+	buildInfo CustomBuildInfo) OtelCollector {
+	return OtelCollector{
+		HostKey:           "",
+		Hostname:          hostname,
+		HostnameSource:    hostnameSource,
+		CollectorID:       hostname + "-" + extensionUUID,
+		CollectorVersion:  version,
+		ConfigSite:        site,
+		APIKeyUUID:        "",
+		BuildInfo:         buildInfo,
+		FullConfiguration: fullConfig,
+	}
 }
