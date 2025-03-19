@@ -1,4 +1,4 @@
-FROM registry.ddbuild.io/images/mirror/golang:1.23 AS build
+FROM registry.ddbuild.io/images/mirror/golang:1.23.7 AS build
 WORKDIR /src
 ADD . /src
 RUN make otelcontribcol
