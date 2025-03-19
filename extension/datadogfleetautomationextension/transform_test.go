@@ -707,7 +707,7 @@ func TestGetServiceComponent(t *testing.T) {
 				Kind:            extensionKind,
 				Gomod:           "example.com/module",
 				Version:         "v1.0.0",
-				ComponentStatus: "{status:healthy}",
+				ComponentStatus: "{\"status\": \"healthy\"}",
 			},
 		},
 		{
@@ -784,7 +784,7 @@ func TestDataToFlattenedJSONString(t *testing.T) {
 			},
 			removeNewLines: true,
 			removeQuotes:   true,
-			expectedOutput: "{key:value}",
+			expectedOutput: "{key: value}",
 		},
 		{
 			name: "Nested map without removing newlines and quotes",
@@ -806,7 +806,7 @@ func TestDataToFlattenedJSONString(t *testing.T) {
 			},
 			removeNewLines: true,
 			removeQuotes:   true,
-			expectedOutput: "{key:{nestedKey:nestedValue}}",
+			expectedOutput: "{key: {nestedKey: nestedValue}}",
 		},
 		{
 			name:           "Empty map",
