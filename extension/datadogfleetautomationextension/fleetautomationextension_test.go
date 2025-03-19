@@ -19,6 +19,7 @@ import (
 	"github.com/DataDog/opentelemetry-mapping-go/pkg/otlp/attributes/source"
 	"github.com/stretchr/testify/assert"
 	"go.opentelemetry.io/collector/component"
+	"go.opentelemetry.io/collector/component/componentstatus"
 	"go.opentelemetry.io/collector/component/componenttest"
 	"go.opentelemetry.io/collector/confmap"
 	"go.opentelemetry.io/collector/extension"
@@ -193,54 +194,6 @@ func Test_NotifyConfig(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestPrepareAgentMetadataPayload(t *testing.T) {
-	site := "datadoghq.com"
-	tool := "otelcol"
-	toolVersion := "1.0.0"
-	installerVersion := "1.0.0"
-	hostname := "test-hostname"
-
-	expectedPayload := AgentMetadata{
-		AgentVersion:                      "7.64.0-collector",
-		AgentStartupTimeMs:                1234567890123,
-		AgentFlavor:                       "",
-		ConfigSite:                        site,
-		ConfigEKSFargate:                  false,
-		InstallMethodTool:                 tool,
-		InstallMethodToolVersion:          toolVersion,
-		InstallMethodInstallerVersion:     installerVersion,
-		FeatureRemoteConfigurationEnabled: true,
-		FeatureOTLPEnabled:                true,
-		Hostname:                          hostname,
-	}
-
-	actualPayload := prepareAgentMetadataPayload(site, tool, toolVersion, installerVersion, hostname)
-
-	assert.Equal(t, expectedPayload, actualPayload)
-}
-
-func TestPrepareOtelMetadataPayload(t *testing.T) {
-	version := "1.0.0"
-	extensionVersion := "1.0.0"
-	command := "otelcol"
-	fullConfig := "{\"service\":{\"pipelines\":{\"traces\":{\"receivers\":[\"otlp\"],\"exporters\":[\"debug\"]}}}}"
-
-	expectedPayload := OtelMetadata{
-		Enabled:                          true,
-		Version:                          version,
-		ExtensionVersion:                 extensionVersion,
-		Command:                          command,
-		Description:                      "OSS Collector with Datadog Fleet Automation Extension",
-		ProvidedConfiguration:            "",
-		EnvironmentVariableConfiguration: "",
-		FullConfiguration:                fullConfig,
-	}
-
-	actualPayload := prepareOtelMetadataPayload(version, extensionVersion, command, fullConfig)
-
-	assert.Equal(t, expectedPayload, actualPayload)
 }
 
 func TestNewExtension(t *testing.T) {
@@ -585,6 +538,7 @@ func TestFleetAutomationExtension_Start(t *testing.T) {
 				telemetry: telemetry,
 				forwarder: tt.forwarder,
 				done:      make(chan bool),
+				eventCh:   make(chan *eventSourcePair),
 			}
 
 			err := ext.Start(ctx, tt.host)
@@ -640,6 +594,7 @@ func TestFleetAutomationExtension_Shutdown(t *testing.T) {
 				telemetry: telemetry,
 				forwarder: tt.forwarder,
 				done:      make(chan bool),
+				eventCh:   make(chan *eventSourcePair),
 			}
 
 			if tt.httpServer != nil {
@@ -817,6 +772,10 @@ func newNilForwarder(coreconfig.Component, corelog.Component) defaultforwarder.F
 	return nil
 }
 
+func newMockForwarder(coreconfig.Component, corelog.Component) defaultforwarder.Forwarder {
+	return &mockForwarder{}
+}
+
 type mockSourceProvider struct {
 	hostname string
 	err      error
@@ -941,4 +900,187 @@ func (m mockForwarder) SubmitOrchestratorChecks(transaction.BytesPayloads, http.
 
 func (m mockForwarder) SubmitOrchestratorManifests(transaction.BytesPayloads, http.Header) (chan defaultforwarder.Response, error) {
 	return nil, nil
+}
+
+func TestProcessComponentStatusEvents(t *testing.T) {
+	tests := []struct {
+		name           string
+		events         []*eventSourcePair
+		readySignal    bool
+		expectedStatus map[string]any
+	}{
+		{
+			name: "Process starting events immediately",
+			events: []*eventSourcePair{
+				{
+					source: componentstatus.NewInstanceID(
+						component.MustNewID("testreceiver"),
+						component.KindReceiver,
+					),
+					event: componentstatus.NewEvent(componentstatus.StatusStarting),
+				},
+			},
+			readySignal: false,
+			expectedStatus: map[string]any{
+				"receiver:testreceiver": map[string]any{
+					"status": componentstatus.StatusStarting.String(),
+					"error":  nil,
+				},
+			},
+		},
+		{
+			name: "Queue non-starting events until ready",
+			events: []*eventSourcePair{
+				{
+					source: componentstatus.NewInstanceID(
+						component.MustNewID("testprocessor"),
+						component.KindProcessor,
+					),
+					event: componentstatus.NewEvent(componentstatus.StatusOK),
+				},
+			},
+			readySignal: true,
+			expectedStatus: map[string]any{
+				"processor:testprocessor": map[string]any{
+					"status": componentstatus.StatusOK.String(),
+					"error":  nil,
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create extension with test settings
+			set := extension.Settings{
+				ID:                component.MustNewID(metadata.Type.String()),
+				TelemetrySettings: componenttest.NewNopTelemetrySettings(),
+			}
+			mspg := mockSourceProviderGetter{
+				provider: &mockSourceProvider{hostname: "inferred-hostname"},
+			}
+			cfg := &Config{ReporterPeriod: DefaultReporterPeriod}
+			faExt, err := newExtension(context.Background(), cfg, set, clientutil.ValidateAPIKey, mspg.GetSourceProvider, newMockForwarder)
+			assert.NoError(t, err)
+
+			// Start processing events in a goroutine
+			go faExt.processComponentStatusEvents()
+
+			// Send events
+			for _, event := range tt.events {
+				faExt.eventCh <- event
+			}
+
+			// If ready signal is needed, send it
+			if tt.readySignal {
+				close(faExt.readyCh)
+			}
+
+			// Give some time for processing
+			time.Sleep(100 * time.Millisecond)
+
+			// Verify component status
+			faExt.mu.RLock()
+			// Check that the expected status fields match
+			for key, expectedValue := range tt.expectedStatus {
+				actualValue, exists := faExt.componentStatus[key]
+				assert.True(t, exists, "Expected key %s not found in componentStatus", key)
+				actualMap := actualValue.(map[string]any)
+				expectedMap := expectedValue.(map[string]any)
+
+				// Check status and error
+				assert.Equal(t, expectedMap["status"], actualMap["status"])
+				assert.Equal(t, expectedMap["error"], actualMap["error"])
+
+				// Check that timestamp is non-zero
+				timestamp, ok := actualMap["timestamp"].(time.Time)
+				assert.True(t, ok, "Expected timestamp to be time.Time")
+				assert.False(t, timestamp.IsZero(), "Expected timestamp to be non-zero")
+			}
+			faExt.mu.RUnlock()
+
+			// Cleanup
+			close(faExt.done)
+		})
+	}
+}
+
+func TestUpdateComponentStatus(t *testing.T) {
+	tests := []struct {
+		name           string
+		event          *eventSourcePair
+		expectedStatus map[string]any
+	}{
+		{
+			name: "Update status for receiver",
+			event: &eventSourcePair{
+				source: componentstatus.NewInstanceID(
+					component.MustNewID("testreceiver"),
+					component.KindReceiver,
+				),
+				event: componentstatus.NewEvent(componentstatus.StatusOK),
+			},
+			expectedStatus: map[string]any{
+				"receiver:testreceiver": map[string]any{
+					"status": componentstatus.StatusOK.String(),
+					"error":  nil,
+				},
+			},
+		},
+		{
+			name: "Update status for processor with error",
+			event: &eventSourcePair{
+				source: componentstatus.NewInstanceID(
+					component.MustNewID("testprocessor"),
+					component.KindProcessor,
+				),
+				event: componentstatus.NewEvent(componentstatus.StatusRecoverableError),
+			},
+			expectedStatus: map[string]any{
+				"processor:testprocessor": map[string]any{
+					"status": componentstatus.StatusRecoverableError.String(),
+					"error":  nil,
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create extension with test settings
+			set := extension.Settings{
+				ID:                component.MustNewID(metadata.Type.String()),
+				TelemetrySettings: componenttest.NewNopTelemetrySettings(),
+			}
+			mspg := mockSourceProviderGetter{
+				provider: &mockSourceProvider{hostname: "inferred-hostname"},
+			}
+			cfg := &Config{ReporterPeriod: DefaultReporterPeriod}
+			faExt, err := newExtension(context.Background(), cfg, set, clientutil.ValidateAPIKey, mspg.GetSourceProvider, newMockForwarder)
+			assert.NoError(t, err)
+
+			// Update component status
+			faExt.updateComponentStatus(tt.event)
+
+			// Verify component status
+			faExt.mu.RLock()
+			// Check that the expected status fields match
+			for key, expectedValue := range tt.expectedStatus {
+				actualValue, exists := faExt.componentStatus[key]
+				assert.True(t, exists, "Expected key %s not found in componentStatus", key)
+				actualMap := actualValue.(map[string]any)
+				expectedMap := expectedValue.(map[string]any)
+
+				// Check status and error
+				assert.Equal(t, expectedMap["status"], actualMap["status"])
+				assert.Equal(t, expectedMap["error"], actualMap["error"])
+
+				// Check that timestamp is non-zero
+				timestamp, ok := actualMap["timestamp"].(time.Time)
+				assert.True(t, ok, "Expected timestamp to be time.Time")
+				assert.False(t, timestamp.IsZero(), "Expected timestamp to be non-zero")
+			}
+			faExt.mu.RUnlock()
+		})
+	}
 }
