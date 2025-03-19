@@ -154,17 +154,19 @@ func makeGetRequest(uri string) (*http.Response, error) {
 func (e *fleetAutomationExtension) prepareAndSendFleetAutomationPayloads() (*payload.CombinedPayload, error) {
 	// If health check v2 enabled, set Environment Variable Configuration to health check verbose query response
 	var healthStatus string
-	if e.healthCheckV2Enabled {
-		componentStatus, err := e.getHealthCheckStatus()
-		if err != nil {
-			e.telemetry.Logger.Error("Failed to get health check status", zap.Error(err))
-			healthStatus = ""
-		} else {
-			e.componentStatus = componentStatus
-			healthStatus = dataToFlattenedJSONString(e.componentStatus, false, false)
-			e.otelMetadataPayload.EnvironmentVariableConfiguration = healthStatus
-		}
-	}
+	// if e.healthCheckV2Enabled {
+	// 	componentStatus, err := e.getHealthCheckStatus()
+	// 	if err != nil {
+	// 		e.telemetry.Logger.Error("Failed to get health check status", zap.Error(err))
+	// 		healthStatus = ""
+	// 	} else {
+	// 		e.componentStatus = componentStatus
+	// 		healthStatus = dataToFlattenedJSONString(e.componentStatus, false, false)
+	// 		e.otelMetadataPayload.EnvironmentVariableConfiguration = healthStatus
+	// 	}
+	// }
+	healthStatus = dataToFlattenedJSONString(e.componentStatus, false, false)
+	e.otelMetadataPayload.EnvironmentVariableConfiguration = healthStatus
 
 	// add full components list to Provided Configuration
 	e.ModuleInfoJSON = e.populateFullComponentsJSON()

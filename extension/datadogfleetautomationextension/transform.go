@@ -316,7 +316,7 @@ func (e *fleetAutomationExtension) getServiceComponent(componentString, componen
 	if e.healthCheckV2Enabled {
 		statusMap := e.getComponentHealthStatus(id, componentsKind)
 		if len(statusMap) > 0 {
-			status = dataToFlattenedJSONString(statusMap, true, true)
+			status = dataToFlattenedJSONString(statusMap, true, false)
 		}
 	}
 	return &payload.ServiceComponent{
@@ -331,14 +331,12 @@ func (e *fleetAutomationExtension) getServiceComponent(componentString, componen
 }
 
 func dataToFlattenedJSONString(data any, removeNewLines bool, removeQuotes bool) string {
-	var jsonData []byte
-	var err error
-	if removeNewLines && removeQuotes {
-		// no sense adding all the extra spaces if we are removing newlines and quotes
-		jsonData, err = json.Marshal(data)
-	} else {
-		jsonData, err = json.MarshalIndent(data, "", "  ")
+	indent := ""
+	if !removeNewLines {
+		indent = "  "
 	}
+
+	jsonData, err := json.MarshalIndent(data, "", indent)
 	if err != nil {
 		return ""
 	}
