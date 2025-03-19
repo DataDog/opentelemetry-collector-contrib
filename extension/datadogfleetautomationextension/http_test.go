@@ -279,6 +279,9 @@ func TestPrepareAndSendFleetAutomationPayloads(t *testing.T) {
 					hostname: "test-hostname",
 					ticker:   time.NewTicker(DefaultReporterPeriod),
 					done:     make(chan bool),
+					componentStatus: map[string]any{
+						"status": "ok",
+					},
 				}, logs
 			},
 			expectedError:          "",
@@ -322,7 +325,7 @@ func TestPrepareAndSendFleetAutomationPayloads(t *testing.T) {
 				}, logs
 			},
 			expectedError:          "",
-			expectedLogs:           []string{"Failed to get health check status"},
+			expectedLogs:           []string{},
 			expectedEnvironmentVar: "",
 			expectedProvidedConfig: emptyFullComponents,
 			serverResponseCode:     http.StatusInternalServerError,
@@ -506,7 +509,7 @@ const successfulInstanceResponse = `{
         "version": ""
       },
       "full_configuration": "",
-      "health_status": ""
+      "health_status": "{}"
     },
     "uuid": "123e4567-e89b-12d3-a456-426614174000"
   },
@@ -517,7 +520,7 @@ const successfulInstanceResponse = `{
       "command": "",
       "description": "",
       "enabled": false,
-      "environment_variable_configuration": "",
+      "environment_variable_configuration": "{}",
       "extension_version": "",
       "full_configuration": "",
       "provided_configuration": "{\n  \"full_components\": []\n}",
@@ -569,9 +572,10 @@ func TestHandleMetadata(t *testing.T) {
 							return nil
 						},
 					},
-					ticker: time.NewTicker(DefaultReporterPeriod),
-					done:   make(chan bool),
-					uuid:   googleuuid.MustParse(mockUUID),
+					ticker:          time.NewTicker(DefaultReporterPeriod),
+					done:            make(chan bool),
+					uuid:            googleuuid.MustParse(mockUUID),
+					componentStatus: map[string]any{},
 				}, logs
 			},
 			expectedStatus: http.StatusOK,
