@@ -7,6 +7,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/open-telemetry/opentelemetry-collector-contrib/extension/datadogfleetautomationextension/internal/payload"
 	"github.com/stretchr/testify/assert"
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/service"
@@ -458,7 +459,7 @@ func TestPopulateFullComponentsJSON(t *testing.T) {
 		name                     string
 		moduleInfo               service.ModuleInfos
 		collectorConfigStringMap map[string]any
-		expectedOutput           *moduleInfoJSON
+		components               []payload.CollectorModule
 	}{
 		{
 			name: "All component types included",
@@ -490,43 +491,41 @@ func TestPopulateFullComponentsJSON(t *testing.T) {
 					"exampleprocessor": map[string]any{},
 				},
 			},
-			expectedOutput: &moduleInfoJSON{
-				components: map[string]collectorModule{
-					"examplereceiver:receiver": {
-						Type:       "examplereceiver",
-						Kind:       receiverKind,
-						Gomod:      "example.com/module",
-						Version:    "v1.0.0",
-						Configured: true,
-					},
-					"exampleprocessor:processor": {
-						Type:       "exampleprocessor",
-						Kind:       processorKind,
-						Gomod:      "example.com/module",
-						Version:    "v1.0.0",
-						Configured: true,
-					},
-					"exampleexporter:exporter": {
-						Type:       "exampleexporter",
-						Kind:       exporterKind,
-						Gomod:      "example.com/module",
-						Version:    "v1.0.0",
-						Configured: false,
-					},
-					"exampleextension:extension": {
-						Type:       "exampleextension",
-						Kind:       extensionKind,
-						Gomod:      "example.com/module",
-						Version:    "v1.0.0",
-						Configured: true,
-					},
-					"exampleconnector:connector": {
-						Type:       "exampleconnector",
-						Kind:       connectorKind,
-						Gomod:      "example.com/module",
-						Version:    "v1.0.0",
-						Configured: false,
-					},
+			components: []payload.CollectorModule{
+				{
+					Type:       "examplereceiver",
+					Kind:       receiverKind,
+					Gomod:      "example.com/module",
+					Version:    "v1.0.0",
+					Configured: true,
+				},
+				{
+					Type:       "exampleprocessor",
+					Kind:       processorKind,
+					Gomod:      "example.com/module",
+					Version:    "v1.0.0",
+					Configured: true,
+				},
+				{
+					Type:       "exampleexporter",
+					Kind:       exporterKind,
+					Gomod:      "example.com/module",
+					Version:    "v1.0.0",
+					Configured: false,
+				},
+				{
+					Type:       "exampleextension",
+					Kind:       extensionKind,
+					Gomod:      "example.com/module",
+					Version:    "v1.0.0",
+					Configured: true,
+				},
+				{
+					Type:       "exampleconnector",
+					Kind:       connectorKind,
+					Gomod:      "example.com/module",
+					Version:    "v1.0.0",
+					Configured: false,
 				},
 			},
 		},
@@ -540,9 +539,7 @@ func TestPopulateFullComponentsJSON(t *testing.T) {
 				Connector: map[component.Type]service.ModuleInfo{},
 			},
 			collectorConfigStringMap: map[string]any{},
-			expectedOutput: &moduleInfoJSON{
-				components: map[string]collectorModule{},
-			},
+			components:               []payload.CollectorModule{},
 		},
 		{
 			name: "Some components included",
@@ -565,22 +562,20 @@ func TestPopulateFullComponentsJSON(t *testing.T) {
 					"exampleexporter": map[string]any{},
 				},
 			},
-			expectedOutput: &moduleInfoJSON{
-				components: map[string]collectorModule{
-					"examplereceiver:receiver": {
-						Type:       "examplereceiver",
-						Kind:       receiverKind,
-						Gomod:      "example.com/module",
-						Version:    "v1.0.0",
-						Configured: true,
-					},
-					"exampleexporter:exporter": {
-						Type:       "exampleexporter",
-						Kind:       exporterKind,
-						Gomod:      "example.com/module",
-						Version:    "v1.0.0",
-						Configured: true,
-					},
+			components: []payload.CollectorModule{
+				{
+					Type:       "examplereceiver",
+					Kind:       receiverKind,
+					Gomod:      "example.com/module",
+					Version:    "v1.0.0",
+					Configured: true,
+				},
+				{
+					Type:       "exampleexporter",
+					Kind:       exporterKind,
+					Gomod:      "example.com/module",
+					Version:    "v1.0.0",
+					Configured: true,
 				},
 			},
 		},
@@ -593,7 +588,9 @@ func TestPopulateFullComponentsJSON(t *testing.T) {
 				collectorConfigStringMap: tt.collectorConfigStringMap,
 			}
 			output := e.populateFullComponentsJSON()
-			assert.Equal(t, tt.expectedOutput, output)
+			expectedOutput := payload.NewModuleInfoJSON()
+			expectedOutput.PutComponents(tt.components)
+			assert.Equal(t, expectedOutput, output)
 		})
 	}
 }
@@ -601,30 +598,28 @@ func TestPopulateFullComponentsJSON(t *testing.T) {
 func TestGetServiceComponent(t *testing.T) {
 	tests := []struct {
 		name                     string
-		moduleInfoJSON           *moduleInfoJSON
 		componentStatus          map[string]any
 		healthCheckV2Enabled     bool
+		components               []payload.CollectorModule
 		componentString          string
 		componentsKind           string
-		expectedServiceComponent *serviceComponent
+		expectedServiceComponent *payload.ServiceComponent
 	}{
 		{
 			name: "Service component found without name",
-			moduleInfoJSON: &moduleInfoJSON{
-				components: map[string]collectorModule{
-					"examplereceiver:receiver": {
-						Type:    "examplereceiver",
-						Kind:    receiverKind,
-						Gomod:   "example.com/module",
-						Version: "v1.0.0",
-					},
+			components: []payload.CollectorModule{
+				{
+					Type:    "examplereceiver",
+					Kind:    receiverKind,
+					Gomod:   "example.com/module",
+					Version: "v1.0.0",
 				},
 			},
 			componentStatus:      map[string]any{},
 			healthCheckV2Enabled: false,
 			componentString:      "examplereceiver",
 			componentsKind:       receiversKind,
-			expectedServiceComponent: &serviceComponent{
+			expectedServiceComponent: &payload.ServiceComponent{
 				ID:      "examplereceiver",
 				Name:    "",
 				Type:    "examplereceiver",
@@ -635,21 +630,19 @@ func TestGetServiceComponent(t *testing.T) {
 		},
 		{
 			name: "Service component found with name",
-			moduleInfoJSON: &moduleInfoJSON{
-				components: map[string]collectorModule{
-					"exampleprocessor:processor": {
-						Type:    "exampleprocessor",
-						Kind:    processorKind,
-						Gomod:   "example.com/module",
-						Version: "v1.0.0",
-					},
+			components: []payload.CollectorModule{
+				{
+					Type:    "exampleprocessor",
+					Kind:    processorKind,
+					Gomod:   "example.com/module",
+					Version: "v1.0.0",
 				},
 			},
 			componentStatus:      map[string]any{},
 			healthCheckV2Enabled: false,
 			componentString:      "exampleprocessor/instance",
 			componentsKind:       processorsKind,
-			expectedServiceComponent: &serviceComponent{
+			expectedServiceComponent: &payload.ServiceComponent{
 				ID:      "exampleprocessor/instance",
 				Name:    "instance",
 				Type:    "exampleprocessor",
@@ -659,15 +652,13 @@ func TestGetServiceComponent(t *testing.T) {
 			},
 		},
 		{
-			name: "Service component not found",
-			moduleInfoJSON: &moduleInfoJSON{
-				components: map[string]collectorModule{},
-			},
+			name:                 "Service component not found",
+			components:           []payload.CollectorModule{},
 			componentStatus:      map[string]any{},
 			healthCheckV2Enabled: false,
 			componentString:      "exampleextension",
 			componentsKind:       extensionsKind,
-			expectedServiceComponent: &serviceComponent{
+			expectedServiceComponent: &payload.ServiceComponent{
 				ID:      "exampleextension",
 				Name:    "",
 				Type:    "exampleextension",
@@ -677,10 +668,8 @@ func TestGetServiceComponent(t *testing.T) {
 			},
 		},
 		{
-			name: "Invalid component kind",
-			moduleInfoJSON: &moduleInfoJSON{
-				components: map[string]collectorModule{},
-			},
+			name:                     "Invalid component kind",
+			components:               []payload.CollectorModule{},
 			componentStatus:          map[string]any{},
 			healthCheckV2Enabled:     false,
 			componentString:          "exampleextension",
@@ -689,14 +678,12 @@ func TestGetServiceComponent(t *testing.T) {
 		},
 		{
 			name: "Health check status enabled and found",
-			moduleInfoJSON: &moduleInfoJSON{
-				components: map[string]collectorModule{
-					"exampleextension:extension": {
-						Type:    "exampleextension",
-						Kind:    extensionKind,
-						Gomod:   "example.com/module",
-						Version: "v1.0.0",
-					},
+			components: []payload.CollectorModule{
+				{
+					Type:    "exampleextension",
+					Kind:    extensionKind,
+					Gomod:   "example.com/module",
+					Version: "v1.0.0",
 				},
 			},
 			componentStatus: map[string]any{
@@ -713,7 +700,7 @@ func TestGetServiceComponent(t *testing.T) {
 			healthCheckV2Enabled: true,
 			componentString:      "exampleextension",
 			componentsKind:       extensionsKind,
-			expectedServiceComponent: &serviceComponent{
+			expectedServiceComponent: &payload.ServiceComponent{
 				ID:              "exampleextension",
 				Name:            "",
 				Type:            "exampleextension",
@@ -725,21 +712,19 @@ func TestGetServiceComponent(t *testing.T) {
 		},
 		{
 			name: "Health check status enabled but not found",
-			moduleInfoJSON: &moduleInfoJSON{
-				components: map[string]collectorModule{
-					"exampleextension:extension": {
-						Type:    "exampleextension",
-						Kind:    extensionKind,
-						Gomod:   "example.com/module",
-						Version: "v1.0.0",
-					},
+			components: []payload.CollectorModule{
+				{
+					Type:    "exampleextension",
+					Kind:    extensionKind,
+					Gomod:   "example.com/module",
+					Version: "v1.0.0",
 				},
 			},
 			componentStatus:      map[string]any{},
 			healthCheckV2Enabled: true,
 			componentString:      "exampleextension",
 			componentsKind:       extensionsKind,
-			expectedServiceComponent: &serviceComponent{
+			expectedServiceComponent: &payload.ServiceComponent{
 				ID:              "exampleextension",
 				Name:            "",
 				Type:            "exampleextension",
@@ -759,8 +744,10 @@ func TestGetServiceComponent(t *testing.T) {
 	logger := zap.NewNop()
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			moduleInfoJSON := payload.NewModuleInfoJSON()
+			moduleInfoJSON.PutComponents(tt.components)
 			e := &fleetAutomationExtension{
-				moduleInfoJSON:       tt.moduleInfoJSON,
+				ModuleInfoJSON:       moduleInfoJSON,
 				componentStatus:      tt.componentStatus,
 				healthCheckV2Enabled: tt.healthCheckV2Enabled,
 				telemetry: component.TelemetrySettings{
@@ -858,8 +845,8 @@ func TestPopulateActiveComponentsJSON(t *testing.T) {
 	tests := []struct {
 		name                     string
 		collectorConfigStringMap map[string]any
-		moduleInfoJSON           *moduleInfoJSON
-		expectedComponents       []serviceComponent
+		components               []payload.CollectorModule
+		expectedComponents       []payload.ServiceComponent
 		expectedError            error
 		expectedLogs             []string
 	}{
@@ -877,39 +864,37 @@ func TestPopulateActiveComponentsJSON(t *testing.T) {
 					},
 				},
 			},
-			moduleInfoJSON: &moduleInfoJSON{
-				components: map[string]collectorModule{
-					"exampleextension:extension": {
-						Type:       "exampleextension",
-						Kind:       extensionKind,
-						Gomod:      "example.com/module",
-						Version:    "v1.0.0",
-						Configured: true,
-					},
-					"examplereceiver:receiver": {
-						Type:       "examplereceiver",
-						Kind:       receiverKind,
-						Gomod:      "example.com/module",
-						Version:    "v1.0.0",
-						Configured: true,
-					},
-					"exampleprocessor:processor": {
-						Type:       "exampleprocessor",
-						Kind:       processorKind,
-						Gomod:      "example.com/module",
-						Version:    "v1.0.0",
-						Configured: true,
-					},
-					"exampleexporter:exporter": {
-						Type:       "exampleexporter",
-						Kind:       exporterKind,
-						Gomod:      "example.com/module",
-						Version:    "v1.0.0",
-						Configured: true,
-					},
+			components: []payload.CollectorModule{
+				{
+					Type:       "exampleextension",
+					Kind:       extensionKind,
+					Gomod:      "example.com/module",
+					Version:    "v1.0.0",
+					Configured: true,
+				},
+				{
+					Type:       "examplereceiver",
+					Kind:       receiverKind,
+					Gomod:      "example.com/module",
+					Version:    "v1.0.0",
+					Configured: true,
+				},
+				{
+					Type:       "exampleprocessor",
+					Kind:       processorKind,
+					Gomod:      "example.com/module",
+					Version:    "v1.0.0",
+					Configured: true,
+				},
+				{
+					Type:       "exampleexporter",
+					Kind:       exporterKind,
+					Gomod:      "example.com/module",
+					Version:    "v1.0.0",
+					Configured: true,
 				},
 			},
-			expectedComponents: []serviceComponent{
+			expectedComponents: []payload.ServiceComponent{
 				{
 					ID:      "exampleextension",
 					Name:    "",
@@ -951,10 +936,8 @@ func TestPopulateActiveComponentsJSON(t *testing.T) {
 			collectorConfigStringMap: map[string]any{
 				"service": "invalid",
 			},
-			moduleInfoJSON: &moduleInfoJSON{
-				components: map[string]collectorModule{},
-			},
-			expectedComponents: []serviceComponent(nil),
+			components:         []payload.CollectorModule{},
+			expectedComponents: []payload.ServiceComponent(nil),
 			expectedError:      errors.New("failed to get service map from collector config, cannot populate active components table"),
 			expectedLogs:       []string{"Failed to get service map from collector config, cannot populate active components table"},
 		},
@@ -965,10 +948,8 @@ func TestPopulateActiveComponentsJSON(t *testing.T) {
 					"extensions": "invalid",
 				},
 			},
-			moduleInfoJSON: &moduleInfoJSON{
-				components: map[string]collectorModule{},
-			},
-			expectedComponents: []serviceComponent(nil),
+			components:         []payload.CollectorModule{},
+			expectedComponents: []payload.ServiceComponent(nil),
 			expectedError:      nil,
 			expectedLogs:       []string{"Failed to get extensions list from service map"},
 		},
@@ -979,10 +960,8 @@ func TestPopulateActiveComponentsJSON(t *testing.T) {
 					"extensions": []any{123},
 				},
 			},
-			moduleInfoJSON: &moduleInfoJSON{
-				components: map[string]collectorModule{},
-			},
-			expectedComponents: []serviceComponent(nil),
+			components:         []payload.CollectorModule{},
+			expectedComponents: []payload.ServiceComponent(nil),
 			expectedError:      nil,
 			expectedLogs:       []string{"Extensions list in service map config contains non-string value"},
 		},
@@ -993,10 +972,8 @@ func TestPopulateActiveComponentsJSON(t *testing.T) {
 					"pipelines": "invalid",
 				},
 			},
-			moduleInfoJSON: &moduleInfoJSON{
-				components: map[string]collectorModule{},
-			},
-			expectedComponents: []serviceComponent(nil),
+			components:         []payload.CollectorModule{},
+			expectedComponents: []payload.ServiceComponent(nil),
 			expectedError:      nil,
 			expectedLogs:       []string{"Failed to get pipeline map from service map config"},
 		},
@@ -1009,10 +986,8 @@ func TestPopulateActiveComponentsJSON(t *testing.T) {
 					},
 				},
 			},
-			moduleInfoJSON: &moduleInfoJSON{
-				components: map[string]collectorModule{},
-			},
-			expectedComponents: []serviceComponent(nil),
+			components:         []payload.CollectorModule{},
+			expectedComponents: []payload.ServiceComponent(nil),
 			expectedError:      nil,
 			expectedLogs:       []string{"Failed to get components map from pipeline map in service map config"},
 		},
@@ -1027,10 +1002,8 @@ func TestPopulateActiveComponentsJSON(t *testing.T) {
 					},
 				},
 			},
-			moduleInfoJSON: &moduleInfoJSON{
-				components: map[string]collectorModule{},
-			},
-			expectedComponents: []serviceComponent(nil),
+			components:         []payload.CollectorModule{},
+			expectedComponents: []payload.ServiceComponent(nil),
 			expectedError:      nil,
 			expectedLogs:       []string{"Components list in pipeline map in service map config contains non-string value"},
 		},
@@ -1045,10 +1018,8 @@ func TestPopulateActiveComponentsJSON(t *testing.T) {
 					},
 				},
 			},
-			moduleInfoJSON: &moduleInfoJSON{
-				components: map[string]collectorModule{},
-			},
-			expectedComponents: []serviceComponent(nil),
+			components:         []payload.CollectorModule{},
+			expectedComponents: []payload.ServiceComponent(nil),
 			expectedError:      nil,
 			expectedLogs:       []string{"Failed to get components list from pipeline map in service map config"},
 		},
@@ -1058,10 +1029,11 @@ func TestPopulateActiveComponentsJSON(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			core, logs := observer.New(zapcore.InfoLevel)
 			logger := zap.New(core)
-
+			moduleInfoJSON := payload.NewModuleInfoJSON()
+			moduleInfoJSON.PutComponents(tt.components)
 			e := &fleetAutomationExtension{
 				collectorConfigStringMap: tt.collectorConfigStringMap,
-				moduleInfoJSON:           tt.moduleInfoJSON,
+				ModuleInfoJSON:           moduleInfoJSON,
 				telemetry: component.TelemetrySettings{
 					Logger: logger,
 				},

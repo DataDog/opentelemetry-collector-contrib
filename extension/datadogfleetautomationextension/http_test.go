@@ -17,6 +17,7 @@ import (
 	"github.com/DataDog/datadog-agent/pkg/serializer/marshaler"
 	"github.com/DataDog/datadog-agent/pkg/serializer/types"
 	googleuuid "github.com/google/uuid"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/extension/datadogfleetautomationextension/internal/payload"
 	"github.com/stretchr/testify/assert"
 	"go.opentelemetry.io/collector/component"
 	"go.uber.org/zap"
@@ -183,7 +184,7 @@ func TestGetHealthCheckStatus(t *testing.T) {
 }
 
 type mockSerializer struct {
-	sendMetadataFunc func(payload any) error
+	sendMetadataFunc func(pl any) error
 }
 
 func (m *mockSerializer) SendMetadata(jm marshaler.JSONMarshaler) error {
@@ -342,8 +343,8 @@ func TestPrepareAndSendFleetAutomationPayloads(t *testing.T) {
 						state: defaultforwarder.Started,
 					},
 					serializer: &mockSerializer{
-						sendMetadataFunc: func(payload any) error {
-							if _, ok := payload.(*agentPayload); ok {
+						sendMetadataFunc: func(pl any) error {
+							if _, ok := pl.(*payload.AgentPayload); ok {
 								return errors.New("failed to send payload")
 							}
 							return nil
@@ -374,8 +375,8 @@ func TestPrepareAndSendFleetAutomationPayloads(t *testing.T) {
 						state: defaultforwarder.Started,
 					},
 					serializer: &mockSerializer{
-						sendMetadataFunc: func(payload any) error {
-							if _, ok := payload.(*otelAgentPayload); ok {
+						sendMetadataFunc: func(pl any) error {
+							if _, ok := pl.(*payload.OtelAgentPayload); ok {
 								return errors.New("failed to send payload")
 							}
 							return nil
@@ -440,7 +441,7 @@ func TestPrepareAndSendFleetAutomationPayloads(t *testing.T) {
 				e.healthCheckV2Config["http"].(map[string]any)["endpoint"] = server.URL
 			}
 			// Call prepareAndSendFleetAutomationPayloads
-			payload, err := e.prepareAndSendFleetAutomationPayloads()
+			pl, err := e.prepareAndSendFleetAutomationPayloads()
 
 			// Verify the result
 			if tt.expectedError == "" {
@@ -474,11 +475,11 @@ func TestPrepareAndSendFleetAutomationPayloads(t *testing.T) {
 
 			// Verify the payload
 			if tt.expectedError == "" {
-				assert.NotNil(t, payload)
-				assert.Equal(t, e.hostname, payload.AgentPayload.Hostname)
-				assert.Equal(t, e.hostname, payload.OtelPayload.Hostname)
+				assert.NotNil(t, pl)
+				assert.Equal(t, e.hostname, pl.AgentPayload.Hostname)
+				assert.Equal(t, e.hostname, pl.OtelPayload.Hostname)
 			} else {
-				assert.Nil(t, payload)
+				assert.Nil(t, pl)
 			}
 			close(e.done)
 		})
