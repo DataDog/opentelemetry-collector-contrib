@@ -21,15 +21,8 @@ extensions:
       site: ${env:DD_SITE}
     hostname: "datadogfleetautomation-confighostname"
     reporter_period: 20m
-  healthcheckv2:
-    use_v2: true
-    component_health:
-      include_permanent_errors: false
-      include_recoverable_errors: true
-      recovery_duration: 5m
-    http:
 service:
-  extensions: [healthcheckv2, datadogfleetautomation/test]
+  extensions: [datadogfleetautomation/test]
   pipelines:
     traces:
       receivers: [otlp]
