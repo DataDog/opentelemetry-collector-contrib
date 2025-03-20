@@ -192,9 +192,6 @@ func (e *fleetAutomationExtension) Start(_ context.Context, host component.Host)
 	}
 	e.startLocalConfigServer()
 
-	// Start processing component status events
-	go e.processComponentStatusEvents()
-
 	e.telemetry.Logger.Info("Started Datadog Fleet Automation extension")
 	return nil
 }
@@ -380,7 +377,7 @@ func newExtension(
 		Description: settings.BuildInfo.Description,
 		Version:     settings.BuildInfo.Version,
 	}
-	return &fleetAutomationExtension{
+	e := &fleetAutomationExtension{
 		extensionID:      settings.ID,
 		extensionConfig:  config,
 		telemetry:        telemetry,
@@ -399,7 +396,10 @@ func newExtension(
 		// Initialize PipelineWatcher fields
 		eventCh: make(chan *eventSourcePair),
 		readyCh: make(chan struct{}),
-	}, nil
+	}
+	// Start processing component status events in the background
+	go e.processComponentStatusEvents()
+	return e, nil
 }
 
 // Ready implements the extension.PipelineWatcher interface.
