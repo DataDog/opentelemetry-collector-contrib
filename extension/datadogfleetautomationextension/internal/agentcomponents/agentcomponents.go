@@ -1,7 +1,7 @@
 // Copyright The OpenTelemetry Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package datadogfleetautomationextension // import "github.com/open-telemetry/opentelemetry-collector-contrib/extension/datadogfleetautomationextension"
+package agentcomponents
 
 import (
 	"compress/gzip"
@@ -20,38 +20,39 @@ import (
 	"github.com/open-telemetry/opentelemetry-collector-contrib/pkg/datadog"
 )
 
-func newLogComponent(set component.TelemetrySettings) corelog.Component {
+// NewLogComponent creates a new log component using the provided telemetry settings
+func NewLogComponent(set component.TelemetrySettings) corelog.Component {
 	zlog := &datadog.Zaplogger{
 		Logger: set.Logger,
 	}
 	return zlog
 }
 
-// The Forwarder sends the payloads to Datadog backend
-func newForwarder(cfg coreconfig.Component, log corelog.Component) defaultforwarder.Forwarder {
+// NewForwarder creates a new forwarder that sends payloads to Datadog backend
+func NewForwarder(cfg coreconfig.Component, log corelog.Component) defaultforwarder.Forwarder {
 	keysPerDomain := map[string][]string{"https://api." + cfg.GetString("site"): {cfg.GetString("api_key")}}
 	forwarderOptions := defaultforwarder.NewOptions(cfg, log, keysPerDomain)
 	forwarderOptions.DisableAPIKeyChecking = true
 	return defaultforwarder.NewDefaultForwarder(cfg, log, forwarderOptions)
 }
 
-// create compressor with Gzip strategy, best compression
-func newCompressor() compression.Compressor {
+// NewCompressor creates a new compressor with Gzip strategy, best compression
+func NewCompressor() compression.Compressor {
 	return selector.NewCompressor(compression.GzipKind, gzip.BestCompression)
 }
 
-// The Serializer serializes the payloads prior to being forwarded by the Forwarder
-func newSerializer(fwd defaultforwarder.Forwarder, cmp compression.Compressor, cfg coreconfig.Component, logger corelog.Component, hostname string) *serializer.Serializer {
+// NewSerializer creates a new serializer that serializes payloads prior to being forwarded
+func NewSerializer(fwd defaultforwarder.Forwarder, cmp compression.Compressor, cfg coreconfig.Component, logger corelog.Component, hostname string) *serializer.Serializer {
 	return serializer.NewSerializer(fwd, nil, cmp, cfg, logger, hostname)
 }
 
-// Config component from datadog-agent is required to use forwarder and serializer components
-func newConfigComponent(set component.TelemetrySettings, cfg *Config) coreconfig.Component {
+// NewConfigComponent creates a new config component required to use forwarder and serializer components
+func NewConfigComponent(set component.TelemetrySettings, key, site string) coreconfig.Component {
 	pkgconfig := viperconfig.NewConfig("DD", "DD", strings.NewReplacer(".", "_"))
 
 	// Set the API Key
-	pkgconfig.Set("api_key", string(cfg.API.Key), pkgconfigmodel.SourceFile)
-	pkgconfig.Set("site", cfg.API.Site, pkgconfigmodel.SourceFile)
+	pkgconfig.Set("api_key", key, pkgconfigmodel.SourceFile)
+	pkgconfig.Set("site", site, pkgconfigmodel.SourceFile)
 	pkgconfig.Set("logs_enabled", true, pkgconfigmodel.SourceDefault)
 	pkgconfig.Set("log_level", set.Logger.Level().String(), pkgconfigmodel.SourceFile)
 	// Set values for serializer

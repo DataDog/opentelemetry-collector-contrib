@@ -29,6 +29,8 @@ import (
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/datadog/clientutil"
 
+	"github.com/open-telemetry/opentelemetry-collector-contrib/extension/datadogfleetautomationextension/internal/agentcomponents"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/extension/datadogfleetautomationextension/internal/componentchecker"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/extension/datadogfleetautomationextension/internal/payload"
 )
 
@@ -88,7 +90,6 @@ type fleetAutomationExtension struct {
 	hostnameProvider source.Provider
 	hostnameSource   string // can be "unset", "config", or "inferred"
 	hostname         string // unique identifier for host where collector is running
-	componentChecker ComponentChecker
 
 	// Fields for implementing PipelineWatcher interface
 	eventCh chan *eventSourcePair
@@ -127,7 +128,7 @@ func (e *fleetAutomationExtension) NotifyConfig(ctx context.Context, conf *confm
 	)
 
 	// convert full config map to a json string and remove excess quotation marks
-	fullConfig := dataToFlattenedJSONString(e.collectorConfigStringMap, false, false)
+	fullConfig := componentchecker.DataToFlattenedJSONString(e.collectorConfigStringMap, false, false)
 
 	// create otel metadata payload
 	e.otelMetadataPayload = payload.PrepareOtelMetadataPayload(
@@ -289,7 +290,7 @@ func getHostname(ctx context.Context, providedHostname string, sp source.Provide
 func (e *fleetAutomationExtension) updateHostname(ctx context.Context) {
 	// check for new hostname in extension config
 	// TODO: switch to conf.Sub() method on refactor
-	extensionsConfig, err := e.collectorConfig.Sub(extensionsKind)
+	extensionsConfig, err := e.collectorConfig.Sub("extensions")
 	if err != nil || len(extensionsConfig.AllKeys()) == 0 {
 		e.telemetry.Logger.Error("Failed to get extensions config")
 		return
@@ -361,16 +362,16 @@ func newExtension(
 		return nil, err
 	}
 
-	cfg := newConfigComponent(telemetry, config)
-	log := newLogComponent(telemetry)
+	cfg := agentcomponents.NewConfigComponent(telemetry, string(config.API.Key), config.API.Site)
+	log := agentcomponents.NewLogComponent(telemetry)
 
 	// Initialize forwarder, compressor, and serializer components to forward OTel Inventory to REDAPL backend
 	forwarder, ok := forwarderGetter(cfg, log).(defaultForwarderInterface)
 	if !ok {
 		return nil, fmt.Errorf("failed to create forwarder")
 	}
-	compressor := newCompressor()
-	serializer := newSerializer(forwarder, compressor, cfg, log, hostname)
+	compressor := agentcomponents.NewCompressor()
+	serializer := agentcomponents.NewSerializer(forwarder, compressor, cfg, log, hostname)
 	version := settings.BuildInfo.Version
 	buildInfo := payload.CustomBuildInfo{
 		Command:     settings.BuildInfo.Command,
