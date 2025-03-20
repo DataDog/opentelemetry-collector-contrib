@@ -9,8 +9,6 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"net/url"
-	"strings"
 	"time"
 
 	"github.com/DataDog/datadog-agent/comp/forwarder/defaultforwarder"
@@ -20,8 +18,7 @@ import (
 )
 
 const (
-	serverPort                   = 8088
-	defaultHealthCheckV2Endpoint = "localhost:13133"
+	serverPort = 8088
 )
 
 var nowFunc = time.Now
@@ -71,61 +68,6 @@ func (e *fleetAutomationExtension) startLocalConfigServer() {
 	e.telemetry.Logger.Info("HTTP Server started on port " + fmt.Sprintf("%d", serverPort))
 }
 
-func (e *fleetAutomationExtension) getHealthCheckStatus() (map[string]any, error) {
-	endpoint := "localhost:13133"
-	path := "/health/status"
-	if httpConfig, ok := e.healthCheckV2Config["http"].(map[string]any); ok {
-		if statusConfig, ok := httpConfig["status"].(map[string]any); ok {
-			if enabled, ok := statusConfig["enabled"].(bool); !enabled || !ok {
-				return nil, fmt.Errorf("http health check v2 extension is not enabled")
-			}
-			if ep, ok := httpConfig["endpoint"].(string); ok && ep != "" {
-				endpoint = ep
-			}
-			if p, ok := statusConfig["path"].(string); ok && p != "" {
-				path = p
-			}
-		}
-	}
-
-	// Construct the URL
-	// if endpoint doesn't start with "http://", add it
-	if !strings.HasPrefix(endpoint, "http://") {
-		endpoint = "http://" + endpoint
-	}
-
-	// Construct and validate URL
-	healthCheckV2URL := fmt.Sprintf("%s%s?verbose", endpoint, path)
-	parsedURL, err := url.Parse(healthCheckV2URL)
-	if err != nil {
-		return nil, fmt.Errorf("invalid URL: %w", err)
-	}
-
-	// Ensure the hostname is localhost or a local IP address
-	if !isLocalAddress(parsedURL.Hostname()) {
-		return nil, fmt.Errorf("endpoint must be a local address")
-	}
-
-	// Make the HTTP request
-	resp, err := makeGetRequest(healthCheckV2URL)
-	if err != nil {
-		return nil, fmt.Errorf("failed to make request to health check endpoint: %w", err)
-	}
-	defer func() {
-		if resp.Body != nil {
-			resp.Body.Close()
-		}
-	}()
-
-	// Parse the JSON response
-	var result map[string]any
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, fmt.Errorf("failed to decode JSON response: %w", err)
-	}
-
-	return result, nil
-}
-
 // isLocalAddress checks if the given hostname is a local address
 func isLocalAddress(hostname string) bool {
 	if hostname == "localhost" {
@@ -152,21 +94,8 @@ func makeGetRequest(uri string) (*http.Response, error) {
 }
 
 func (e *fleetAutomationExtension) prepareAndSendFleetAutomationPayloads() (*payload.CombinedPayload, error) {
-	// If health check v2 enabled, set Environment Variable Configuration to health check verbose query response
-	var healthStatus string
-	// if e.healthCheckV2Enabled {
-	// 	componentStatus, err := e.getHealthCheckStatus()
-	// 	if err != nil {
-	// 		e.telemetry.Logger.Error("Failed to get health check status", zap.Error(err))
-	// 		healthStatus = ""
-	// 	} else {
-	// 		e.componentStatus = componentStatus
-	// 		healthStatus = dataToFlattenedJSONString(e.componentStatus, false, false)
-	// 		e.otelMetadataPayload.EnvironmentVariableConfiguration = healthStatus
-	// 	}
-	// }
-	healthStatus = dataToFlattenedJSONString(e.componentStatus, false, false)
-	e.otelMetadataPayload.EnvironmentVariableConfiguration = healthStatus
+	healthStatus := dataToFlattenedJSONString(e.componentStatus, false, false)
+	e.otelMetadataPayload.EnvironmentVariableConfiguration = dataToFlattenedJSONString(e.componentStatus, false, false)
 
 	// add full components list to Provided Configuration
 	e.ModuleInfoJSON = e.populateFullComponentsJSON()
