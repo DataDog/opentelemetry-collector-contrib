@@ -119,7 +119,7 @@ config:
         key: ""
         site: datad0g.com
   service:
-    extensions: [datadogfleetautomation]
+    extensions: [health_check, datadogfleetautomation]
     telemetry:
       logs:
         encoding: "json"
