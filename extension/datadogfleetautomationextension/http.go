@@ -7,13 +7,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net"
 	"net/http"
 	"time"
 
 	"github.com/DataDog/datadog-agent/comp/forwarder/defaultforwarder"
 	"go.uber.org/zap"
 
+	"github.com/open-telemetry/opentelemetry-collector-contrib/extension/datadogfleetautomationextension/internal/componentchecker"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/extension/datadogfleetautomationextension/internal/payload"
 )
 
@@ -68,46 +68,21 @@ func (e *fleetAutomationExtension) startLocalConfigServer() {
 	e.telemetry.Logger.Info("HTTP Server started on port " + fmt.Sprintf("%d", serverPort))
 }
 
-// isLocalAddress checks if the given hostname is a local address
-func isLocalAddress(hostname string) bool {
-	if hostname == "localhost" {
-		return true
-	}
-	ip := net.ParseIP(hostname)
-	if ip == nil {
-		return false
-	}
-	return ip.IsLoopback()
-}
-
-func makeGetRequest(uri string) (*http.Response, error) {
-	req, err := http.NewRequest(http.MethodGet, uri, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	res, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	return res, nil
-}
-
 func (e *fleetAutomationExtension) prepareAndSendFleetAutomationPayloads() (*payload.CombinedPayload, error) {
-	healthStatus := dataToFlattenedJSONString(e.componentStatus, false, false)
-	e.otelMetadataPayload.EnvironmentVariableConfiguration = dataToFlattenedJSONString(e.componentStatus, false, false)
+	healthStatus := componentchecker.DataToFlattenedJSONString(e.componentStatus, false, false)
+	e.otelMetadataPayload.EnvironmentVariableConfiguration = componentchecker.DataToFlattenedJSONString(e.componentStatus, false, false)
 
 	// add full components list to Provided Configuration
-	e.ModuleInfoJSON = e.populateFullComponentsJSON()
-	e.otelMetadataPayload.ProvidedConfiguration = dataToFlattenedJSONString(e.ModuleInfoJSON, false, false)
+	e.ModuleInfoJSON = componentchecker.PopulateFullComponentsJSON(e.moduleInfo, e.collectorConfigStringMap)
+	e.otelMetadataPayload.ProvidedConfiguration = componentchecker.DataToFlattenedJSONString(e.ModuleInfoJSON, false, false)
 
 	// add active components list to Provided Configuration, if available
-	activeComponentsJSON, err := e.populateActiveComponentsJSON()
+	activeComponentsJSON, err := componentchecker.PopulateActiveComponentsJSON(e.collectorConfigStringMap, e.ModuleInfoJSON, e.componentStatus, e.telemetry.Logger)
 	if err != nil {
 		e.telemetry.Logger.Error("Failed to populate active components JSON", zap.Error(err))
 	} else {
 		e.activeComponentsJSON = activeComponentsJSON
-		e.otelMetadataPayload.ProvidedConfiguration = dataToFlattenedJSONString(e.activeComponentsJSON, false, false) + "\n" + e.otelMetadataPayload.ProvidedConfiguration
+		e.otelMetadataPayload.ProvidedConfiguration = componentchecker.DataToFlattenedJSONString(e.activeComponentsJSON, false, false) + "\n" + e.otelMetadataPayload.ProvidedConfiguration
 	}
 
 	// add remaining data to otelCollectorPayload
