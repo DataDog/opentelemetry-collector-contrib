@@ -7,7 +7,7 @@ autoscaling:
   targetCPUUtilizationPercentage: 80
 image:
   repository: registry.ddbuild.io/ci/opentelemetry-collector-contrib
-  tag: "otelcolcontrib-v926be118" # UPDATE TO MOST RECENT CI BUILD TAG BEFORE RUNNING
+  tag: "otelcolcontrib-vd5892d50" # UPDATE TO MOST RECENT CI BUILD TAG BEFORE RUNNING
 resources:
   limits:
     cpu: 512m
@@ -119,7 +119,7 @@ config:
         key: ""
         site: datad0g.com
   service:
-    extensions: [datadogfleetautomation]
+    extensions: [health_check, datadogfleetautomation]
     telemetry:
       logs:
         encoding: "json"
