@@ -1,7 +1,7 @@
 // Copyright The OpenTelemetry Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package datadogfleetautomationextension // import "github.com/open-telemetry/opentelemetry-collector-contrib/extension/datadogfleetautomationextension"
+package agentcomponents
 
 import (
 	"testing"
@@ -33,25 +33,20 @@ func TestAgentComponents_NewSerializer(t *testing.T) {
 		Logger: logger,
 	}
 
-	// Create a test Config
-	cfg := &Config{}
-	cfg.API.Key = "test-api-key"
-	cfg.API.Site = "test-site"
-
 	// Create a config component
-	configComponent := newConfigComponent(telemetrySettings, cfg)
+	configComponent := NewConfigComponent(telemetrySettings, "abcdef1234567890", "test-site")
 
 	// Create a log component
-	logComponent := newLogComponent(telemetrySettings)
+	logComponent := NewLogComponent(telemetrySettings)
 
 	// Create a forwarder
-	forwarder := newForwarder(configComponent, logComponent)
+	forwarder := NewForwarder(configComponent, logComponent)
 
 	// Create a compressor
-	compressor := newCompressor()
+	compressor := NewCompressor()
 
-	// Call newSerializer
-	serial := newSerializer(forwarder, compressor, configComponent, zlog, "test-hostname")
+	// Call NewSerializer
+	serial := NewSerializer(forwarder, compressor, configComponent, zlog, "test-hostname")
 
 	// Assert that the returned serializer is not nil
 	assert.NotNil(t, serial)
@@ -62,8 +57,8 @@ func TestAgentComponents_NewSerializer(t *testing.T) {
 }
 
 func TestAgentComponents_NewCompressor(t *testing.T) {
-	// Call newCompressor
-	compressor := newCompressor()
+	// Call NewCompressor
+	compressor := NewCompressor()
 
 	// Assert that the returned compressor is not nil
 	assert.NotNil(t, compressor)
@@ -87,19 +82,14 @@ func TestAgentComponents_NewForwarder(t *testing.T) {
 		Logger: logger,
 	}
 
-	// Create a test Config
-	cfg := &Config{}
-	cfg.API.Key = "test-api-key"
-	cfg.API.Site = "test-site"
-
 	// Create a config component
-	configComponent := newConfigComponent(telemetrySettings, cfg)
+	configComponent := NewConfigComponent(telemetrySettings, "abcdef1234567890", "test-site")
 
 	// Create a log component
-	logComponent := newLogComponent(telemetrySettings)
+	logComponent := NewLogComponent(telemetrySettings)
 
-	// Call newForwarder
-	forwarder := newForwarder(configComponent, logComponent)
+	// Call NewForwarder
+	forwarder := NewForwarder(configComponent, logComponent)
 
 	// Assert that the returned forwarder is not nil
 	assert.NotNil(t, forwarder)
@@ -107,10 +97,6 @@ func TestAgentComponents_NewForwarder(t *testing.T) {
 	// Assert that the returned forwarder is of type *defaultforwarder.DefaultForwarder
 	_, ok := forwarder.(*defaultforwarder.DefaultForwarder)
 	assert.True(t, ok, "Expected forwarder to be of type *defaultforwarder.DefaultForwarder")
-
-	// Assert that forwarder implements defaultForwarderInterface
-	_, ok = forwarder.(defaultForwarderInterface)
-	assert.True(t, ok, "Expected forwarder to implement defaultForwarderInterface")
 }
 
 func TestAgentComponents_NewLogComponent(t *testing.T) {
@@ -127,8 +113,8 @@ func TestAgentComponents_NewLogComponent(t *testing.T) {
 		Logger: logger,
 	}
 
-	// Call newLogComponent
-	logComponent := newLogComponent(telemetrySettings)
+	// Call NewLogComponent
+	logComponent := NewLogComponent(telemetrySettings)
 
 	// Assert that the returned component is not nil
 	assert.NotNil(t, logComponent)
@@ -155,19 +141,14 @@ func TestAgentComponents_NewConfigComponent(t *testing.T) {
 		Logger: logger,
 	}
 
-	// Create a test Config
-	cfg := &Config{}
-	cfg.API.Key = "test-api-key"
-	cfg.API.Site = "test-site"
-
-	// Call newConfigComponent
-	configComponent := newConfigComponent(telemetrySettings, cfg)
+	// Call NewConfigComponent
+	configComponent := NewConfigComponent(telemetrySettings, "abcdef1234567890", "test-site")
 
 	// Assert that the returned component is not nil
 	assert.NotNil(t, configComponent)
 
 	// Assert that the configuration values are set correctly
-	assert.Equal(t, "test-api-key", configComponent.GetString("api_key"))
+	assert.Equal(t, "abcdef1234567890", configComponent.GetString("api_key"))
 	assert.Equal(t, "test-site", configComponent.GetString("site"))
 	assert.Equal(t, "info", configComponent.GetString("log_level"))
 	assert.True(t, configComponent.GetBool("logs_enabled"))
