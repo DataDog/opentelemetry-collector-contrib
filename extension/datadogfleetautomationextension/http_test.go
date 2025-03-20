@@ -22,7 +22,6 @@ import (
 	"go.opentelemetry.io/collector/component"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	"go.uber.org/zap/zaptest"
 	"go.uber.org/zap/zaptest/observer"
 )
 
@@ -87,98 +86,6 @@ func TestStartLocalConfigServer(t *testing.T) {
 
 			// Stop the server
 			e.stopLocalConfigServer()
-		})
-	}
-}
-
-func TestGetHealthCheckStatus(t *testing.T) {
-	tests := []struct {
-		name               string
-		serverResponse     string
-		serverStatus       int
-		expectedResult     map[string]any
-		expectedError      string
-		url                string
-		healthCheckEnabled bool
-	}{
-		{
-			name:               "Successful response",
-			serverResponse:     `{"status": "ok"}`,
-			serverStatus:       http.StatusOK,
-			expectedResult:     map[string]any{"status": "ok"},
-			expectedError:      "",
-			url:                "",
-			healthCheckEnabled: true,
-		},
-		{
-			name:               "invalid url",
-			serverResponse:     `Internal Server Error`,
-			serverStatus:       http.StatusInternalServerError,
-			expectedResult:     nil,
-			expectedError:      "invalid URL:",
-			url:                "invalid url",
-			healthCheckEnabled: true,
-		},
-		{
-			name:               "Invalid JSON response",
-			serverResponse:     `Invalid JSON`,
-			serverStatus:       http.StatusOK,
-			expectedResult:     nil,
-			expectedError:      "failed to decode JSON response",
-			url:                "",
-			healthCheckEnabled: true,
-		},
-		{
-			name:               "Health check not enabled",
-			serverResponse:     `{}`,
-			serverStatus:       http.StatusOK,
-			expectedResult:     nil,
-			expectedError:      "http health check v2 extension is not enabled",
-			url:                "",
-			healthCheckEnabled: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Create a test server
-			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-				w.WriteHeader(tt.serverStatus)
-				_, err := w.Write([]byte(tt.serverResponse))
-				assert.NoError(t, err)
-			}))
-			defer server.Close()
-			if tt.url == "" {
-				tt.url = server.URL
-			}
-			// Create a fleetAutomationExtension instance
-			logger := zaptest.NewLogger(t)
-			e := &fleetAutomationExtension{
-				telemetry: component.TelemetrySettings{
-					Logger: logger,
-				},
-				healthCheckV2Config: map[string]any{
-					"http": map[string]any{
-						"endpoint": tt.url,
-						"status": map[string]any{
-							"enabled": tt.healthCheckEnabled,
-							"path":    "/health/status",
-						},
-					},
-				},
-			}
-
-			// Call getHealthCheckStatus
-			result, err := e.getHealthCheckStatus()
-
-			// Verify the result
-			if tt.expectedError == "" {
-				assert.NoError(t, err)
-				assert.Equal(t, tt.expectedResult, result)
-			} else {
-				assert.Error(t, err)
-				assert.Contains(t, err.Error(), tt.expectedError)
-			}
 		})
 	}
 }
@@ -258,16 +165,6 @@ func TestPrepareAndSendFleetAutomationPayloads(t *testing.T) {
 					telemetry: component.TelemetrySettings{
 						Logger: logger,
 					},
-					healthCheckV2Enabled: true,
-					healthCheckV2Config: map[string]any{
-						"http": map[string]any{
-							"endpoint": "",
-							"status": map[string]any{
-								"enabled": true,
-								"path":    "/health/status",
-							},
-						},
-					},
 					forwarder: &mockForwarder{
 						state: 1,
 					},
@@ -301,16 +198,6 @@ func TestPrepareAndSendFleetAutomationPayloads(t *testing.T) {
 					telemetry: component.TelemetrySettings{
 						Logger: logger,
 					},
-					healthCheckV2Enabled: true,
-					healthCheckV2Config: map[string]any{
-						"http": map[string]any{
-							"endpoint": "http://localhost:13133",
-							"status": map[string]any{
-								"enabled": true,
-								"path":    "/health/status",
-							},
-						},
-					},
 					forwarder: &mockForwarder{
 						state: defaultforwarder.Started,
 					},
@@ -341,7 +228,6 @@ func TestPrepareAndSendFleetAutomationPayloads(t *testing.T) {
 					telemetry: component.TelemetrySettings{
 						Logger: logger,
 					},
-					healthCheckV2Enabled: false,
 					forwarder: &mockForwarder{
 						state: defaultforwarder.Started,
 					},
@@ -373,7 +259,6 @@ func TestPrepareAndSendFleetAutomationPayloads(t *testing.T) {
 					telemetry: component.TelemetrySettings{
 						Logger: logger,
 					},
-					healthCheckV2Enabled: false,
 					forwarder: &mockForwarder{
 						state: defaultforwarder.Started,
 					},
@@ -405,7 +290,6 @@ func TestPrepareAndSendFleetAutomationPayloads(t *testing.T) {
 					telemetry: component.TelemetrySettings{
 						Logger: logger,
 					},
-					healthCheckV2Enabled: false,
 					forwarder: &mockForwarder{
 						state: defaultforwarder.Stopped,
 					},
@@ -440,9 +324,6 @@ func TestPrepareAndSendFleetAutomationPayloads(t *testing.T) {
 				assert.NoError(t, err)
 			}))
 			defer server.Close()
-			if e.healthCheckV2Enabled {
-				e.healthCheckV2Config["http"].(map[string]any)["endpoint"] = server.URL
-			}
 			// Call prepareAndSendFleetAutomationPayloads
 			pl, err := e.prepareAndSendFleetAutomationPayloads()
 

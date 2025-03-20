@@ -155,8 +155,6 @@ func Test_NotifyConfig(t *testing.T) {
 			assert.NoError(t, err)
 			mcc := &mockComponentChecker{
 				ccFunc: faExt.isComponentConfigured,
-				maFunc: faExt.isModuleAvailable,
-				hcFunc: faExt.isHealthCheckV2Enabled,
 			}
 			faExt.componentChecker = mcc
 			err = faExt.forwarder.Start()
@@ -612,160 +610,17 @@ func TestFleetAutomationExtension_Shutdown(t *testing.T) {
 	}
 }
 
-func TestCheckHealthCheckV2(t *testing.T) {
-	tests := []struct {
-		name                   string
-		collectorConfig        map[string]any
-		isComponentConfigured  bool
-		isModuleAvailable      bool
-		isHealthCheckV2Enabled bool
-		expectedLogs           []string
-		hcfunc                 mockHealthCheckV2Func
-	}{
-		{
-			name: "HealthCheckV2 configured and enabled",
-			collectorConfig: map[string]any{
-				"extensions": map[string]any{
-					"healthcheckv2": map[string]any{
-						"enabled": true,
-					},
-				},
-			},
-			isComponentConfigured:  true,
-			isModuleAvailable:      true,
-			isHealthCheckV2Enabled: true,
-			expectedLogs:           []string{},
-		},
-		{
-			name: "HealthCheckV2 configured but not enabled",
-			collectorConfig: map[string]any{
-				"extensions": map[string]any{
-					"healthcheckv2": map[string]any{
-						"enabled": false,
-					},
-				},
-			},
-			isComponentConfigured:  true,
-			isModuleAvailable:      true,
-			isHealthCheckV2Enabled: false,
-			expectedLogs:           []string{"healthcheckv2 extension is included in your collector config but not properly configured"},
-		},
-		{
-			name: "HealthCheckV2 not configured but module available",
-			collectorConfig: map[string]any{
-				"extensions": map[string]any{},
-			},
-			isComponentConfigured:  false,
-			isModuleAvailable:      true,
-			isHealthCheckV2Enabled: false,
-			expectedLogs:           []string{"healthcheckv2 extension is included with your collector but not configured; component status will not be available in Datadog Fleet page"},
-		},
-		{
-			name: "HealthCheckV2 not configured and module not available",
-			collectorConfig: map[string]any{
-				"extensions": map[string]any{},
-			},
-			isComponentConfigured:  false,
-			isModuleAvailable:      false,
-			isHealthCheckV2Enabled: false,
-			expectedLogs:           []string{},
-		},
-		{
-			name: "Error retrieving HealthCheckV2 config",
-			collectorConfig: map[string]any{
-				"extensions": map[string]any{},
-			},
-			isComponentConfigured:  true,
-			isModuleAvailable:      true,
-			isHealthCheckV2Enabled: false,
-			expectedLogs:           []string{"Failed to get healthcheckv2 config"},
-		},
-		{
-			name: "Error checking HealthCheckV2 status",
-			collectorConfig: map[string]any{
-				"extensions": map[string]any{
-					"healthcheckv2": map[string]any{
-						"enabled": true,
-					},
-				},
-			},
-			isComponentConfigured:  true,
-			isModuleAvailable:      true,
-			isHealthCheckV2Enabled: false,
-			hcfunc:                 func() (bool, error) { return false, fmt.Errorf("failed to check healthcheckv2 status") },
-			expectedLogs:           []string{"failed to check healthcheckv2 status"},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Create a logger for testing
-			core, logs := observer.New(zapcore.InfoLevel)
-			logger := zap.New(core)
-			id := component.MustNewID("healthcheckv2")
-			// Create the extension with the test configuration
-			ext := &fleetAutomationExtension{
-				telemetry:            component.TelemetrySettings{Logger: logger},
-				collectorConfig:      confmap.NewFromStringMap(tt.collectorConfig),
-				healthCheckV2ID:      &id,
-				healthCheckV2Enabled: tt.isHealthCheckV2Enabled,
-			}
-
-			// Mock the isComponentConfigured and isModuleAvailable methods
-			mcc := &mockComponentChecker{
-				ccFunc: func(string, string) (bool, *component.ID) {
-					return tt.isComponentConfigured, ext.healthCheckV2ID
-				},
-				maFunc: func(string, string) bool { return tt.isModuleAvailable },
-				hcFunc: func() (bool, error) { return tt.isHealthCheckV2Enabled, nil },
-			}
-			if tt.hcfunc != nil {
-				mcc.hcFunc = tt.hcfunc
-			}
-			ext.componentChecker = mcc
-
-			// Call checkHealthCheckV2
-			ext.checkHealthCheckV2()
-
-			// Verify the logs
-			for _, expectedLog := range tt.expectedLogs {
-				found := false
-				for _, log := range logs.All() {
-					if log.Message == expectedLog {
-						found = true
-						break
-					}
-				}
-				assert.True(t, found, "Expected log message not found: %s", expectedLog)
-			}
-
-			// Verify the healthCheckV2Enabled flag
-			assert.Equal(t, tt.isHealthCheckV2Enabled, ext.healthCheckV2Enabled)
-		})
-	}
-}
-
 type (
 	mockComponentConfiguredFunc func(string, string) (bool, *component.ID)
 	mockModuleAvailableFunc     func(string, string) bool
-	mockHealthCheckV2Func       func() (bool, error)
 	mockComponentChecker        struct {
 		ccFunc mockComponentConfiguredFunc
 		maFunc mockModuleAvailableFunc
-		hcFunc mockHealthCheckV2Func
 	}
 )
 
 func (m *mockComponentChecker) isComponentConfigured(name string, kind string) (bool, *component.ID) {
 	return m.ccFunc(name, kind)
-}
-
-func (m *mockComponentChecker) isModuleAvailable(name string, kind string) bool {
-	return m.maFunc(name, kind)
-}
-
-func (m *mockComponentChecker) isHealthCheckV2Enabled() (bool, error) {
-	return m.hcFunc()
 }
 
 func newNilForwarder(coreconfig.Component, corelog.Component) defaultforwarder.Forwarder {

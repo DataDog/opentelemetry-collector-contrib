@@ -24,15 +24,8 @@ extensions:
       key: ${env:DD_API_KEY}
       site: datadoghq.com
     hostname: "datadogfleetautomation-confighostname2"
-  healthcheckv2:
-    use_v2: true
-    component_health:
-      include_permanent_errors: false
-      include_recoverable_errors: true
-      recovery_duration: 5m
-    http:
 service:
-  extensions: [healthcheckv2, datadogfleetautomation/test1, datadogfleetautomation/test2]
+  extensions: [datadogfleetautomation/test1, datadogfleetautomation/test2]
   pipelines:
     traces:
       receivers: [otlp]

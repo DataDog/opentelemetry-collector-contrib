@@ -118,230 +118,6 @@ func TestIsComponentConfigured(t *testing.T) {
 	}
 }
 
-func TestIsModuleAvailable(t *testing.T) {
-	tests := []struct {
-		name              string
-		moduleInfo        service.ModuleInfos
-		componentType     string
-		componentKind     string
-		expectedAvailable bool
-	}{
-		{
-			name: "Module available for receiver",
-			moduleInfo: service.ModuleInfos{
-				Receiver: map[component.Type]service.ModuleInfo{
-					component.MustNewType("examplereceiver"): {BuilderRef: "example.com/module v1.0.0"},
-				},
-			},
-			componentType:     "examplereceiver",
-			componentKind:     receiverKind,
-			expectedAvailable: true,
-		},
-		{
-			name: "Module not available for receiver",
-			moduleInfo: service.ModuleInfos{
-				Receiver: map[component.Type]service.ModuleInfo{},
-			},
-			componentType:     "examplereceiver",
-			componentKind:     receiverKind,
-			expectedAvailable: false,
-		},
-		{
-			name: "Module available for processor",
-			moduleInfo: service.ModuleInfos{
-				Processor: map[component.Type]service.ModuleInfo{
-					component.MustNewType("exampleprocessor"): {BuilderRef: "example.com/module v1.0.0"},
-				},
-			},
-			componentType:     "exampleprocessor",
-			componentKind:     processorKind,
-			expectedAvailable: true,
-		},
-		{
-			name: "Module not available for processor",
-			moduleInfo: service.ModuleInfos{
-				Processor: map[component.Type]service.ModuleInfo{},
-			},
-			componentType:     "exampleprocessor",
-			componentKind:     processorKind,
-			expectedAvailable: false,
-		},
-		{
-			name: "Module available for exporter",
-			moduleInfo: service.ModuleInfos{
-				Exporter: map[component.Type]service.ModuleInfo{
-					component.MustNewType("exampleexporter"): {BuilderRef: "example.com/module v1.0.0"},
-				},
-			},
-			componentType:     "exampleexporter",
-			componentKind:     exporterKind,
-			expectedAvailable: true,
-		},
-		{
-			name: "Module not available for exporter",
-			moduleInfo: service.ModuleInfos{
-				Exporter: map[component.Type]service.ModuleInfo{},
-			},
-			componentType:     "exampleexporter",
-			componentKind:     exporterKind,
-			expectedAvailable: false,
-		},
-		{
-			name: "Module available for extension",
-			moduleInfo: service.ModuleInfos{
-				Extension: map[component.Type]service.ModuleInfo{
-					component.MustNewType("exampleextension"): {BuilderRef: "example.com/module v1.0.0"},
-				},
-			},
-			componentType:     "exampleextension",
-			componentKind:     extensionKind,
-			expectedAvailable: true,
-		},
-		{
-			name: "Module not available for extension",
-			moduleInfo: service.ModuleInfos{
-				Extension: map[component.Type]service.ModuleInfo{},
-			},
-			componentType:     "exampleextension",
-			componentKind:     extensionKind,
-			expectedAvailable: false,
-		},
-		{
-			name: "Module available for connector",
-			moduleInfo: service.ModuleInfos{
-				Connector: map[component.Type]service.ModuleInfo{
-					component.MustNewType("exampleconnector"): {BuilderRef: "example.com/module v1.0.0"},
-				},
-			},
-			componentType:     "exampleconnector",
-			componentKind:     connectorKind,
-			expectedAvailable: true,
-		},
-		{
-			name: "Module not available for connector",
-			moduleInfo: service.ModuleInfos{
-				Connector: map[component.Type]service.ModuleInfo{},
-			},
-			componentType:     "exampleconnector",
-			componentKind:     connectorKind,
-			expectedAvailable: false,
-		},
-		{
-			name: "Component kind not found",
-			moduleInfo: service.ModuleInfos{
-				Receiver: map[component.Type]service.ModuleInfo{
-					component.MustNewType("examplereceiver"): {BuilderRef: "example.com/module v1.0.0"},
-				},
-			},
-			componentType:     "exampleextension",
-			componentKind:     extensionKind,
-			expectedAvailable: false,
-		},
-		{
-			name: "otlp receiver available, but looking for otlp exporter",
-			moduleInfo: service.ModuleInfos{
-				Receiver: map[component.Type]service.ModuleInfo{
-					component.MustNewType("otlp"): {BuilderRef: "example.com/module v1.0.0"},
-				},
-			},
-			componentType:     "otlp",
-			componentKind:     exporterKind,
-			expectedAvailable: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			e := &fleetAutomationExtension{
-				moduleInfo: tt.moduleInfo,
-			}
-			available := e.isModuleAvailable(tt.componentType, tt.componentKind)
-			assert.Equal(t, tt.expectedAvailable, available)
-		})
-	}
-}
-
-func TestIsHealthCheckV2Enabled(t *testing.T) {
-	tests := []struct {
-		name                 string
-		healthCheckV2Config  map[string]any
-		expectedEnabled      bool
-		expectedErrorMessage string
-	}{
-		{
-			name: "HealthCheckV2 enabled with HTTP status check enabled",
-			healthCheckV2Config: map[string]any{
-				"use_v2": true,
-				"http": map[string]any{
-					"status": map[string]any{
-						"enabled": true,
-					},
-				},
-			},
-			expectedEnabled:      true,
-			expectedErrorMessage: "",
-		},
-		{
-			name: "HealthCheckV2 enabled but HTTP status check not enabled",
-			healthCheckV2Config: map[string]any{
-				"use_v2": true,
-				"http": map[string]any{
-					"status": map[string]any{
-						"enabled": false,
-					},
-				},
-			},
-			expectedEnabled:      false,
-			expectedErrorMessage: "healthcheckv2 extension is enabled but http status check is not enabled; component status will not be available",
-		},
-		{
-			name: "HealthCheckV2 enabled but HTTP status not configured",
-			healthCheckV2Config: map[string]any{
-				"use_v2": true,
-				"http":   map[string]any{},
-			},
-			expectedEnabled:      false,
-			expectedErrorMessage: "healthcheckv2 extension is enabled but http status is not configured; component status will not be available",
-		},
-		{
-			name: "HealthCheckV2 enabled but HTTP endpoint not configured",
-			healthCheckV2Config: map[string]any{
-				"use_v2": true,
-			},
-			expectedEnabled:      false,
-			expectedErrorMessage: "healthcheckv2 extension is enabled but http endpoint is not configured; component status will not be available",
-		},
-		{
-			name: "HealthCheckV2 enabled but set to legacy mode",
-			healthCheckV2Config: map[string]any{
-				"use_v2": false,
-			},
-			expectedEnabled:      false,
-			expectedErrorMessage: "healthcheckv2 extension is enabled but is set to legacy mode; component status will not be available",
-		},
-		{
-			name:                 "HealthCheckV2 not enabled",
-			healthCheckV2Config:  map[string]any{},
-			expectedEnabled:      false,
-			expectedErrorMessage: "healthcheckv2 extension is enabled but is set to legacy mode; component status will not be available",
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			e := &fleetAutomationExtension{
-				healthCheckV2Config: tt.healthCheckV2Config,
-			}
-			enabled, err := e.isHealthCheckV2Enabled()
-			assert.Equal(t, tt.expectedEnabled, enabled)
-			if tt.expectedErrorMessage != "" {
-				assert.EqualError(t, err, tt.expectedErrorMessage)
-			} else {
-				assert.NoError(t, err)
-			}
-		})
-	}
-}
-
 func TestGetComponentHealthStatus(t *testing.T) {
 	tests := []struct {
 		name            string
@@ -599,7 +375,6 @@ func TestGetServiceComponent(t *testing.T) {
 	tests := []struct {
 		name                     string
 		componentStatus          map[string]any
-		healthCheckV2Enabled     bool
 		components               []payload.CollectorModule
 		componentString          string
 		componentsKind           string
@@ -616,7 +391,6 @@ func TestGetServiceComponent(t *testing.T) {
 				},
 			},
 			componentStatus:      map[string]any{},
-			healthCheckV2Enabled: false,
 			componentString:      "examplereceiver",
 			componentsKind:       receiversKind,
 			expectedServiceComponent: &payload.ServiceComponent{
@@ -639,7 +413,6 @@ func TestGetServiceComponent(t *testing.T) {
 				},
 			},
 			componentStatus:      map[string]any{},
-			healthCheckV2Enabled: false,
 			componentString:      "exampleprocessor/instance",
 			componentsKind:       processorsKind,
 			expectedServiceComponent: &payload.ServiceComponent{
@@ -655,7 +428,6 @@ func TestGetServiceComponent(t *testing.T) {
 			name:                 "Service component not found",
 			components:           []payload.CollectorModule{},
 			componentStatus:      map[string]any{},
-			healthCheckV2Enabled: false,
 			componentString:      "exampleextension",
 			componentsKind:       extensionsKind,
 			expectedServiceComponent: &payload.ServiceComponent{
@@ -671,7 +443,6 @@ func TestGetServiceComponent(t *testing.T) {
 			name:                     "Invalid component kind",
 			components:               []payload.CollectorModule{},
 			componentStatus:          map[string]any{},
-			healthCheckV2Enabled:     false,
 			componentString:          "exampleextension",
 			componentsKind:           "invalidkind",
 			expectedServiceComponent: nil,
@@ -697,7 +468,6 @@ func TestGetServiceComponent(t *testing.T) {
 					},
 				},
 			},
-			healthCheckV2Enabled: true,
 			componentString:      "exampleextension",
 			componentsKind:       extensionsKind,
 			expectedServiceComponent: &payload.ServiceComponent{
@@ -721,7 +491,6 @@ func TestGetServiceComponent(t *testing.T) {
 				},
 			},
 			componentStatus:      map[string]any{},
-			healthCheckV2Enabled: true,
 			componentString:      "exampleextension",
 			componentsKind:       extensionsKind,
 			expectedServiceComponent: &payload.ServiceComponent{
@@ -749,7 +518,6 @@ func TestGetServiceComponent(t *testing.T) {
 			e := &fleetAutomationExtension{
 				ModuleInfoJSON:       moduleInfoJSON,
 				componentStatus:      tt.componentStatus,
-				healthCheckV2Enabled: tt.healthCheckV2Enabled,
 				telemetry: component.TelemetrySettings{
 					Logger: logger,
 				},

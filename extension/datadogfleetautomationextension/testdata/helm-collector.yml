@@ -118,15 +118,8 @@ config:
       api:
         key: ""
         site: datad0g.com
-    healthcheckv2:
-      use_v2: true
-      component_health:
-        include_permanent_errors: false
-        include_recoverable_errors: true
-        recovery_duration: 5m
-      http:
   service:
-    extensions: [healthcheckv2, datadogfleetautomation]
+    extensions: [datadogfleetautomation]
     telemetry:
       logs:
         encoding: "json"
