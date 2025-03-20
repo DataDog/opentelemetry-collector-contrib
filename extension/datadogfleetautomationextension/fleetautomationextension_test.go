@@ -29,6 +29,7 @@ import (
 	"go.uber.org/zap/zaptest"
 	"go.uber.org/zap/zaptest/observer"
 
+	"github.com/open-telemetry/opentelemetry-collector-contrib/extension/datadogfleetautomationextension/internal/agentcomponents"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/extension/datadogfleetautomationextension/internal/metadata"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/datadog/clientutil"
 )
@@ -138,7 +139,7 @@ func Test_NotifyConfig(t *testing.T) {
 			set.ID = component.MustNewID(metadata.Type.String())
 
 			if tt.forwarder == nil {
-				tt.forwarder = newForwarder
+				tt.forwarder = agentcomponents.NewForwarder
 			}
 			if tt.provider == nil {
 				mspg := mockSourceProviderGetter{
@@ -153,10 +154,6 @@ func Test_NotifyConfig(t *testing.T) {
 
 			faExt, err := newExtension(ctx, &Config{ReporterPeriod: DefaultReporterPeriod}, set, clientutil.ValidateAPIKey, tt.provider, tt.forwarder)
 			assert.NoError(t, err)
-			mcc := &mockComponentChecker{
-				ccFunc: faExt.isComponentConfigured,
-			}
-			faExt.componentChecker = mcc
 			err = faExt.forwarder.Start()
 			defer faExt.forwarder.Stop()
 			assert.NoError(t, err)
@@ -300,7 +297,7 @@ func TestNewExtension(t *testing.T) {
 			}
 
 			if tt.forwarderGetter == nil {
-				tt.forwarderGetter = newForwarder
+				tt.forwarderGetter = agentcomponents.NewForwarder
 			}
 
 			ext, err := newExtension(
@@ -449,7 +446,7 @@ func TestUpdateHostname(t *testing.T) {
 				hostname:         tt.initialHostname,
 				hostnameProvider: mockProvider,
 				extensionID:      component.MustNewID(metadata.Type.String()),
-				collectorConfig:  confmap.NewFromStringMap(map[string]any{extensionsKind: map[string]any{metadata.Type.String(): map[string]any{"hostname": tt.configHostname}}}),
+				collectorConfig:  confmap.NewFromStringMap(map[string]any{"extensions": map[string]any{metadata.Type.String(): map[string]any{"hostname": tt.configHostname}}}),
 			}
 
 			// Call updateHostname
@@ -608,19 +605,6 @@ func TestFleetAutomationExtension_Shutdown(t *testing.T) {
 			}
 		})
 	}
-}
-
-type (
-	mockComponentConfiguredFunc func(string, string) (bool, *component.ID)
-	mockModuleAvailableFunc     func(string, string) bool
-	mockComponentChecker        struct {
-		ccFunc mockComponentConfiguredFunc
-		maFunc mockModuleAvailableFunc
-	}
-)
-
-func (m *mockComponentChecker) isComponentConfigured(name string, kind string) (bool, *component.ID) {
-	return m.ccFunc(name, kind)
 }
 
 func newNilForwarder(coreconfig.Component, corelog.Component) defaultforwarder.Forwarder {
@@ -860,43 +844,53 @@ func TestProcessComponentStatusEvents(t *testing.T) {
 	}
 }
 
-func TestUpdateComponentStatus(t *testing.T) {
+func TestFleetAutomationExtension_GetComponentHealthStatus(t *testing.T) {
 	tests := []struct {
-		name           string
-		event          *eventSourcePair
-		expectedStatus map[string]any
+		name            string
+		events          []*eventSourcePair
+		readySignal     bool
+		expectedStatus  map[string]any
+		forwarderGetter ForwarderGetter
 	}{
 		{
-			name: "Update status for receiver",
-			event: &eventSourcePair{
-				source: componentstatus.NewInstanceID(
-					component.MustNewID("testreceiver"),
-					component.KindReceiver,
-				),
-				event: componentstatus.NewEvent(componentstatus.StatusOK),
+			name: "Process starting events immediately",
+			events: []*eventSourcePair{
+				{
+					source: componentstatus.NewInstanceID(
+						component.MustNewID("testreceiver"),
+						component.KindReceiver,
+					),
+					event: componentstatus.NewEvent(componentstatus.StatusStarting),
+				},
 			},
+			readySignal: false,
 			expectedStatus: map[string]any{
 				"receiver:testreceiver": map[string]any{
+					"status": componentstatus.StatusStarting.String(),
+					"error":  nil,
+				},
+			},
+			forwarderGetter: newMockForwarder,
+		},
+		{
+			name: "Queue non-starting events until ready",
+			events: []*eventSourcePair{
+				{
+					source: componentstatus.NewInstanceID(
+						component.MustNewID("testprocessor"),
+						component.KindProcessor,
+					),
+					event: componentstatus.NewEvent(componentstatus.StatusOK),
+				},
+			},
+			readySignal: true,
+			expectedStatus: map[string]any{
+				"processor:testprocessor": map[string]any{
 					"status": componentstatus.StatusOK.String(),
 					"error":  nil,
 				},
 			},
-		},
-		{
-			name: "Update status for processor with error",
-			event: &eventSourcePair{
-				source: componentstatus.NewInstanceID(
-					component.MustNewID("testprocessor"),
-					component.KindProcessor,
-				),
-				event: componentstatus.NewEvent(componentstatus.StatusRecoverableError),
-			},
-			expectedStatus: map[string]any{
-				"processor:testprocessor": map[string]any{
-					"status": componentstatus.StatusRecoverableError.String(),
-					"error":  nil,
-				},
-			},
+			forwarderGetter: newMockForwarder,
 		},
 	}
 
@@ -911,11 +905,24 @@ func TestUpdateComponentStatus(t *testing.T) {
 				provider: &mockSourceProvider{hostname: "inferred-hostname"},
 			}
 			cfg := &Config{ReporterPeriod: DefaultReporterPeriod}
-			faExt, err := newExtension(context.Background(), cfg, set, clientutil.ValidateAPIKey, mspg.GetSourceProvider, newMockForwarder)
+			faExt, err := newExtension(context.Background(), cfg, set, clientutil.ValidateAPIKey, mspg.GetSourceProvider, tt.forwarderGetter)
 			assert.NoError(t, err)
 
-			// Update component status
-			faExt.updateComponentStatus(tt.event)
+			// Start processing events in a goroutine
+			go faExt.processComponentStatusEvents()
+
+			// Send events
+			for _, event := range tt.events {
+				faExt.eventCh <- event
+			}
+
+			// If ready signal is needed, send it
+			if tt.readySignal {
+				close(faExt.readyCh)
+			}
+
+			// Give some time for processing
+			time.Sleep(100 * time.Millisecond)
 
 			// Verify component status
 			faExt.mu.RLock()
@@ -936,6 +943,9 @@ func TestUpdateComponentStatus(t *testing.T) {
 				assert.False(t, timestamp.IsZero(), "Expected timestamp to be non-zero")
 			}
 			faExt.mu.RUnlock()
+
+			// Cleanup
+			close(faExt.done)
 		})
 	}
 }

@@ -10,14 +10,20 @@ import (
 	"go.opentelemetry.io/collector/config/confighttp"
 	"go.opentelemetry.io/collector/extension"
 
+	"github.com/open-telemetry/opentelemetry-collector-contrib/extension/datadogfleetautomationextension/internal/agentcomponents"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/extension/datadogfleetautomationextension/internal/metadata"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/datadog/clientutil"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/datadog/hostmetadata"
 )
 
-// NewFactory creates a factory for the Datadog Fleet Automation Extension.
+// NewFactory creates a factory for the Datadog Fleet Automation extension.
 func NewFactory() extension.Factory {
-	return extension.NewFactory(metadata.Type, createDefaultConfig, create, metadata.ExtensionStability)
+	return extension.NewFactory(
+		metadata.Type,
+		createDefaultConfig,
+		create,
+		metadata.ExtensionStability,
+	)
 }
 
 func createDefaultConfig() component.Config {
@@ -33,12 +39,9 @@ func createDefaultConfig() component.Config {
 func create(ctx context.Context, set extension.Settings, cfg component.Config) (extension.Extension, error) {
 	apiKeyValidator := clientutil.ValidateAPIKey
 	sourceProviderGetter := hostmetadata.GetSourceProvider
-	ext, err := newExtension(ctx, cfg.(*Config), set, apiKeyValidator, sourceProviderGetter, newForwarder)
+	faExt, err := newExtension(ctx, cfg.(*Config), set, apiKeyValidator, sourceProviderGetter, agentcomponents.NewForwarder)
 	if err != nil {
 		return nil, err
 	}
-	// componentChecker interface allows certain component check modules to be mocked/overwritten on testing
-	componentChecker := &defaultComponentChecker{extension: ext}
-	ext.componentChecker = componentChecker
-	return ext, nil
+	return faExt, nil
 }
