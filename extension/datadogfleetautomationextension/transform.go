@@ -44,8 +44,6 @@ var kindsToKind = map[string]string{
 
 type ComponentChecker interface {
 	isComponentConfigured(string, string) (bool, *component.ID)
-	isModuleAvailable(string, string) bool
-	isHealthCheckV2Enabled() (bool, error)
 }
 
 type defaultComponentChecker struct {
@@ -54,14 +52,6 @@ type defaultComponentChecker struct {
 
 func (d *defaultComponentChecker) isComponentConfigured(typ string, componentsKind string) (bool, *component.ID) {
 	return d.extension.isComponentConfigured(typ, componentsKind)
-}
-
-func (d *defaultComponentChecker) isModuleAvailable(componentType string, componentKind string) bool {
-	return d.extension.isModuleAvailable(componentType, componentKind)
-}
-
-func (d *defaultComponentChecker) isHealthCheckV2Enabled() (bool, error) {
-	return d.extension.isHealthCheckV2Enabled()
 }
 
 // isComponentConfigured checks if a given component is included in the collector config
@@ -86,51 +76,7 @@ func (e *fleetAutomationExtension) isComponentConfigured(typ string, componentsK
 	return false, nil
 }
 
-// isModuleAvailable checks if a given gomod type is included in the collector ModuleInfos struct
-func (e *fleetAutomationExtension) isModuleAvailable(componentType string, componentKind string) bool {
-	for _, field := range []struct {
-		kind string
-		data map[component.Type]service.ModuleInfo
-	}{
-		{receiverKind, e.moduleInfo.Receiver},
-		{processorKind, e.moduleInfo.Processor},
-		{exporterKind, e.moduleInfo.Exporter},
-		{extensionKind, e.moduleInfo.Extension},
-		{connectorKind, e.moduleInfo.Connector},
-		// TODO: add Providers and Converters after upstream change accepted to add these to moduleinfos
-	} {
-		if componentKind == field.kind {
-			if _, ok := field.data[component.MustNewType(componentType)]; ok {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-// isHealthCheckV2Enabled checks if healthcheckv2 is properly configured
-// should be ran after e.isComponentConfigured for healthcheckv2 and e.getComponentConfig for healthcheckv2
-func (e *fleetAutomationExtension) isHealthCheckV2Enabled() (bool, error) {
-	if useV2, ok := e.healthCheckV2Config["use_v2"].(bool); ok && useV2 {
-		if httpConfig, ok := e.healthCheckV2Config["http"].(map[string]any); ok {
-			if statusConfig, ok := httpConfig["status"].(map[string]any); ok {
-				if enabled, ok := statusConfig["enabled"].(bool); ok && enabled {
-					return true, nil
-				}
-				return false, errors.New("healthcheckv2 extension is enabled but http status check is not enabled; component status will not be available")
-			}
-			return false, errors.New("healthcheckv2 extension is enabled but http status is not configured; component status will not be available")
-		}
-		return false, errors.New("healthcheckv2 extension is enabled but http endpoint is not configured; component status will not be available")
-	}
-	return false, errors.New("healthcheckv2 extension is enabled but is set to legacy mode; component status will not be available")
-}
-
-// getComponentHealthStatus is subject to change/removal as healthcheckv2 is in "development status"
-// unclear if we should wait until this is more stabilized to add individual component status health
-// to the payloads we send
-//
-// requires e.componentStatus to be recently updated with e.getHealthCheckStatus() prior to function call
+// requires e.componentStatus to be recently updated through StatusWatcher interface
 func (e *fleetAutomationExtension) getComponentHealthStatus(id string, componentsKind string) map[string]any {
 	componentKind, ok := kindsToKind[componentsKind]
 	if !ok {
@@ -313,11 +259,9 @@ func (e *fleetAutomationExtension) getServiceComponent(componentString, componen
 		version = comp.Version
 	}
 	status = ""
-	if e.healthCheckV2Enabled {
-		statusMap := e.getComponentHealthStatus(id, componentsKind)
-		if len(statusMap) > 0 {
-			status = dataToFlattenedJSONString(statusMap, true, false)
-		}
+	statusMap := e.getComponentHealthStatus(id, componentsKind)
+	if len(statusMap) > 0 {
+		status = dataToFlattenedJSONString(statusMap, true, false)
 	}
 	return &payload.ServiceComponent{
 		ID:              id,
