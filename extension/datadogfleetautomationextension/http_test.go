@@ -413,7 +413,9 @@ const successfulInstanceResponse = `{
   "agent_payload": {
     "hostname": "test-hostname",
     "timestamp": 1741003200000000000,
-    "agent_metadata": {},
+    "agent_metadata": {
+      "flavor": ""
+    },
     "uuid": "123e4567-e89b-12d3-a456-426614174000"
   }
 }`
