@@ -25,6 +25,7 @@ import (
 	"go.opentelemetry.io/collector/extension"
 	"go.opentelemetry.io/collector/extension/extensioncapabilities"
 	"go.opentelemetry.io/collector/service"
+	"go.opentelemetry.io/collector/service/hostcapabilities"
 	"go.uber.org/zap"
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/datadog/clientutil"
@@ -184,14 +185,8 @@ func (e *fleetAutomationExtension) Start(_ context.Context, host component.Host)
 	// Store the host for component status tracking
 	e.host = host
 
-	// exportModules exposes the GetModulesInfos() private method from collector/service/internal/graph
-	// TODO: update to use the GetModuleInfos() from `service/hostcapabilities` module
-	type exportModules interface {
-		GetModuleInfos() service.ModuleInfos
-	}
-
-	if host, ok := host.(exportModules); ok {
-		e.moduleInfo = host.GetModuleInfos()
+	if m, ok := host.(hostcapabilities.ModuleInfo); ok {
+		e.moduleInfo = m.GetModuleInfos()
 	} else {
 		e.telemetry.Logger.Warn("Collector component/module info not available; Datadog Fleet Automation will only show the active collector config")
 	}
