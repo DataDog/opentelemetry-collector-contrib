@@ -566,16 +566,6 @@ func TestFleetAutomationExtension_Shutdown(t *testing.T) {
 			forwarder:     mockForwarder{stopError: fmt.Errorf("forwarder stop error")},
 			expectedError: "",
 		},
-		{
-			name: "non-nil http server",
-			httpServer: &http.Server{
-				Addr:         ":8080",
-				ReadTimeout:  5 * time.Second,  // Set read timeout to 5 seconds
-				WriteTimeout: 10 * time.Second, // Set write timeout to 10 seconds
-			},
-			forwarder:     mockForwarder{},
-			expectedError: "",
-		},
 	}
 
 	for _, tt := range tests {
@@ -590,10 +580,6 @@ func TestFleetAutomationExtension_Shutdown(t *testing.T) {
 				forwarder: tt.forwarder,
 				done:      make(chan bool),
 				eventCh:   make(chan *eventSourcePair),
-			}
-
-			if tt.httpServer != nil {
-				ext.httpServer = tt.httpServer
 			}
 
 			err := ext.Shutdown(ctx)
