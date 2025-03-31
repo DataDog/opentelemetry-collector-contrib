@@ -31,6 +31,7 @@ import (
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/extension/datadogfleetautomationextension/internal/agentcomponents"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/extension/datadogfleetautomationextension/internal/componentchecker"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/extension/datadogfleetautomationextension/internal/httpserver"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/extension/datadogfleetautomationextension/internal/payload"
 )
 
@@ -84,7 +85,7 @@ type fleetAutomationExtension struct {
 	otelMetadataPayload  payload.OtelMetadata
 	otelCollectorPayload payload.OtelCollector
 
-	httpServer      *http.Server
+	httpServer      *httpserver.Server
 	componentStatus map[string]any // retrieved from StatusWatcher interface
 
 	hostnameProvider source.Provider
@@ -149,7 +150,19 @@ func (e *fleetAutomationExtension) NotifyConfig(ctx context.Context, conf *confm
 	)
 
 	// send payloads to Datadog backend
-	_, err := e.prepareAndSendFleetAutomationPayloads()
+	_, err := httpserver.PrepareAndSendFleetAutomationPayloads(
+		e.telemetry.Logger,
+		e.serializer,
+		e.forwarder,
+		e.hostname,
+		e.uuid.String(),
+		e.componentStatus,
+		e.moduleInfo,
+		e.collectorConfigStringMap,
+		e.agentMetadataPayload,
+		e.otelMetadataPayload,
+		e.otelCollectorPayload,
+	)
 	if err != nil {
 		e.telemetry.Logger.Error("Failed to prepare and send fleet automation payloads", zap.Error(err))
 		return err
@@ -183,15 +196,29 @@ func (e *fleetAutomationExtension) Start(_ context.Context, host component.Host)
 		e.telemetry.Logger.Warn("Collector component/module info not available; Datadog Fleet Automation will only show the active collector config")
 	}
 
-	mux := http.NewServeMux()
-	mux.HandleFunc("/metadata", e.handleMetadata)
-	e.httpServer = &http.Server{
-		Addr:         ":" + fmt.Sprintf("%d", serverPort),
-		Handler:      mux,
-		ReadTimeout:  5 * time.Second,  // Set read timeout to 5 seconds
-		WriteTimeout: 10 * time.Second, // Set write timeout to 10 seconds
+	// Create and start HTTP server
+	e.httpServer = httpserver.NewServer(e.telemetry.Logger, e.serializer, e.forwarder)
+	if e.httpServer == nil {
+		e.telemetry.Logger.Error("Failed to create HTTP server")
+		return fmt.Errorf("failed to create HTTP server")
 	}
-	e.startLocalConfigServer()
+	e.httpServer.Start(func(w http.ResponseWriter, r *http.Request) {
+		httpserver.HandleMetadata(
+			w,
+			e.telemetry.Logger,
+			e.hostnameSource,
+			e.hostname,
+			e.uuid.String(),
+			e.componentStatus,
+			e.moduleInfo,
+			e.collectorConfigStringMap,
+			e.agentMetadataPayload,
+			e.otelMetadataPayload,
+			e.otelCollectorPayload,
+			e.serializer,
+			e.forwarder,
+		)
+	})
 
 	e.telemetry.Logger.Info("Started Datadog Fleet Automation extension")
 	return nil
@@ -266,7 +293,9 @@ func (e *fleetAutomationExtension) Shutdown(ctx context.Context) error {
 	componentstatus.ReportStatus(e.host, componentstatus.NewEvent(componentstatus.StatusStopped))
 
 	close(e.eventCh)
-	e.stopLocalConfigServer()
+	if e.httpServer != nil {
+		e.httpServer.Stop()
+	}
 	e.forwarder.Stop()
 	e.telemetry.Logger.Info("Stopped Datadog Fleet Automation extension")
 	return nil
