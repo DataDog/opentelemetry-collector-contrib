@@ -19,8 +19,7 @@ extensions:
     api: 
       key: ${env:DD_API_KEY}
       site: ${env:DD_SITE}
-    hostname: "datadogfleetautomation-confighostname"
-    reporter_period: 20m
+#    hostname: "datadogfleetautomation-confighostname"
 service:
   extensions: [datadogfleetautomation/test]
   pipelines:

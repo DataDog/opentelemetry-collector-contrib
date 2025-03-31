@@ -53,7 +53,7 @@ type CombinedPayload struct {
 type AgentMetadata struct {
 	AgentVersion                           string   `json:"agent_version,omitempty"`
 	AgentStartupTimeMs                     int64    `json:"agent_startup_time_ms,omitempty"`
-	AgentFlavor                            string   `json:"flavor,omitempty"`
+	AgentFlavor                            string   `json:"flavor"`
 	ConfigAPMDDUrl                         string   `json:"config_apm_dd_url,omitempty"`
 	ConfigDDUrl                            string   `json:"config_dd_url,omitempty"`
 	ConfigSite                             string   `json:"config_site,omitempty"`
