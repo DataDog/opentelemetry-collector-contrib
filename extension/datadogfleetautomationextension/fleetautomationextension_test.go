@@ -494,28 +494,35 @@ func TestFleetAutomationExtension_Start(t *testing.T) {
 		name          string
 		forwarder     defaultForwarderInterface
 		expectedError string
-		host          exportModules
+		host          component.Host
+		moduleInfos   service.ModuleInfos
 	}{
 		{
 			name:          "Forwarder starts successfully",
 			forwarder:     mockForwarder{},
 			expectedError: "",
+			host:          nil,
 		},
 		{
 			name:          "Forwarder start error",
 			forwarder:     mockForwarder{startError: fmt.Errorf("forwarder start error")},
 			expectedError: "forwarder start error",
+			host:          nil,
 		},
 		{
-			name:          "host implements exportModules interface",
+			name:          "host implements ModuleInfo interface",
 			forwarder:     mockForwarder{},
 			expectedError: "",
 			host: mockHost{
-				moduleInfos: service.ModuleInfos{},
+				moduleInfos: service.ModuleInfos{
+					Receiver: map[component.Type]service.ModuleInfo{
+						component.MustNewType("otlp"): {BuilderRef: "otlp@v0.117.0"},
+					},
+				},
 			},
 		},
 		{
-			name:          "host doesn't implement GetModuleInfos()",
+			name:          "host doesn't implement ModuleInfo interface",
 			forwarder:     mockForwarder{},
 			expectedError: "",
 			host:          nil,
