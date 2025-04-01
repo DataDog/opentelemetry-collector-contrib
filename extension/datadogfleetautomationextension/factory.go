@@ -30,9 +30,8 @@ func createDefaultConfig() component.Config {
 	return &Config{
 		ClientConfig: confighttp.NewDefaultClientConfig(),
 		API: APIConfig{
-			Site: DefaultSite,
+			Site: defaultSite,
 		},
-		ReporterPeriod: DefaultReporterPeriod,
 	}
 }
 

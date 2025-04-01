@@ -6,7 +6,6 @@ package datadogfleetautomationextension // import "github.com/open-telemetry/ope
 import (
 	"fmt"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -21,10 +20,9 @@ func TestConfig_Validate(t *testing.T) {
 			name: "Valid configuration",
 			config: Config{
 				API: APIConfig{
-					Site: DefaultSite,
+					Site: defaultSite,
 					Key:  "1234567890abcdef1234567890abcdef",
 				},
-				ReporterPeriod: DefaultReporterPeriod,
 			},
 			wantErr: nil,
 		},
@@ -35,42 +33,28 @@ func TestConfig_Validate(t *testing.T) {
 					Site: "",
 					Key:  "1234567890abcdef1234567890abcdef",
 				},
-				ReporterPeriod: DefaultReporterPeriod,
 			},
-			wantErr: ErrEmptyEndpoint,
+			wantErr: errEmptyEndpoint,
 		},
 		{
 			name: "Unset API key",
 			config: Config{
 				API: APIConfig{
-					Site: DefaultSite,
+					Site: defaultSite,
 					Key:  "",
 				},
-				ReporterPeriod: DefaultReporterPeriod,
 			},
-			wantErr: ErrUnsetAPIKey,
+			wantErr: errUnsetAPIKey,
 		},
 		{
 			name: "Invalid API key characters",
 			config: Config{
 				API: APIConfig{
-					Site: DefaultSite,
+					Site: defaultSite,
 					Key:  "1234567890abcdef1234567890abcdeg",
 				},
-				ReporterPeriod: DefaultReporterPeriod,
 			},
-			wantErr: fmt.Errorf("%w: invalid characters: %s", ErrAPIKeyFormat, "g"),
-		},
-		{
-			name: "too small reporter period",
-			config: Config{
-				API: APIConfig{
-					Site: DefaultSite,
-					Key:  "1234567890abcdef1234567890abcdef",
-				},
-				ReporterPeriod: 2 * time.Minute,
-			},
-			wantErr: fmt.Errorf("reporter_period must be 5 minutes or higher"),
+			wantErr: fmt.Errorf("%w: invalid characters: %s", errAPIKeyFormat, "g"),
 		},
 	}
 

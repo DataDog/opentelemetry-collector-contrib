@@ -41,9 +41,9 @@ func Test_NotifyConfig(t *testing.T) {
 		expectedConfig map[string]any
 		expectedError  string
 		expectedLog    string
-		forwarder      ForwarderGetter
-		provider       SourceProviderGetter
-		apikey         APIKeyValidator
+		forwarder      forwarderGetter
+		provider       sourceProviderGetter
+		apikey         apiKeyValidator
 	}{
 		{
 			name: "Forwarder fails to send metadata",
@@ -152,7 +152,7 @@ func Test_NotifyConfig(t *testing.T) {
 				tt.apikey = api.ValidateAPIKey
 			}
 
-			faExt, err := newExtension(ctx, &Config{ReporterPeriod: DefaultReporterPeriod}, set, clientutil.ValidateAPIKey, tt.provider, tt.forwarder)
+			faExt, err := newExtension(ctx, &Config{}, set, clientutil.ValidateAPIKey, tt.provider, tt.forwarder)
 			assert.NoError(t, err)
 			err = faExt.forwarder.Start()
 			defer faExt.forwarder.Stop()
@@ -197,7 +197,7 @@ func TestNewExtension(t *testing.T) {
 		config               *Config
 		apiKeyValidator      *mockAPIKeyValidator
 		sourceProviderGetter *mockSourceProviderGetter
-		forwarderGetter      ForwarderGetter
+		forwarderGetter      forwarderGetter
 		expectedError        string
 	}{
 		{
@@ -207,8 +207,7 @@ func TestNewExtension(t *testing.T) {
 					Site: "datadoghq.com",
 					Key:  "valid-api-key",
 				},
-				Hostname:       "test-hostname",
-				ReporterPeriod: DefaultReporterPeriod,
+				Hostname: "test-hostname",
 			},
 			apiKeyValidator: &mockAPIKeyValidator{
 				err: nil,
@@ -245,8 +244,7 @@ func TestNewExtension(t *testing.T) {
 					Site: "datadoghq.com",
 					Key:  "valid-api-key",
 				},
-				Hostname:       "",
-				ReporterPeriod: DefaultReporterPeriod,
+				Hostname: "",
 			},
 			apiKeyValidator: &mockAPIKeyValidator{
 				err: nil,
@@ -264,8 +262,7 @@ func TestNewExtension(t *testing.T) {
 					Site: "datadoghq.com",
 					Key:  "valid-api-key",
 				},
-				Hostname:       "test-hostname",
-				ReporterPeriod: DefaultReporterPeriod,
+				Hostname: "test-hostname",
 			},
 			apiKeyValidator: &mockAPIKeyValidator{
 				err: nil,
@@ -474,11 +471,6 @@ func TestUpdateHostname(t *testing.T) {
 type mockHost struct {
 	moduleInfos service.ModuleInfos
 	extensions  map[component.ID]component.Component
-}
-
-type exportModules interface {
-	GetModuleInfos() service.ModuleInfos
-	GetExtensions() map[component.ID]component.Component
 }
 
 func (m mockHost) GetModuleInfos() service.ModuleInfos {
@@ -791,7 +783,7 @@ func TestProcessComponentStatusEvents(t *testing.T) {
 			mspg := mockSourceProviderGetter{
 				provider: &mockSourceProvider{hostname: "inferred-hostname"},
 			}
-			cfg := &Config{ReporterPeriod: DefaultReporterPeriod}
+			cfg := &Config{}
 			faExt, err := newExtension(context.Background(), cfg, set, clientutil.ValidateAPIKey, mspg.GetSourceProvider, newMockForwarder)
 			assert.NoError(t, err)
 
@@ -811,8 +803,6 @@ func TestProcessComponentStatusEvents(t *testing.T) {
 			// Give some time for processing
 			time.Sleep(100 * time.Millisecond)
 
-			// Verify component status
-			faExt.mu.RLock()
 			// Check that the expected status fields match
 			for key, expectedValue := range tt.expectedStatus {
 				actualValue, exists := faExt.componentStatus[key]
@@ -829,7 +819,6 @@ func TestProcessComponentStatusEvents(t *testing.T) {
 				assert.True(t, ok, "Expected timestamp to be time.Time")
 				assert.False(t, timestamp.IsZero(), "Expected timestamp to be non-zero")
 			}
-			faExt.mu.RUnlock()
 
 			// Cleanup
 			close(faExt.done)
@@ -843,7 +832,7 @@ func TestFleetAutomationExtension_GetComponentHealthStatus(t *testing.T) {
 		events          []*eventSourcePair
 		readySignal     bool
 		expectedStatus  map[string]any
-		forwarderGetter ForwarderGetter
+		forwarderGetter forwarderGetter
 	}{
 		{
 			name: "Process starting events immediately",
@@ -897,7 +886,7 @@ func TestFleetAutomationExtension_GetComponentHealthStatus(t *testing.T) {
 			mspg := mockSourceProviderGetter{
 				provider: &mockSourceProvider{hostname: "inferred-hostname"},
 			}
-			cfg := &Config{ReporterPeriod: DefaultReporterPeriod}
+			cfg := &Config{}
 			faExt, err := newExtension(context.Background(), cfg, set, clientutil.ValidateAPIKey, mspg.GetSourceProvider, tt.forwarderGetter)
 			assert.NoError(t, err)
 
@@ -917,8 +906,6 @@ func TestFleetAutomationExtension_GetComponentHealthStatus(t *testing.T) {
 			// Give some time for processing
 			time.Sleep(100 * time.Millisecond)
 
-			// Verify component status
-			faExt.mu.RLock()
 			// Check that the expected status fields match
 			for key, expectedValue := range tt.expectedStatus {
 				actualValue, exists := faExt.componentStatus[key]
@@ -935,7 +922,6 @@ func TestFleetAutomationExtension_GetComponentHealthStatus(t *testing.T) {
 				assert.True(t, ok, "Expected timestamp to be time.Time")
 				assert.False(t, timestamp.IsZero(), "Expected timestamp to be non-zero")
 			}
-			faExt.mu.RUnlock()
 
 			// Cleanup
 			close(faExt.done)
