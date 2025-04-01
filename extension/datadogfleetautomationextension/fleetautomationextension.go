@@ -18,6 +18,7 @@ import (
 	"github.com/DataDog/datadog-api-client-go/v2/api/datadog"
 	"github.com/DataDog/opentelemetry-mapping-go/pkg/otlp/attributes/source"
 	"github.com/google/uuid"
+	"github.com/pkg/errors"
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/component/componentstatus"
 	"go.opentelemetry.io/collector/confmap"
@@ -67,7 +68,7 @@ type fleetAutomationExtension struct {
 	collectorConfig          *confmap.Conf
 	collectorConfigStringMap map[string]any
 	ticker                   *time.Ticker
-	done                     chan bool
+	done                     chan bool // used for component status events loop
 	uuid                     uuid.UUID
 
 	buildInfo      payload.CustomBuildInfo
@@ -87,8 +88,7 @@ type fleetAutomationExtension struct {
 	componentStatus map[string]any // retrieved from StatusWatcher interface
 
 	hostnameProvider source.Provider
-	hostnameSource   string // can be "unset", "config", or "inferred"
-	hostname         string // unique identifier for host where collector is running
+	hostnameSource   string // can be "config", or "inferred"
 
 	// Fields for implementing PipelineWatcher interface
 	eventCh chan *eventSourcePair
@@ -112,19 +112,17 @@ func (e *fleetAutomationExtension) NotifyConfig(ctx context.Context, conf *confm
 	e.collectorConfig = conf
 	e.telemetry.Logger.Info("Received new collector configuration")
 	e.collectorConfigStringMap = e.collectorConfig.ToStringMap()
-
-	e.updateHostname(ctx)
-	if e.hostnameSource == "unset" {
-		return fmt.Errorf("collector hostname is unset, please set hostname manually in config")
+	hostname, err := getHostname(ctx, e.hostnameSource, e.hostnameProvider, e.extensionConfig)
+	if err != nil {
+		return err
 	}
-
 	// create agent metadata payload. most fields are not relevant to OSS collector.
 	e.agentMetadataPayload = payload.PrepareAgentMetadataPayload(
 		e.extensionConfig.API.Site,
 		e.buildInfo.Command,
 		e.buildInfo.Version,
 		e.buildInfo.Version,
-		e.hostname,
+		hostname,
 	)
 
 	// convert full config map to a json string and remove excess quotation marks
@@ -139,7 +137,7 @@ func (e *fleetAutomationExtension) NotifyConfig(ctx context.Context, conf *confm
 	)
 
 	e.otelCollectorPayload = payload.PrepareOtelCollectorPayload(
-		e.hostname,
+		hostname,
 		e.hostnameSource,
 		e.uuid.String(),
 		e.version,
@@ -147,13 +145,12 @@ func (e *fleetAutomationExtension) NotifyConfig(ctx context.Context, conf *confm
 		fullConfig,
 		e.buildInfo,
 	)
-
 	// send payloads to Datadog backend
-	_, err := httpserver.PrepareAndSendFleetAutomationPayloads(
+	_, err = httpserver.PrepareAndSendFleetAutomationPayloads(
 		e.telemetry.Logger,
 		e.serializer,
 		e.forwarder,
-		e.hostname,
+		hostname,
 		e.uuid.String(),
 		e.componentStatus,
 		e.moduleInfo,
@@ -170,7 +167,7 @@ func (e *fleetAutomationExtension) NotifyConfig(ctx context.Context, conf *confm
 }
 
 // Start starts the extension via the component interface.
-func (e *fleetAutomationExtension) Start(_ context.Context, host component.Host) error {
+func (e *fleetAutomationExtension) Start(ctx context.Context, host component.Host) error {
 	err := e.forwarder.Start()
 	if err != nil {
 		return err
@@ -178,6 +175,10 @@ func (e *fleetAutomationExtension) Start(_ context.Context, host component.Host)
 
 	// Store the host for component status tracking
 	e.host = host
+	hostname, err := getHostname(ctx, e.hostnameSource, e.hostnameProvider, e.extensionConfig)
+	if err != nil {
+		return err
+	}
 
 	if m, ok := host.(hostcapabilities.ModuleInfo); ok {
 		e.moduleInfo = m.GetModuleInfos()
@@ -195,7 +196,7 @@ func (e *fleetAutomationExtension) Start(_ context.Context, host component.Host)
 			w,
 			e.telemetry.Logger,
 			e.hostnameSource,
-			e.hostname,
+			hostname,
 			e.uuid.String(),
 			e.componentStatus,
 			e.moduleInfo,
@@ -207,8 +208,6 @@ func (e *fleetAutomationExtension) Start(_ context.Context, host component.Host)
 			e.forwarder,
 		)
 	})
-
-	e.telemetry.Logger.Info("Started Datadog Fleet Automation extension")
 	return nil
 }
 
@@ -287,54 +286,15 @@ func (e *fleetAutomationExtension) Shutdown(ctx context.Context) error {
 	return nil
 }
 
-func getHostname(ctx context.Context, providedHostname string, sp source.Provider) (hostname string, hostnameSource string, sourceProviderError error) {
-	hostnameSource = "config"
-	hostname = providedHostname
-	if hostname == "" {
+func getHostname(ctx context.Context, hostnameSource string, sp source.Provider, cfg *Config) (string, error) {
+	if hostnameSource == "config" {
+		return cfg.Hostname, nil
+	} else {
 		source, err := sp.Source(ctx)
 		if err != nil {
-			err = fmt.Errorf("hostname detection failed, please set hostname manually in config: %w", err)
-			return "", "unset", err
+			return "", errors.Wrap(err, "hostname detection failed, please set hostname manually in config")
 		}
-		hostname = source.Identifier
-		hostnameSource = "inferred"
-	}
-	return hostname, hostnameSource, nil
-}
-
-func (e *fleetAutomationExtension) updateHostname(ctx context.Context) {
-	// check for new hostname in extension config
-	// TODO: switch to conf.Sub() method on refactor
-	extensionsConfig, err := e.collectorConfig.Sub("extensions")
-	if err != nil || len(extensionsConfig.AllKeys()) == 0 {
-		e.telemetry.Logger.Error("Failed to get extensions config")
-		return
-	}
-	eCfg, err := extensionsConfig.Sub(e.extensionID.String())
-	if err != nil || len(eCfg.AllKeys()) == 0 {
-		e.telemetry.Logger.Error("Failed to get datadogfleetautomationextension config", zap.Error(err))
-		return
-	}
-	hostname := eCfg.Get("hostname")
-	if hostname, ok := hostname.(string); ok {
-		if hostname != "" {
-			if hostname != e.hostname {
-				e.hostname = hostname
-			}
-			e.hostnameSource = "config"
-			return
-		}
-		e.telemetry.Logger.Info("Hostname in config is empty, inferring hostname")
-		hn, source, err := getHostname(ctx, e.hostname, e.hostnameProvider)
-		if err != nil {
-			e.telemetry.Logger.Error("Failed to infer hostname, collector will not show in Fleet Automation", zap.Error(err))
-			e.hostname = ""
-			e.hostnameSource = "unset"
-			return
-		}
-		e.hostname = hn
-		e.telemetry.Logger.Info("Inferred hostname", zap.String("hostname", e.hostname))
-		e.hostnameSource = source
+		return source.Identifier, nil
 	}
 }
 
@@ -367,16 +327,20 @@ func newExtension(
 	}
 	telemetry := settings.TelemetrySettings
 	// Get Hostname provider
+	var hostnameSource string
+	if config.Hostname == "" {
+		hostnameSource = "inferred"
+	} else {
+		hostnameSource = "config"
+	}
 	sp, err := sourceProviderGetter(telemetry, config.Hostname, 15*time.Second)
 	if err != nil {
-		telemetry.Logger.Warn("hostname detection failed to start, hostname must be set manually in config: %v", zap.Error(err))
+		return nil, errors.Wrap(err, "hostname detection failed to start, hostname must be set manually in config")
 	}
-	hostname, hostnameSource, err := getHostname(ctx, config.Hostname, sp)
+	hn, err := sp.Source(ctx)
 	if err != nil {
-		telemetry.Logger.Warn(err.Error())
-		return nil, err
+		return nil, errors.Wrap(err, "hostname detection failed to start, hostname must be set manually in config")
 	}
-
 	cfg := agentcomponents.NewConfigComponent(telemetry, string(config.API.Key), config.API.Site)
 	log := agentcomponents.NewLogComponent(telemetry)
 
@@ -386,7 +350,7 @@ func newExtension(
 		return nil, fmt.Errorf("failed to create forwarder")
 	}
 	compressor := agentcomponents.NewCompressor()
-	serializer := agentcomponents.NewSerializer(forwarder, compressor, cfg, log, hostname)
+	serializer := agentcomponents.NewSerializer(forwarder, compressor, cfg, log, hn.Identifier)
 	version := settings.BuildInfo.Version
 	buildInfo := payload.CustomBuildInfo{
 		Command:     settings.BuildInfo.Command,
@@ -407,7 +371,6 @@ func newExtension(
 		done:             make(chan bool),
 		hostnameProvider: sp,
 		hostnameSource:   hostnameSource,
-		hostname:         hostname,
 		uuid:             extUUID,
 		// Initialize PipelineWatcher fields
 		eventCh: make(chan *eventSourcePair),

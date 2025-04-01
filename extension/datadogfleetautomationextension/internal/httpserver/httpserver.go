@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"time"
 
@@ -37,10 +38,9 @@ type defaultForwarderInterface interface {
 type Server struct {
 	server     *http.Server
 	logger     *zap.Logger
-	done       chan bool
-	ticker     *time.Ticker
 	serializer serializer.MetricSerializer
 	forwarder  defaultForwarderInterface
+	cancel     context.CancelFunc
 }
 
 // NewServer creates a new HTTP server instance
@@ -51,7 +51,6 @@ func NewServer(logger *zap.Logger, serializer serializer.MetricSerializer, forwa
 	}
 	return &Server{
 		logger:     logger,
-		done:       make(chan bool),
 		serializer: serializer,
 		forwarder:  f,
 	}
@@ -60,28 +59,44 @@ func NewServer(logger *zap.Logger, serializer serializer.MetricSerializer, forwa
 // Stop shuts down the HTTP server
 func (s *Server) Stop() {
 	if s.server != nil {
-		if err := s.server.Shutdown(context.Background()); err != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := s.server.Shutdown(ctx); err != nil {
 			s.logger.Error("Failed to shutdown HTTP server", zap.Error(err))
 		}
 	}
-	if s.done != nil {
-		close(s.done)
+	if s.cancel != nil {
+		s.cancel()
 	}
 }
 
 // Start starts the HTTP server and begins sending payloads periodically
-func (s *Server) Start(handler http.HandlerFunc) {
+func (s *Server) Start(
+	handler func(w http.ResponseWriter, r *http.Request),
+) {
+	ctx, cancel := context.WithCancel(context.Background())
+	s.cancel = cancel
+
 	s.server = &http.Server{
 		Addr:         ":" + fmt.Sprintf("%d", ServerPort),
 		Handler:      http.HandlerFunc(handler),
 		ReadTimeout:  5 * time.Second,
 		WriteTimeout: 10 * time.Second,
+		BaseContext:  func(net.Listener) context.Context { return ctx },
 	}
 
 	// Start HTTP server
 	go func() {
 		if err := s.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			s.logger.Error("HTTP server error", zap.Error(err))
+		}
+	}()
+
+	// Monitor context cancellation
+	go func() {
+		<-ctx.Done()
+		if err := s.server.Shutdown(context.Background()); err != nil {
+			s.logger.Error("Error during server shutdown", zap.Error(err))
 		}
 	}()
 
