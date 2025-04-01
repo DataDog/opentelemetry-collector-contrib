@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
-	"sync"
 	"time"
 
 	coreconfig "github.com/DataDog/datadog-agent/comp/core/config"
@@ -37,12 +36,12 @@ import (
 )
 
 type (
-	// APIKeyValidator is a function that validates the API key, provided to newExtension for mocking
-	APIKeyValidator func(context.Context, string, *zap.Logger, *datadog.APIClient) error
-	// SourceProviderGetter is a function that returns a source.Provider, provided to newExtension for mocking
-	SourceProviderGetter func(component.TelemetrySettings, string, time.Duration) (source.Provider, error)
-	// ForwarderGetter is a function that returns a defaultforwarder.Forwarder, provided to newExtension for mocking
-	ForwarderGetter func(coreconfig.Component, corelog.Component) defaultforwarder.Forwarder
+	// apiKeyValidator is a function that validates the API key, provided to newExtension for mocking
+	apiKeyValidator func(context.Context, string, *zap.Logger, *datadog.APIClient) error
+	// sourceProviderGetter is a function that returns a source.Provider, provided to newExtension for mocking
+	sourceProviderGetter func(component.TelemetrySettings, string, time.Duration) (source.Provider, error)
+	// forwarderGetter is a function that returns a defaultforwarder.Forwarder, provided to newExtension for mocking
+	forwarderGetter func(coreconfig.Component, corelog.Component) defaultforwarder.Forwarder
 )
 
 // defaultForwarderInterface is wrapper for methods in datadog-agent DefaultForwarder struct
@@ -69,14 +68,12 @@ type fleetAutomationExtension struct {
 	collectorConfigStringMap map[string]any
 	ticker                   *time.Ticker
 	done                     chan bool
-	mu                       sync.RWMutex
 	uuid                     uuid.UUID
 
-	buildInfo            payload.CustomBuildInfo
-	moduleInfo           service.ModuleInfos
-	ModuleInfoJSON       *payload.ModuleInfoJSON
-	activeComponentsJSON *payload.ActiveComponentsJSON
-	version              string
+	buildInfo      payload.CustomBuildInfo
+	moduleInfo     service.ModuleInfos
+	ModuleInfoJSON *payload.ModuleInfoJSON
+	version        string
 
 	forwarder  defaultForwarderInterface
 	compressor *compression.Compressor
@@ -111,14 +108,15 @@ var (
 // This method is called during the startup process by the Collector's Service right after
 // calling Start.
 func (e *fleetAutomationExtension) NotifyConfig(ctx context.Context, conf *confmap.Conf) error {
-	e.mu.Lock()
-	defer e.mu.Unlock()
 
 	e.collectorConfig = conf
 	e.telemetry.Logger.Info("Received new collector configuration")
 	e.collectorConfigStringMap = e.collectorConfig.ToStringMap()
 
 	e.updateHostname(ctx)
+	if e.hostnameSource == "unset" {
+		return fmt.Errorf("collector hostname is unset, please set hostname manually in config")
+	}
 
 	// create agent metadata payload. most fields are not relevant to OSS collector.
 	e.agentMetadataPayload = payload.PrepareAgentMetadataPayload(
@@ -165,7 +163,6 @@ func (e *fleetAutomationExtension) NotifyConfig(ctx context.Context, conf *confm
 		e.otelCollectorPayload,
 	)
 	if err != nil {
-		e.telemetry.Logger.Error("Failed to prepare and send fleet automation payloads", zap.Error(err))
 		return err
 	}
 
@@ -174,12 +171,9 @@ func (e *fleetAutomationExtension) NotifyConfig(ctx context.Context, conf *confm
 
 // Start starts the extension via the component interface.
 func (e *fleetAutomationExtension) Start(_ context.Context, host component.Host) error {
-	if e.forwarder != nil {
-		err := e.forwarder.Start()
-		if err != nil {
-			e.telemetry.Logger.Error("Failed to start forwarder", zap.Error(err))
-			return err
-		}
+	err := e.forwarder.Start()
+	if err != nil {
+		return err
 	}
 
 	// Store the host for component status tracking
@@ -194,7 +188,6 @@ func (e *fleetAutomationExtension) Start(_ context.Context, host component.Host)
 	// Create and start HTTP server
 	e.httpServer = httpserver.NewServer(e.telemetry.Logger, e.serializer, e.forwarder)
 	if e.httpServer == nil {
-		e.telemetry.Logger.Error("Failed to create HTTP server")
 		return fmt.Errorf("failed to create HTTP server")
 	}
 	e.httpServer.Start(func(w http.ResponseWriter, r *http.Request) {
@@ -265,8 +258,6 @@ func (e *fleetAutomationExtension) processComponentStatusEvents() {
 
 // updateComponentStatus updates the componentStatus map with the latest status
 func (e *fleetAutomationExtension) updateComponentStatus(esp *eventSourcePair) {
-	e.mu.Lock()
-	defer e.mu.Unlock()
 
 	if e.componentStatus == nil {
 		e.componentStatus = make(map[string]any)
@@ -351,9 +342,9 @@ func newExtension(
 	ctx context.Context,
 	config *Config,
 	settings extension.Settings,
-	apiKeyValidator APIKeyValidator,
-	sourceProviderGetter SourceProviderGetter,
-	forwarderGetter ForwarderGetter,
+	apiKeyValidator apiKeyValidator,
+	sourceProviderGetter sourceProviderGetter,
+	forwarderGetter forwarderGetter,
 ) (*fleetAutomationExtension, error) {
 	// API Key validation
 	// TODO: consider moving common logic to pkg/datadog or internal/datadog
@@ -412,7 +403,7 @@ func newExtension(
 		serializer:       serializer,
 		buildInfo:        buildInfo,
 		version:          version,
-		ticker:           time.NewTicker(config.ReporterPeriod),
+		ticker:           time.NewTicker(defaultReporterPeriod),
 		done:             make(chan bool),
 		hostnameProvider: sp,
 		hostnameSource:   hostnameSource,

@@ -20,9 +20,8 @@ func TestFactory_CreateDefaultConfig(t *testing.T) {
 	expectedConfig := &Config{
 		ClientConfig: confighttp.NewDefaultClientConfig(),
 		API: APIConfig{
-			Site: DefaultSite,
+			Site: defaultSite,
 		},
-		ReporterPeriod: DefaultReporterPeriod,
 	}
 	cfg := createDefaultConfig()
 	assert.Equal(t, expectedConfig, cfg)
@@ -50,9 +49,8 @@ func TestFactory_NewFactory(t *testing.T) {
 	expectedConfig := &Config{
 		ClientConfig: confighttp.NewDefaultClientConfig(),
 		API: APIConfig{
-			Site: DefaultSite,
+			Site: defaultSite,
 		},
-		ReporterPeriod: DefaultReporterPeriod,
 	}
 	assert.Equal(t, expectedConfig, defaultConfig)
 
