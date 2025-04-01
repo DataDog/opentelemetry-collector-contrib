@@ -47,19 +47,23 @@ var kindsToKind = map[string]string{
 
 // CheckComponentConfiguration checks if a given component is included in the collector config
 func CheckComponentConfiguration(typ string, componentsKind string, configMap map[string]any) (bool, *component.ID) {
-	if components, ok := configMap[componentsKind]; ok {
-		if componentMap, ok := components.(map[string]any); ok {
-			for key := range componentMap {
-				if key == typ {
-					newID := component.MustNewID(typ)
-					return true, &newID
-				}
-				keySplit := strings.Split(key, "/")
-				if len(keySplit) == 2 && keySplit[0] == typ {
-					newID := component.MustNewIDWithName(keySplit[0], keySplit[1])
-					return true, &newID
-				}
-			}
+	components, ok := configMap[componentsKind]
+	if !ok {
+		return false, nil
+	}
+	componentMap, ok := components.(map[string]any)
+	if !ok {
+		return false, nil
+	}
+	for key := range componentMap {
+		if key == typ {
+			newID := component.MustNewID(typ)
+			return true, &newID
+		}
+		keySplit := strings.Split(key, "/")
+		if len(keySplit) == 2 && keySplit[0] == typ {
+			newID := component.MustNewIDWithName(keySplit[0], keySplit[1])
+			return true, &newID
 		}
 	}
 	return false, nil
@@ -71,40 +75,43 @@ func GetComponentHealthStatus(id string, componentsKind string, componentStatus 
 	if !ok {
 		return nil
 	}
+	componentsConfig, ok := componentStatus["components"].(map[string]any)
+	if !ok {
+		return nil
+	}
 	result := map[string]any{}
-	if componentsConfig, ok := componentStatus["components"].(map[string]any); ok {
-		if componentsKind == extensionsKind {
-			if componentStatus, ok := componentsConfig[componentsKind].(map[string]any); ok {
-				if receiversStatus, ok := componentStatus["components"].(map[string]any); ok {
-					componentNameInPipeline := componentKind + ":" + id
-					if componentStatus, ok := receiversStatus[componentNameInPipeline].(map[string]any); ok {
-						result = componentStatus
-					}
-				}
+	if componentsKind == extensionsKind {
+		componentsStatus, _ := componentsConfig[componentsKind].(map[string]any)
+		receiversStatus, _ := componentsStatus["components"].(map[string]any)
+		componentNameInPipeline := componentKind + ":" + id
+		componentStatus, ok := receiversStatus[componentNameInPipeline].(map[string]any)
+		if !ok {
+			return result
+		}
+		result = componentStatus
+	} else {
+		for key, value := range componentsConfig {
+			if key == extensionsKind {
+				continue
 			}
-		} else {
-			for key, value := range componentsConfig {
-				if key == extensionsKind {
+			pipelineMap, _ := value.(map[string]any)
+			components, ok := pipelineMap["components"].(map[string]any)
+			if !ok {
+				continue
+			}
+			for component, status := range components {
+				componentParts := strings.Split(component, ":")
+				if len(componentParts) != 2 {
 					continue
 				}
-				if pipelineMap, ok := value.(map[string]any); ok {
-					if components, ok := pipelineMap["components"].(map[string]any); ok {
-						for component, status := range components {
-							componentParts := strings.Split(component, ":")
-							if len(componentParts) != 2 {
-								continue
-							}
-							kind := componentParts[0]
-							fullID := componentParts[1]
-							if kind == componentKind && id == fullID {
-								if componentStatus, ok := status.(map[string]any); ok {
-									result[key] = map[string]any{
-										component: componentStatus,
-									}
-								}
-							}
-						}
-					}
+				kind := componentParts[0]
+				fullID := componentParts[1]
+				componentStatus, ok := status.(map[string]any)
+				if kind != componentKind || id != fullID || !ok {
+					continue
+				}
+				result[key] = map[string]any{
+					component: componentStatus,
 				}
 			}
 		}
