@@ -289,13 +289,12 @@ func (e *fleetAutomationExtension) Shutdown(ctx context.Context) error {
 func getHostname(ctx context.Context, hostnameSource string, sp source.Provider, cfg *Config) (string, error) {
 	if hostnameSource == "config" {
 		return cfg.Hostname, nil
-	} else {
-		source, err := sp.Source(ctx)
-		if err != nil {
-			return "", errors.Wrap(err, "hostname detection failed, please set hostname manually in config")
-		}
-		return source.Identifier, nil
 	}
+	source, err := sp.Source(ctx)
+	if err != nil {
+		return "", errors.Wrap(err, "hostname detection failed, please set hostname manually in config")
+	}
+	return source.Identifier, nil
 }
 
 func newExtension(
