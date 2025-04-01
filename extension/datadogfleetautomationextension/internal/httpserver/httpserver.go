@@ -203,18 +203,6 @@ func HandleMetadata(
 	serializer serializer.MetricSerializer,
 	forwarder defaultForwarderInterface,
 ) {
-	if hostnameSource == "unset" {
-		logger.Info("Skipping fleet automation payloads since the hostname is empty")
-		if w != nil {
-			w.Header().Set("Content-Type", "application/json")
-			_, err := w.Write([]byte("Fleet automation payloads not sent since the hostname is empty"))
-			if err != nil {
-				logger.Error("Failed to write response to local metadata request", zap.Error(err))
-			}
-		}
-		return
-	}
-
 	// Prepare and send the fleet automation payloads
 	combinedPayload, err := PrepareAndSendFleetAutomationPayloads(
 		logger,

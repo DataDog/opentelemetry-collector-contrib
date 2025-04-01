@@ -403,17 +403,17 @@ func TestHandleMetadata(t *testing.T) {
 	}()
 	tests := []struct {
 		name           string
-		setupTest      func() (*zap.Logger, *observer.ObservedLogs, serializer.MetricSerializer, defaultForwarderInterface)
+		setupTest      func() (*zap.Logger, serializer.MetricSerializer, defaultForwarderInterface)
 		hostnameSource string
 		expectedCode   int
 		expectedBody   string
 	}{
 		{
 			name: "Successful metadata handling",
-			setupTest: func() (*zap.Logger, *observer.ObservedLogs, serializer.MetricSerializer, defaultForwarderInterface) {
-				core, logs := observer.New(zapcore.InfoLevel)
+			setupTest: func() (*zap.Logger, serializer.MetricSerializer, defaultForwarderInterface) {
+				core, _ := observer.New(zapcore.InfoLevel)
 				logger := zap.New(core)
-				return logger, logs, &mockSerializer{
+				return logger, &mockSerializer{
 						sendMetadataFunc: func(any) error {
 							return nil
 						},
@@ -426,22 +426,11 @@ func TestHandleMetadata(t *testing.T) {
 			// expectedBody:   `{"collector_payload":{"hostname":"test-hostname","timestamp":0,"metadata":{"hostname":"test-hostname","hostname_source":"config","uuid":"test-uuid","version":"","site":"","full_config":"","build_info":{"command":"","description":"","version":""}},"uuid":"test-uuid"},"otel_payload":{"hostname":"test-hostname","timestamp":0,"metadata":{"version":"","command":"","provided_configuration":"","environment_variable_configuration":""},"uuid":"test-uuid"},"agent_payload":{"hostname":"test-hostname","timestamp":0,"metadata":{"command":"","description":"","version":"","hostname":""},"uuid":"test-uuid"}}`,
 			expectedBody: successfulInstanceResponse,
 		},
-		{
-			name: "Empty hostname",
-			setupTest: func() (*zap.Logger, *observer.ObservedLogs, serializer.MetricSerializer, defaultForwarderInterface) {
-				core, logs := observer.New(zapcore.InfoLevel)
-				logger := zap.New(core)
-				return logger, logs, &mockSerializer{}, &mockForwarder{}
-			},
-			hostnameSource: "unset",
-			expectedCode:   http.StatusOK,
-			expectedBody:   "Fleet automation payloads not sent since the hostname is empty",
-		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			logger, logs, serializer, forwarder := tt.setupTest()
+			logger, serializer, forwarder := tt.setupTest()
 
 			w := httptest.NewRecorder()
 
@@ -463,13 +452,6 @@ func TestHandleMetadata(t *testing.T) {
 
 			assert.Equal(t, tt.expectedCode, w.Code)
 			assert.Equal(t, tt.expectedBody, w.Body.String())
-
-			// Verify the logs
-			for _, log := range logs.All() {
-				if tt.hostnameSource == "unset" {
-					assert.Contains(t, log.Message, "Skipping fleet automation payloads since the hostname is empty")
-				}
-			}
 		})
 	}
 }
