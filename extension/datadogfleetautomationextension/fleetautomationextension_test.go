@@ -323,20 +323,8 @@ func TestGetHostname(t *testing.T) {
 		providedHostname     string
 		sourceProviderGetter *mockSourceProviderGetter
 		expectedHostname     string
-		expectedSource       string
 		expectedError        string
 	}{
-		{
-			name:             "Provided hostname is set",
-			providedHostname: "test-hostname",
-			sourceProviderGetter: &mockSourceProviderGetter{
-				provider: &mockSourceProvider{hostname: "inferred-hostname"},
-				err:      nil,
-			},
-			expectedHostname: "test-hostname",
-			expectedSource:   "config",
-			expectedError:    "",
-		},
 		{
 			name:             "Provided hostname is empty, source provider infers hostname",
 			providedHostname: "",
@@ -345,7 +333,6 @@ func TestGetHostname(t *testing.T) {
 				err:      nil,
 			},
 			expectedHostname: "inferred-hostname",
-			expectedSource:   "inferred",
 			expectedError:    "",
 		},
 		{
@@ -356,7 +343,6 @@ func TestGetHostname(t *testing.T) {
 				err:      nil,
 			},
 			expectedHostname: "",
-			expectedSource:   "unset",
 			expectedError:    "hostname detection failed, please set hostname manually in config: hostname detection failed",
 		},
 	}
@@ -368,7 +354,12 @@ func TestGetHostname(t *testing.T) {
 			telemetry := componenttest.NewNopTelemetrySettings()
 			telemetry.Logger = logger
 			sp, _ := tt.sourceProviderGetter.GetSourceProvider(telemetry, tt.providedHostname, 15*time.Second)
-			hostname, hostnameSource, err := getHostname(ctx, tt.providedHostname, sp)
+
+			config := &Config{
+				Hostname: tt.providedHostname,
+			}
+
+			hostname, err := getHostname(ctx, tt.providedHostname, sp, config)
 
 			if tt.expectedError != "" {
 				assert.Error(t, err)
@@ -378,92 +369,6 @@ func TestGetHostname(t *testing.T) {
 			}
 
 			assert.Equal(t, tt.expectedHostname, hostname)
-			assert.Equal(t, tt.expectedSource, hostnameSource)
-		})
-	}
-}
-
-func TestUpdateHostname(t *testing.T) {
-	tests := []struct {
-		name             string
-		initialHostname  string
-		configHostname   any
-		providerHostname string
-		providerError    error
-		expectedHostname string
-		expectedSource   string
-		expectedLogs     []string
-	}{
-		{
-			name:             "Hostname provided in config",
-			initialHostname:  "",
-			configHostname:   "test-hostname",
-			providerHostname: "inferred-hostname",
-			providerError:    nil,
-			expectedHostname: "test-hostname",
-			expectedSource:   "config",
-			expectedLogs:     []string{},
-		},
-		{
-			name:             "Hostname empty in config, inferred successfully",
-			initialHostname:  "",
-			configHostname:   "",
-			providerHostname: "inferred-hostname",
-			providerError:    nil,
-			expectedHostname: "inferred-hostname",
-			expectedSource:   "inferred",
-			expectedLogs:     []string{"Hostname in config is empty, inferring hostname", "Inferred hostname"},
-		},
-		{
-			name:             "Hostname empty in config, inference failed",
-			initialHostname:  "",
-			configHostname:   "",
-			providerHostname: "",
-			providerError:    fmt.Errorf("hostname detection failed"),
-			expectedHostname: "",
-			expectedSource:   "unset",
-			expectedLogs:     []string{"Hostname in config is empty, inferring hostname", "Failed to infer hostname, collector will not show in Fleet Automation"},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Create a logger for testing
-			core, logs := observer.New(zapcore.InfoLevel)
-			logger := zap.New(core)
-
-			// Create a mock source provider
-			mockProvider := &mockSourceProvider{
-				hostname: tt.providerHostname,
-				err:      tt.providerError,
-			}
-
-			// Create the extension with the initial hostname
-			ext := &fleetAutomationExtension{
-				telemetry:        component.TelemetrySettings{Logger: logger},
-				hostname:         tt.initialHostname,
-				hostnameProvider: mockProvider,
-				extensionID:      component.MustNewID(metadata.Type.String()),
-				collectorConfig:  confmap.NewFromStringMap(map[string]any{"extensions": map[string]any{metadata.Type.String(): map[string]any{"hostname": tt.configHostname}}}),
-			}
-
-			// Call updateHostname
-			ext.updateHostname(context.Background())
-
-			// Verify the hostname and source
-			assert.Equal(t, tt.expectedHostname, ext.hostname)
-			assert.Equal(t, tt.expectedSource, ext.hostnameSource)
-
-			// Verify the logs
-			for _, expectedLog := range tt.expectedLogs {
-				found := false
-				for _, log := range logs.All() {
-					if log.Message == expectedLog {
-						found = true
-						break
-					}
-				}
-				assert.True(t, found, "Expected log message not found: %s", expectedLog)
-			}
 		})
 	}
 }
@@ -533,6 +438,11 @@ func TestFleetAutomationExtension_Start(t *testing.T) {
 				forwarder: tt.forwarder,
 				done:      make(chan bool),
 				eventCh:   make(chan *eventSourcePair),
+				hostnameProvider: &mockSourceProvider{
+					hostname: "inferred-hostname",
+					err:      nil,
+				},
+				hostnameSource: "inferred",
 			}
 
 			err := ext.Start(ctx, tt.host)
