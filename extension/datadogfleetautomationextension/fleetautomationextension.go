@@ -71,10 +71,9 @@ type fleetAutomationExtension struct {
 	done                     chan bool // used for component status events loop
 	uuid                     uuid.UUID
 
-	buildInfo      payload.CustomBuildInfo
-	moduleInfo     service.ModuleInfos
-	ModuleInfoJSON *payload.ModuleInfoJSON
-	version        string
+	buildInfo  payload.CustomBuildInfo
+	moduleInfo service.ModuleInfos
+	version    string
 
 	forwarder  defaultForwarderInterface
 	compressor *compression.Compressor
