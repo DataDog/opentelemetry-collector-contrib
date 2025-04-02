@@ -111,7 +111,7 @@ func PrepareAndSendFleetAutomationPayloads(
 	hostname string,
 	uuid string,
 	componentStatus map[string]any,
-	moduleInfo interface{},
+	moduleInfo service.ModuleInfos,
 	collectorConfigStringMap map[string]any,
 	agentMetadataPayload payload.AgentMetadata,
 	otelMetadataPayload payload.OtelMetadata,
@@ -121,7 +121,7 @@ func PrepareAndSendFleetAutomationPayloads(
 	otelMetadataPayload.EnvironmentVariableConfiguration = componentchecker.DataToFlattenedJSONString(componentStatus, false, false)
 
 	// add full components list to Provided Configuration
-	moduleInfoJSON := componentchecker.PopulateFullComponentsJSON(moduleInfo.(service.ModuleInfos), collectorConfigStringMap)
+	moduleInfoJSON := componentchecker.PopulateFullComponentsJSON(moduleInfo, collectorConfigStringMap)
 	otelMetadataPayload.ProvidedConfiguration = componentchecker.DataToFlattenedJSONString(moduleInfoJSON, false, false)
 
 	// add active components list to Provided Configuration, if available
@@ -195,7 +195,7 @@ func HandleMetadata(
 	hostname string,
 	uuid string,
 	componentStatus map[string]any,
-	moduleInfo interface{},
+	moduleInfo service.ModuleInfos,
 	collectorConfigStringMap map[string]any,
 	agentMetadataPayload payload.AgentMetadata,
 	otelMetadataPayload payload.OtelMetadata,
