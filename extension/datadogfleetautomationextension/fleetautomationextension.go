@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	coreconfig "github.com/DataDog/datadog-agent/comp/core/config"
@@ -94,6 +95,8 @@ type fleetAutomationExtension struct {
 	eventCh chan *eventSourcePair
 	readyCh chan struct{}
 	host    component.Host
+
+	componentStatusMux sync.Mutex
 }
 
 var (
@@ -293,6 +296,8 @@ func (e *fleetAutomationExtension) processComponentStatusEvents() {
 
 // updateComponentStatus updates the componentStatus map with the latest status
 func (e *fleetAutomationExtension) updateComponentStatus(esp *eventSourcePair) {
+	e.componentStatusMux.Lock()
+	defer e.componentStatusMux.Unlock()
 
 	if e.componentStatus == nil {
 		e.componentStatus = make(map[string]any)
