@@ -19,7 +19,9 @@ import (
 	"github.com/DataDog/datadog-agent/pkg/serializer/marshaler"
 	"github.com/DataDog/datadog-agent/pkg/serializer/types"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/extension/datadogfleetautomationextension/internal/payload"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/common/testutil"
 	"github.com/stretchr/testify/assert"
+	"go.opentelemetry.io/collector/config/confighttp"
 	"go.opentelemetry.io/collector/service"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -189,10 +191,32 @@ func TestServerStart(t *testing.T) {
 				}))
 				defer server.Close()
 
-				s := NewServer(logger, &mockSerializer{}, &mockForwarder{})
+				s := NewServer(logger, &mockSerializer{}, &mockForwarder{}, &Config{
+					ServerConfig: confighttp.ServerConfig{
+						Endpoint: testutil.EndpointForPort(DefaultServerPort),
+					},
+					Enabled: true,
+				})
 				return s, logs
 			},
 			expectedLogs: []string{"HTTP Server started on port 8088"},
+		},
+		{
+			name: "Server disabled via configuration",
+			setupServer: func() (*Server, *observer.ObservedLogs) {
+				core, logs := observer.New(zapcore.InfoLevel)
+				logger := zap.New(core)
+				server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+					w.WriteHeader(http.StatusOK)
+				}))
+				defer server.Close()
+
+				s := NewServer(logger, &mockSerializer{}, &mockForwarder{}, &Config{
+					Enabled: false,
+				})
+				return s, logs
+			},
+			expectedLogs: []string{},
 		},
 	}
 
