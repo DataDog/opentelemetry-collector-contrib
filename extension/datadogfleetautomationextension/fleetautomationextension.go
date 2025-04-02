@@ -191,27 +191,29 @@ func (e *fleetAutomationExtension) Start(ctx context.Context, host component.Hos
 	}
 
 	// Create and start HTTP server
-	e.httpServer = httpserver.NewServer(e.telemetry.Logger, e.serializer, e.forwarder)
-	if e.httpServer == nil {
-		return fmt.Errorf("failed to create HTTP server")
+	if e.extensionConfig.HTTPConfig.Enabled {
+		e.httpServer = httpserver.NewServer(e.telemetry.Logger, e.serializer, e.forwarder, e.extensionConfig.HTTPConfig)
+		if e.httpServer == nil {
+			return fmt.Errorf("failed to create HTTP server")
+		}
+		e.httpServer.Start(func(w http.ResponseWriter, r *http.Request) {
+			httpserver.HandleMetadata(
+				w,
+				e.telemetry.Logger,
+				e.hostnameSource,
+				hostname,
+				e.uuid.String(),
+				&e.componentStatus,
+				&e.moduleInfo,
+				&e.collectorConfigStringMap,
+				&e.agentMetadataPayload,
+				&e.otelMetadataPayload,
+				&e.otelCollectorPayload,
+				e.serializer,
+				e.forwarder,
+			)
+		})
 	}
-	e.httpServer.Start(func(w http.ResponseWriter, r *http.Request) {
-		httpserver.HandleMetadata(
-			w,
-			e.telemetry.Logger,
-			e.hostnameSource,
-			hostname,
-			e.uuid.String(),
-			&e.componentStatus,
-			&e.moduleInfo,
-			&e.collectorConfigStringMap,
-			&e.agentMetadataPayload,
-			&e.otelMetadataPayload,
-			&e.otelCollectorPayload,
-			e.serializer,
-			e.forwarder,
-		)
-	})
 	// Create a ticker that triggers every 20 minutes (FA has 1 hour TTL)
 	// Start a goroutine that will send the Datadog fleet automation payload every 20 minutes
 	go e.sendPayloadsOnTicker(hostname)

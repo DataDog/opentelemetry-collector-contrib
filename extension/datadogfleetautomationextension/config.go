@@ -12,6 +12,7 @@ import (
 	"go.opentelemetry.io/collector/config/confighttp"
 
 	datadogconfig "github.com/open-telemetry/opentelemetry-collector-contrib/pkg/datadog/config"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/extension/datadogfleetautomationextension/internal/httpserver"
 )
 
 var (
@@ -41,6 +42,8 @@ type Config struct {
 	API                     APIConfig `mapstructure:"api"`
 	// If Hostname is empty extension will use available system APIs and cloud provider endpoints.
 	Hostname string `mapstructure:"hostname"`
+	// HTTPConfig is v2 config for the http metadata service.
+	HTTPConfig *httpserver.Config `mapstructure:"http"`
 }
 
 // APIConfig contains the information necessary for configuring the Datadog API.

@@ -20,10 +20,6 @@ import (
 	"github.com/open-telemetry/opentelemetry-collector-contrib/extension/datadogfleetautomationextension/internal/payload"
 )
 
-const (
-	ServerPort = 8088
-)
-
 var nowFunc = time.Now
 
 // defaultForwarderInterface is wrapper for methods in datadog-agent DefaultForwarder struct
@@ -41,10 +37,11 @@ type Server struct {
 	serializer serializer.MetricSerializer
 	forwarder  defaultForwarderInterface
 	cancel     context.CancelFunc
+	config     *Config
 }
 
 // NewServer creates a new HTTP server instance
-func NewServer(logger *zap.Logger, serializer serializer.MetricSerializer, forwarder defaultforwarder.Forwarder) *Server {
+func NewServer(logger *zap.Logger, serializer serializer.MetricSerializer, forwarder defaultforwarder.Forwarder, config *Config) *Server {
 	f, ok := forwarder.(defaultForwarderInterface)
 	if !ok {
 		return nil
@@ -53,6 +50,7 @@ func NewServer(logger *zap.Logger, serializer serializer.MetricSerializer, forwa
 		logger:     logger,
 		serializer: serializer,
 		forwarder:  f,
+		config:     config,
 	}
 }
 
@@ -78,7 +76,7 @@ func (s *Server) Start(
 	s.cancel = cancel
 
 	s.server = &http.Server{
-		Addr:         ":" + fmt.Sprintf("%d", ServerPort),
+		Addr:         ":" + fmt.Sprintf("%d", DefaultServerPort),
 		Handler:      http.HandlerFunc(handler),
 		ReadTimeout:  5 * time.Second,
 		WriteTimeout: 10 * time.Second,
@@ -100,7 +98,7 @@ func (s *Server) Start(
 		}
 	}()
 
-	s.logger.Info("HTTP Server started on port " + fmt.Sprintf("%d", ServerPort))
+	s.logger.Info("HTTP Server started on port " + fmt.Sprintf("%d", DefaultServerPort))
 }
 
 // PrepareAndSendFleetAutomationPayloads prepares and sends the fleet automation payloads

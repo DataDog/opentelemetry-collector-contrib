@@ -9,24 +9,30 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.opentelemetry.io/collector/component/componenttest"
 	"go.opentelemetry.io/collector/config/confighttp"
 	"go.opentelemetry.io/collector/extension/extensiontest"
 
+	"github.com/open-telemetry/opentelemetry-collector-contrib/extension/datadogfleetautomationextension/internal/httpserver"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/extension/datadogfleetautomationextension/internal/metadata"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/common/testutil"
 )
 
 func TestFactory_CreateDefaultConfig(t *testing.T) {
-	expectedConfig := &Config{
+	factory := NewFactory()
+	cfg := factory.CreateDefaultConfig()
+	assert.Equal(t, &Config{
 		ClientConfig: confighttp.NewDefaultClientConfig(),
 		API: APIConfig{
 			Site: defaultSite,
 		},
-	}
-	cfg := createDefaultConfig()
-	assert.Equal(t, expectedConfig, cfg)
-
-	require.NoError(t, componenttest.CheckConfigStruct(cfg))
+		HTTPConfig: &httpserver.Config{
+			ServerConfig: confighttp.ServerConfig{
+				Endpoint: testutil.EndpointForPort(httpserver.DefaultServerPort),
+			},
+			Enabled: true,
+			Path:    "/metadata",
+		},
+	}, cfg)
 }
 
 func TestFactory_Create(t *testing.T) {
@@ -50,6 +56,13 @@ func TestFactory_NewFactory(t *testing.T) {
 		ClientConfig: confighttp.NewDefaultClientConfig(),
 		API: APIConfig{
 			Site: defaultSite,
+		},
+		HTTPConfig: &httpserver.Config{
+			ServerConfig: confighttp.ServerConfig{
+				Endpoint: testutil.EndpointForPort(httpserver.DefaultServerPort),
+			},
+			Enabled: true,
+			Path:    "/metadata",
 		},
 	}
 	assert.Equal(t, expectedConfig, defaultConfig)

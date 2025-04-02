@@ -30,6 +30,7 @@ import (
 	"go.uber.org/zap/zaptest/observer"
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/extension/datadogfleetautomationextension/internal/agentcomponents"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/extension/datadogfleetautomationextension/internal/httpserver"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/extension/datadogfleetautomationextension/internal/metadata"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/datadog/clientutil"
 )
@@ -393,18 +394,29 @@ func TestFleetAutomationExtension_Start(t *testing.T) {
 		expectedError string
 		host          component.Host
 		moduleInfos   service.ModuleInfos
+		config        *Config
 	}{
 		{
 			name:          "Forwarder starts successfully",
 			forwarder:     mockForwarder{},
 			expectedError: "",
 			host:          nil,
+			config: &Config{
+				HTTPConfig: &httpserver.Config{
+					Enabled: true,
+				},
+			},
 		},
 		{
 			name:          "Forwarder start error",
 			forwarder:     mockForwarder{startError: fmt.Errorf("forwarder start error")},
 			expectedError: "forwarder start error",
 			host:          nil,
+			config: &Config{
+				HTTPConfig: &httpserver.Config{
+					Enabled: true,
+				},
+			},
 		},
 		{
 			name:          "host implements ModuleInfo interface",
@@ -417,12 +429,33 @@ func TestFleetAutomationExtension_Start(t *testing.T) {
 					},
 				},
 			},
+			config: &Config{
+				HTTPConfig: &httpserver.Config{
+					Enabled: true,
+				},
+			},
 		},
 		{
 			name:          "host doesn't implement ModuleInfo interface",
 			forwarder:     mockForwarder{},
 			expectedError: "",
 			host:          nil,
+			config: &Config{
+				HTTPConfig: &httpserver.Config{
+					Enabled: true,
+				},
+			},
+		},
+		{
+			name:          "HTTP server disabled via configuration",
+			forwarder:     mockForwarder{},
+			expectedError: "",
+			host:          nil,
+			config: &Config{
+				HTTPConfig: &httpserver.Config{
+					Enabled: false,
+				},
+			},
 		},
 	}
 
@@ -441,9 +474,10 @@ func TestFleetAutomationExtension_Start(t *testing.T) {
 					hostname: "inferred-hostname",
 					err:      nil,
 				},
-				hostnameSource: "inferred",
-				ctxWithCancel:  ctxWithCancel,
-				cancel:         cancel,
+				hostnameSource:  "inferred",
+				ctxWithCancel:   ctxWithCancel,
+				cancel:          cancel,
+				extensionConfig: tt.config,
 			}
 
 			err := ext.Start(ctx, tt.host)

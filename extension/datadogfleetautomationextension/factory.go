@@ -6,11 +6,13 @@ package datadogfleetautomationextension // import "github.com/open-telemetry/ope
 import (
 	"context"
 
+	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/common/testutil"
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/config/confighttp"
 	"go.opentelemetry.io/collector/extension"
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/extension/datadogfleetautomationextension/internal/agentcomponents"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/extension/datadogfleetautomationextension/internal/httpserver"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/extension/datadogfleetautomationextension/internal/metadata"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/datadog/clientutil"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/datadog/hostmetadata"
@@ -31,6 +33,13 @@ func createDefaultConfig() component.Config {
 		ClientConfig: confighttp.NewDefaultClientConfig(),
 		API: APIConfig{
 			Site: defaultSite,
+		},
+		HTTPConfig: &httpserver.Config{
+			ServerConfig: confighttp.ServerConfig{
+				Endpoint: testutil.EndpointForPort(httpserver.DefaultServerPort),
+			},
+			Enabled: true,
+			Path:    "/metadata",
 		},
 	}
 }
