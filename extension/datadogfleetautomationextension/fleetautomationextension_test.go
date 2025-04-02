@@ -432,17 +432,18 @@ func TestFleetAutomationExtension_Start(t *testing.T) {
 			logger := zaptest.NewLogger(t)
 			telemetry := componenttest.NewNopTelemetrySettings()
 			telemetry.Logger = logger
-
+			ctxWithCancel, cancel := context.WithCancel(ctx)
 			ext := &fleetAutomationExtension{
 				telemetry: telemetry,
 				forwarder: tt.forwarder,
-				done:      make(chan bool),
 				eventCh:   make(chan *eventSourcePair),
 				hostnameProvider: &mockSourceProvider{
 					hostname: "inferred-hostname",
 					err:      nil,
 				},
 				hostnameSource: "inferred",
+				ctxWithCancel:  ctxWithCancel,
+				cancel:         cancel,
 			}
 
 			err := ext.Start(ctx, tt.host)
@@ -484,11 +485,13 @@ func TestFleetAutomationExtension_Shutdown(t *testing.T) {
 			telemetry := componenttest.NewNopTelemetrySettings()
 			telemetry.Logger = logger
 
+			ctxWithCancel, cancel := context.WithCancel(ctx)
 			ext := &fleetAutomationExtension{
-				telemetry: telemetry,
-				forwarder: tt.forwarder,
-				done:      make(chan bool),
-				eventCh:   make(chan *eventSourcePair),
+				telemetry:     telemetry,
+				forwarder:     tt.forwarder,
+				eventCh:       make(chan *eventSourcePair),
+				ctxWithCancel: ctxWithCancel,
+				cancel:        cancel,
 			}
 
 			err := ext.Shutdown(ctx)
@@ -731,7 +734,7 @@ func TestProcessComponentStatusEvents(t *testing.T) {
 			}
 
 			// Cleanup
-			close(faExt.done)
+			faExt.cancel()
 		})
 	}
 }
@@ -834,7 +837,7 @@ func TestFleetAutomationExtension_GetComponentHealthStatus(t *testing.T) {
 			}
 
 			// Cleanup
-			close(faExt.done)
+			faExt.cancel()
 		})
 	}
 }

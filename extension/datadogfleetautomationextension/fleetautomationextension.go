@@ -68,7 +68,8 @@ type fleetAutomationExtension struct {
 	collectorConfig          *confmap.Conf
 	collectorConfigStringMap map[string]any
 	ticker                   *time.Ticker
-	done                     chan bool // used for component status events loop
+	ctxWithCancel            context.Context
+	cancel                   context.CancelFunc
 	uuid                     uuid.UUID
 
 	buildInfo  payload.CustomBuildInfo
@@ -174,15 +175,16 @@ func (e *fleetAutomationExtension) Start(ctx context.Context, host component.Hos
 
 	// Store the host for component status tracking
 	e.host = host
-	hostname, err := getHostname(ctx, e.hostnameSource, e.hostnameProvider, e.extensionConfig)
-	if err != nil {
-		return err
-	}
 
 	if m, ok := host.(hostcapabilities.ModuleInfo); ok {
 		e.moduleInfo = m.GetModuleInfos()
 	} else {
 		e.telemetry.Logger.Warn("Collector component/module info not available; Datadog Fleet Automation will only show the active collector config")
+	}
+
+	hostname, err := getHostname(e.ctxWithCancel, e.hostnameSource, e.hostnameProvider, e.extensionConfig)
+	if err != nil {
+		return err
 	}
 
 	// Create and start HTTP server
@@ -197,17 +199,52 @@ func (e *fleetAutomationExtension) Start(ctx context.Context, host component.Hos
 			e.hostnameSource,
 			hostname,
 			e.uuid.String(),
-			e.componentStatus,
-			e.moduleInfo,
-			e.collectorConfigStringMap,
-			e.agentMetadataPayload,
-			e.otelMetadataPayload,
-			e.otelCollectorPayload,
+			&e.componentStatus,
+			&e.moduleInfo,
+			&e.collectorConfigStringMap,
+			&e.agentMetadataPayload,
+			&e.otelMetadataPayload,
+			&e.otelCollectorPayload,
 			e.serializer,
 			e.forwarder,
 		)
 	})
+	// Create a ticker that triggers every 20 minutes (FA has 1 hour TTL)
+	// Start a goroutine that will send the Datadog fleet automation payload every 20 minutes
+	go e.sendPayloadsOnTicker(hostname)
 	return nil
+}
+
+func (e *fleetAutomationExtension) sendPayloadsOnTicker(hostname string) {
+	if e.ticker == nil {
+		return
+	}
+	for {
+		select {
+		case <-e.ticker.C:
+			// Send fleet automation payload(s) periodically
+			_, err := httpserver.PrepareAndSendFleetAutomationPayloads(
+				e.telemetry.Logger,
+				e.serializer,
+				e.forwarder,
+				hostname,
+				e.uuid.String(),
+				e.componentStatus,
+				e.moduleInfo,
+				e.collectorConfigStringMap,
+				e.agentMetadataPayload,
+				e.otelMetadataPayload,
+				e.otelCollectorPayload,
+			)
+			if err != nil {
+				e.telemetry.Logger.Error("Failed to prepare and send fleet automation payloads", zap.Error(err))
+			}
+		case <-e.ctxWithCancel.Done():
+			e.telemetry.Logger.Info("Stopping datadog fleet automation payload sender")
+			e.ticker.Stop()
+			return
+		}
+	}
 }
 
 // processComponentStatusEvents processes component status events and updates the componentStatus map
@@ -235,7 +272,7 @@ func (e *fleetAutomationExtension) processComponentStatusEvents() {
 			}
 			eventQueue = nil
 			loop = false
-		case <-e.done:
+		case <-e.ctxWithCancel.Done():
 			return
 		}
 	}
@@ -248,7 +285,7 @@ func (e *fleetAutomationExtension) processComponentStatusEvents() {
 				return
 			}
 			e.updateComponentStatus(esp)
-		case <-e.done:
+		case <-e.ctxWithCancel.Done():
 			return
 		}
 	}
@@ -280,6 +317,7 @@ func (e *fleetAutomationExtension) Shutdown(ctx context.Context) error {
 	if e.httpServer != nil {
 		e.httpServer.Stop()
 	}
+	e.cancel()
 	e.forwarder.Stop()
 	e.telemetry.Logger.Info("Stopped Datadog Fleet Automation extension")
 	return nil
@@ -355,6 +393,7 @@ func newExtension(
 		Description: settings.BuildInfo.Description,
 		Version:     settings.BuildInfo.Version,
 	}
+	ctxWithCancel, cancel := context.WithCancel(ctx)
 	e := &fleetAutomationExtension{
 		extensionID:      settings.ID,
 		extensionConfig:  config,
@@ -366,13 +405,14 @@ func newExtension(
 		buildInfo:        buildInfo,
 		version:          version,
 		ticker:           time.NewTicker(defaultReporterPeriod),
-		done:             make(chan bool),
 		hostnameProvider: sp,
 		hostnameSource:   hostnameSource,
 		uuid:             extUUID,
 		// Initialize PipelineWatcher fields
-		eventCh: make(chan *eventSourcePair),
-		readyCh: make(chan struct{}),
+		eventCh:       make(chan *eventSourcePair),
+		readyCh:       make(chan struct{}),
+		ctxWithCancel: ctxWithCancel,
+		cancel:        cancel,
 	}
 	// Start processing component status events in the background
 	go e.processComponentStatusEvents()
