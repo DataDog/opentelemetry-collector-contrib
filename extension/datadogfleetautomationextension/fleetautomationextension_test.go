@@ -717,6 +717,8 @@ func TestProcessComponentStatusEvents(t *testing.T) {
 			time.Sleep(100 * time.Millisecond)
 
 			// Check that the expected status fields match
+			faExt.componentStatusMux.Lock()
+			defer faExt.componentStatusMux.Unlock()
 			for key, expectedValue := range tt.expectedStatus {
 				actualValue, exists := faExt.componentStatus[key]
 				assert.True(t, exists, "Expected key %s not found in componentStatus", key)
@@ -819,6 +821,8 @@ func TestFleetAutomationExtension_GetComponentHealthStatus(t *testing.T) {
 			// Give some time for processing
 			time.Sleep(100 * time.Millisecond)
 
+			faExt.componentStatusMux.Lock()
+			defer faExt.componentStatusMux.Unlock()
 			// Check that the expected status fields match
 			for key, expectedValue := range tt.expectedStatus {
 				actualValue, exists := faExt.componentStatus[key]
