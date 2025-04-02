@@ -5,6 +5,7 @@ package httpserver
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -177,6 +178,15 @@ func (m *mockForwarder) SubmitOrchestratorManifests(transaction.BytesPayloads, h
 
 type invalidForwarder struct {
 	defaultforwarder.Forwarder
+}
+
+// Add this type before TestHandleMetadata
+type failingMarshaler struct {
+	payload.CombinedPayload
+}
+
+func (f *failingMarshaler) MarshalJSON() ([]byte, error) {
+	return nil, fmt.Errorf("failed to marshal JSON")
 }
 
 func TestServerStart(t *testing.T) {
@@ -451,8 +461,24 @@ func TestHandleMetadata(t *testing.T) {
 			},
 			hostnameSource: "config",
 			expectedCode:   http.StatusOK,
-			// expectedBody:   `{"collector_payload":{"hostname":"test-hostname","timestamp":0,"metadata":{"hostname":"test-hostname","hostname_source":"config","uuid":"test-uuid","version":"","site":"","full_config":"","build_info":{"command":"","description":"","version":""}},"uuid":"test-uuid"},"otel_payload":{"hostname":"test-hostname","timestamp":0,"metadata":{"version":"","command":"","provided_configuration":"","environment_variable_configuration":""},"uuid":"test-uuid"},"agent_payload":{"hostname":"test-hostname","timestamp":0,"metadata":{"command":"","description":"","version":"","hostname":""},"uuid":"test-uuid"}}`,
-			expectedBody: successfulInstanceResponse,
+			expectedBody:   successfulInstanceResponse,
+		},
+		{
+			name: "Failed metadata handling - serializer error",
+			setupTest: func() (*zap.Logger, serializer.MetricSerializer, defaultForwarderInterface) {
+				core, _ := observer.New(zapcore.InfoLevel)
+				logger := zap.New(core)
+				return logger, &mockSerializer{
+						sendMetadataFunc: func(any) error {
+							return fmt.Errorf("failed to send metadata")
+						},
+					}, &mockForwarder{
+						state: defaultforwarder.Started,
+					}
+			},
+			hostnameSource: "config",
+			expectedCode:   http.StatusInternalServerError,
+			expectedBody:   "Failed to prepare and send fleet automation payloads\n",
 		},
 	}
 
