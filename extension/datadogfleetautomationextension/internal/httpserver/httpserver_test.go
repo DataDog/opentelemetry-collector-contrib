@@ -175,6 +175,10 @@ func (m *mockForwarder) SubmitOrchestratorManifests(transaction.BytesPayloads, h
 	return nil, nil
 }
 
+type invalidForwarder struct {
+	defaultforwarder.Forwarder
+}
+
 func TestServerStart(t *testing.T) {
 	tests := []struct {
 		name         string
@@ -476,6 +480,114 @@ func TestHandleMetadata(t *testing.T) {
 
 			assert.Equal(t, tt.expectedCode, w.Code)
 			assert.Equal(t, tt.expectedBody, w.Body.String())
+		})
+	}
+}
+
+func TestNewServer(t *testing.T) {
+	tests := []struct {
+		name       string
+		logger     *zap.Logger
+		serializer serializer.MetricSerializer
+		forwarder  defaultforwarder.Forwarder
+		config     *Config
+		want       *Server
+	}{
+		{
+			name:       "valid forwarder",
+			logger:     zap.NewNop(),
+			serializer: &mockSerializer{},
+			forwarder:  &mockForwarder{},
+			config:     &Config{},
+			want: &Server{
+				logger:     zap.NewNop(),
+				serializer: &mockSerializer{},
+				forwarder:  &mockForwarder{},
+				config:     &Config{},
+			},
+		},
+		{
+			name:       "invalid forwarder",
+			logger:     zap.NewNop(),
+			serializer: &mockSerializer{},
+			forwarder:  &invalidForwarder{},
+			config:     &Config{},
+			want:       nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := NewServer(tt.logger, tt.serializer, tt.forwarder, tt.config)
+			if tt.want == nil {
+				assert.Nil(t, got)
+				return
+			}
+			assert.NotNil(t, got)
+			assert.Equal(t, tt.want.logger, got.logger)
+			assert.Equal(t, tt.want.serializer, got.serializer)
+			assert.Equal(t, tt.want.forwarder, got.forwarder)
+			assert.Equal(t, tt.want.config, got.config)
+		})
+	}
+}
+
+func TestServer_Start(t *testing.T) {
+	tests := []struct {
+		name    string
+		config  *Config
+		handler func(w http.ResponseWriter, r *http.Request)
+		wantErr bool
+	}{
+		{
+			name: "server starts successfully",
+			config: &Config{
+				Enabled: true,
+			},
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusOK)
+			},
+			wantErr: false,
+		},
+		{
+			name: "server disabled via config",
+			config: &Config{
+				Enabled: false,
+			},
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusOK)
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := &Server{
+				logger:     zap.NewNop(),
+				serializer: &mockSerializer{},
+				forwarder:  &mockForwarder{},
+				config:     tt.config,
+			}
+
+			s.Start(tt.handler)
+
+			if tt.config.Enabled {
+				// Give the server a moment to start
+				time.Sleep(100 * time.Millisecond)
+
+				// Test the server is running
+				resp, err := http.Get("http://localhost:8088/metadata")
+				if tt.wantErr {
+					assert.Error(t, err)
+					return
+				}
+				assert.NoError(t, err)
+				assert.Equal(t, http.StatusOK, resp.StatusCode)
+				resp.Body.Close()
+			}
+
+			s.Stop()
 		})
 	}
 }
