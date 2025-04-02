@@ -14,8 +14,10 @@ require (
 	github.com/DataDog/datadog-api-client-go/v2 v2.36.1
 	github.com/DataDog/opentelemetry-mapping-go/pkg/otlp/attributes v0.26.0
 	github.com/google/uuid v1.6.0
+	github.com/open-telemetry/opentelemetry-collector-contrib/internal/common v0.122.0
 	github.com/open-telemetry/opentelemetry-collector-contrib/internal/datadog v0.122.0
 	github.com/open-telemetry/opentelemetry-collector-contrib/pkg/datadog v0.121.0
+	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.10.0
 	go.opentelemetry.io/collector/component v1.29.0
 	go.opentelemetry.io/collector/component/componentstatus v0.123.0
@@ -26,6 +28,7 @@ require (
 	go.opentelemetry.io/collector/extension/extensioncapabilities v0.123.0
 	go.opentelemetry.io/collector/extension/extensiontest v0.123.0
 	go.opentelemetry.io/collector/service v0.123.0
+	go.opentelemetry.io/collector/service/hostcapabilities v0.123.0
 	go.uber.org/zap v1.27.0
 )
 
@@ -159,7 +162,6 @@ require (
 	github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/ecsutil v0.122.0 // indirect
-	github.com/open-telemetry/opentelemetry-collector-contrib/internal/common v0.122.0 // indirect
 	github.com/open-telemetry/opentelemetry-collector-contrib/internal/k8sconfig v0.122.0 // indirect
 	github.com/open-telemetry/opentelemetry-collector-contrib/internal/metadataproviders v0.122.0 // indirect
 	github.com/openshift/api v3.9.0+incompatible // indirect
@@ -168,7 +170,6 @@ require (
 	github.com/pelletier/go-toml v1.9.5 // indirect
 	github.com/philhofer/fwd v1.1.3-0.20240916144458-20a13a1f6b7c // indirect
 	github.com/pierrec/lz4/v4 v4.1.22 // indirect
-	github.com/pkg/errors v0.9.1 // indirect
 	github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/power-devops/perfstat v0.0.0-20240221224432-82ca36839d55 // indirect
@@ -228,7 +229,6 @@ require (
 	go.opentelemetry.io/collector/receiver/receivertest v0.123.0 // indirect
 	go.opentelemetry.io/collector/receiver/xreceiver v0.123.0 // indirect
 	go.opentelemetry.io/collector/semconv v0.123.0 // indirect
-	go.opentelemetry.io/collector/service/hostcapabilities v0.123.0 // indirect
 	go.opentelemetry.io/contrib/bridges/otelzap v0.10.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.60.0 // indirect
 	go.opentelemetry.io/contrib/otelconf v0.15.0 // indirect

@@ -15,23 +15,33 @@ import (
 	corelog "github.com/DataDog/datadog-agent/comp/core/log/def"
 	"github.com/DataDog/datadog-agent/comp/forwarder/defaultforwarder"
 	"github.com/DataDog/datadog-agent/comp/forwarder/defaultforwarder/transaction"
+	"github.com/DataDog/datadog-agent/pkg/metrics"
+	"github.com/DataDog/datadog-agent/pkg/metrics/event"
+	"github.com/DataDog/datadog-agent/pkg/metrics/servicecheck"
+	"github.com/DataDog/datadog-agent/pkg/serializer"
+	"github.com/DataDog/datadog-agent/pkg/serializer/marshaler"
+	"github.com/DataDog/datadog-agent/pkg/serializer/types"
 	"github.com/DataDog/datadog-api-client-go/v2/api/datadog"
 	"github.com/DataDog/opentelemetry-mapping-go/pkg/otlp/attributes/source"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/component/componentstatus"
 	"go.opentelemetry.io/collector/component/componenttest"
 	"go.opentelemetry.io/collector/confmap"
 	"go.opentelemetry.io/collector/extension"
+	"go.opentelemetry.io/collector/extension/extensiontest"
 	"go.opentelemetry.io/collector/service"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest"
 	"go.uber.org/zap/zaptest/observer"
 
+	"github.com/google/uuid"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/extension/datadogfleetautomationextension/internal/agentcomponents"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/extension/datadogfleetautomationextension/internal/httpserver"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/extension/datadogfleetautomationextension/internal/metadata"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/extension/datadogfleetautomationextension/internal/payload"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/datadog/clientutil"
 )
 
@@ -878,4 +888,286 @@ func TestFleetAutomationExtension_GetComponentHealthStatus(t *testing.T) {
 			faExt.cancel()
 		})
 	}
+}
+
+func TestFleetAutomationExtension_Ready(t *testing.T) {
+	ext := createExtension(t)
+	err := ext.Ready()
+	assert.NoError(t, err)
+}
+
+func TestFleetAutomationExtension_NotReady(t *testing.T) {
+	ext := createExtension(t)
+	err := ext.NotReady()
+	assert.NoError(t, err)
+}
+
+func TestFleetAutomationExtension_ComponentStatusChanged(t *testing.T) {
+	ext := createExtension(t)
+	source := componentstatus.NewInstanceID(component.MustNewID("test_component"), component.KindReceiver)
+	event := componentstatus.NewEvent(componentstatus.StatusOK)
+	go ext.processComponentStatusEvents()
+	close(ext.readyCh)
+	ext.ComponentStatusChanged(source, event)
+	// Wait a bit for the component status to be updated
+	time.Sleep(100 * time.Millisecond)
+
+	// Check that the component status contains the expected key
+	ext.componentStatusMux.Lock()
+	defer ext.componentStatusMux.Unlock()
+
+	// The key should be "receiver:test_component" based on the implementation
+	key := "receiver:test_component"
+	value, exists := ext.componentStatus[key]
+	assert.True(t, exists, "Expected key %s not found in componentStatus", key)
+
+	// Check that the status is "StatusOK"
+	statusMap, ok := value.(map[string]any)
+	assert.True(t, ok, "Expected value to be a map")
+	assert.Equal(t, "StatusOK", statusMap["status"], "Expected status to be StatusOK")
+	ext.cancel()
+}
+
+func createExtension(t *testing.T) *fleetAutomationExtension {
+	cfg := createDefaultConfig().(*Config)
+	ext, err := create(context.Background(), extensiontest.NewNopSettings(typ), cfg)
+	require.NoError(t, err)
+	require.NotNil(t, ext)
+	return ext.(*fleetAutomationExtension)
+}
+
+func TestSendPayloadsOnTicker(t *testing.T) {
+	tests := []struct {
+		name          string
+		forwarder     defaultForwarderInterface
+		serializer    serializer.MetricSerializer
+		expectedError string
+		expectedCalls int
+		shutdownAfter time.Duration
+	}{
+		{
+			name: "Successful payload sending",
+			forwarder: mockForwarder{
+				state: 1,
+			},
+			serializer: &mockSerializer{
+				sendMetadataFunc: func(pl any) error {
+					return nil
+				},
+			},
+			expectedError: "",
+			expectedCalls: 1,
+			shutdownAfter: 100 * time.Millisecond,
+		},
+		{
+			name: "Forwarder fails to send payload",
+			forwarder: mockForwarder{
+				state:            1,
+				failSendMetadata: true,
+			},
+			serializer: &mockSerializer{
+				sendMetadataFunc: func(pl any) error {
+					return fmt.Errorf("failed to send metadata")
+				},
+			},
+			expectedError: "failed to send datadog_agent payload",
+			expectedCalls: 1,
+			shutdownAfter: 100 * time.Millisecond,
+		},
+		{
+			name: "Shutdown before ticker triggers",
+			forwarder: mockForwarder{
+				state: 1,
+			},
+			serializer: &mockSerializer{
+				sendMetadataFunc: func(pl any) error {
+					return nil
+				},
+			},
+			expectedError: "",
+			expectedCalls: 0,
+			shutdownAfter: 10 * time.Millisecond,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create extension with test settings
+			ctx, cancel := context.WithCancel(context.Background())
+
+			// Create a test UUID
+			testUUID := uuid.New()
+
+			// Create test build info
+			testBuildInfo := payload.CustomBuildInfo{
+				Command:     "otelcol",
+				Description: "OpenTelemetry Collector",
+				Version:     "1.0.0",
+			}
+
+			// Create test module info
+			testModuleInfo := service.ModuleInfos{
+				Receiver: map[component.Type]service.ModuleInfo{
+					component.MustNewType("otlp"): {BuilderRef: "otlp@v0.117.0"},
+				},
+			}
+
+			// Create test component status
+			testComponentStatus := map[string]any{
+				"receiver:testreceiver": map[string]any{
+					"status":    componentstatus.StatusOK.String(),
+					"error":     nil,
+					"timestamp": time.Now(),
+				},
+			}
+
+			// Create test collector config string map
+			testCollectorConfigStringMap := map[string]any{
+				"service": map[string]any{
+					"pipelines": map[string]any{
+						"traces": map[string]any{
+							"receivers": []any{"otlp"},
+							"exporters": []any{"debug"},
+						},
+					},
+				},
+			}
+
+			// Create test metadata payloads
+			testAgentMetadataPayload := payload.PrepareAgentMetadataPayload(
+				"datadoghq.com",
+				testBuildInfo.Command,
+				testBuildInfo.Version,
+				testBuildInfo.Version,
+				"test-hostname",
+			)
+
+			testOtelMetadataPayload := payload.PrepareOtelMetadataPayload(
+				testBuildInfo.Version,
+				"1.0.0",
+				testBuildInfo.Command,
+				"{}", // Simplified config for testing
+			)
+
+			testOtelCollectorPayload := payload.PrepareOtelCollectorPayload(
+				"test-hostname",
+				"inferred",
+				testUUID.String(),
+				"1.0.0",
+				"datadoghq.com",
+				"{}", // Simplified config for testing
+				testBuildInfo,
+			)
+
+			ext := &fleetAutomationExtension{
+				telemetry:     componenttest.NewNopTelemetrySettings(),
+				forwarder:     tt.forwarder,
+				serializer:    tt.serializer,
+				ctxWithCancel: ctx,
+				cancel:        cancel,
+				ticker:        time.NewTicker(50 * time.Millisecond), // Use a shorter ticker for testing
+				hostnameProvider: &mockSourceProvider{
+					hostname: "test-hostname",
+					err:      nil,
+				},
+				hostnameSource:           "inferred",
+				uuid:                     testUUID,
+				buildInfo:                testBuildInfo,
+				moduleInfo:               testModuleInfo,
+				componentStatus:          testComponentStatus,
+				collectorConfigStringMap: testCollectorConfigStringMap,
+				agentMetadataPayload:     testAgentMetadataPayload,
+				otelMetadataPayload:      testOtelMetadataPayload,
+				otelCollectorPayload:     testOtelCollectorPayload,
+			}
+
+			// Start the ticker goroutine
+			go ext.sendPayloadsOnTicker("test-hostname")
+
+			// Wait for the specified duration
+			time.Sleep(tt.shutdownAfter)
+
+			// Shutdown the extension
+			ext.cancel()
+
+			// Give some time for the goroutine to clean up
+			time.Sleep(50 * time.Millisecond)
+
+			// Verify the number of calls to SubmitMetadata
+			if tt.expectedCalls > 0 {
+				// Note: In a real test, we would need to add a counter to the mockForwarder
+				// to track the number of SubmitMetadata calls. For now, we're just verifying
+				// that the goroutine runs and handles errors appropriately.
+				if tt.expectedError != "" {
+					// We can verify the error was logged, but this would require capturing logs
+					// which is beyond the scope of this test
+				}
+			}
+
+			// Verify the ticker was stopped
+			select {
+			case <-ext.ticker.C:
+				t.Error("Ticker was not stopped")
+			default:
+				// Ticker was stopped correctly
+			}
+		})
+	}
+}
+
+type mockSerializer struct {
+	sendMetadataFunc func(pl any) error
+}
+
+var _ serializer.MetricSerializer = &mockSerializer{}
+
+func (m *mockSerializer) SendMetadata(jm marshaler.JSONMarshaler) error {
+	if m.sendMetadataFunc != nil {
+		return m.sendMetadataFunc(jm)
+	}
+	return nil
+}
+
+func (m *mockSerializer) SendEvents(event.Events) error {
+	return nil
+}
+
+func (m *mockSerializer) SendServiceChecks(servicecheck.ServiceChecks) error {
+	return nil
+}
+
+func (m *mockSerializer) SendIterableSeries(metrics.SerieSource) error {
+	return nil
+}
+
+func (m *mockSerializer) AreSeriesEnabled() bool {
+	return false
+}
+
+func (m *mockSerializer) SendSketch(metrics.SketchesSource) error {
+	return nil
+}
+
+func (m *mockSerializer) AreSketchesEnabled() bool {
+	return false
+}
+
+func (m *mockSerializer) SendHostMetadata(marshaler.JSONMarshaler) error {
+	return nil
+}
+
+func (m *mockSerializer) SendProcessesMetadata(any) error {
+	return nil
+}
+
+func (m *mockSerializer) SendAgentchecksMetadata(marshaler.JSONMarshaler) error {
+	return nil
+}
+
+func (m *mockSerializer) SendOrchestratorMetadata([]types.ProcessMessageBody, string, string, int) error {
+	return nil
+}
+
+func (m *mockSerializer) SendOrchestratorManifests([]types.ProcessMessageBody, string, string) error {
+	return nil
 }

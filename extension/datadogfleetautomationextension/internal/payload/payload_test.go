@@ -6,8 +6,10 @@ package payload
 import (
 	"encoding/json"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNewModuleInfoJSON(t *testing.T) {
@@ -187,4 +189,113 @@ func TestPrepareOtelCollectorPayload(t *testing.T) {
 	actualPayload := PrepareOtelCollectorPayload(hostname, hostnameSource, extensionUUID, version, site, fullConfig, buildInfo)
 
 	assert.Equal(t, expectedPayload, actualPayload)
+}
+
+func TestModuleInfoJSON_PutComponents(t *testing.T) {
+	mi := NewModuleInfoJSON()
+	components := []CollectorModule{
+		{
+			Type:       "test_type",
+			Kind:       "test_kind",
+			Gomod:      "test_gomod",
+			Version:    "test_version",
+			Configured: true,
+		},
+	}
+	mi.PutComponents(components)
+	assert.Equal(t, components[0], mi.components["test_type:test_kind"])
+}
+
+func TestModuleInfoJSON_GetFullComponentsList(t *testing.T) {
+	mi := NewModuleInfoJSON()
+	components := []CollectorModule{
+		{
+			Type:       "test_type",
+			Kind:       "test_kind",
+			Gomod:      "test_gomod",
+			Version:    "test_version",
+			Configured: true,
+		},
+	}
+	mi.PutComponents(components)
+	fullList := mi.GetFullComponentsList()
+	assert.Equal(t, components, fullList)
+}
+
+func TestModuleInfoJSON_MarshalJSON(t *testing.T) {
+	mi := NewModuleInfoJSON()
+	components := []CollectorModule{
+		{
+			Type:       "test_type",
+			Kind:       "test_kind",
+			Gomod:      "test_gomod",
+			Version:    "test_version",
+			Configured: true,
+		},
+	}
+	mi.PutComponents(components)
+
+	jsonData, err := json.Marshal(mi)
+	require.NoError(t, err)
+
+	var unmarshaled struct {
+		Components []CollectorModule `json:"full_components"`
+	}
+	err = json.Unmarshal(jsonData, &unmarshaled)
+	require.NoError(t, err)
+	assert.Equal(t, components, unmarshaled.Components)
+}
+
+func TestActiveComponentsJSON_MarshalJSON(t *testing.T) {
+	ac := &ActiveComponentsJSON{
+		Components: []ServiceComponent{
+			{
+				ID:              "test_id",
+				Name:            "test_name",
+				Type:            "test_type",
+				Kind:            "test_kind",
+				Pipeline:        "test_pipeline",
+				Gomod:           "test_gomod",
+				Version:         "test_version",
+				ComponentStatus: "test_status",
+			},
+		},
+	}
+
+	jsonData, err := json.Marshal(ac)
+	require.NoError(t, err)
+
+	var unmarshaled ActiveComponentsJSON
+	err = json.Unmarshal(jsonData, &unmarshaled)
+	require.NoError(t, err)
+	assert.Equal(t, ac.Components, unmarshaled.Components)
+}
+
+func TestOtelCollectorPayload_MarshalJSON(t *testing.T) {
+	oc := &OtelCollectorPayload{
+		Hostname:  "test_host",
+		Timestamp: time.Now().UnixNano(),
+		UUID:      "test-uuid",
+		Metadata: OtelCollector{
+			FullComponents: []CollectorModule{
+				{
+					Type:       "test_type",
+					Kind:       "test_kind",
+					Gomod:      "test_gomod",
+					Version:    "test_version",
+					Configured: true,
+				},
+			},
+		},
+	}
+
+	jsonData, err := json.Marshal(oc)
+	require.NoError(t, err)
+
+	var unmarshaled OtelCollectorPayload
+	err = json.Unmarshal(jsonData, &unmarshaled)
+	require.NoError(t, err)
+	assert.Equal(t, oc.Hostname, unmarshaled.Hostname)
+	assert.Equal(t, oc.UUID, unmarshaled.UUID)
+	assert.Equal(t, oc.Metadata.FullComponents, unmarshaled.Metadata.FullComponents)
 }
