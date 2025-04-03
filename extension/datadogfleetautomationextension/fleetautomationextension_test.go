@@ -28,6 +28,7 @@ import (
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/component/componentstatus"
 	"go.opentelemetry.io/collector/component/componenttest"
+	"go.opentelemetry.io/collector/config/confighttp"
 	"go.opentelemetry.io/collector/confmap"
 	"go.opentelemetry.io/collector/extension"
 	"go.opentelemetry.io/collector/extension/extensiontest"
@@ -414,6 +415,10 @@ func TestFleetAutomationExtension_Start(t *testing.T) {
 			config: &Config{
 				HTTPConfig: &httpserver.Config{
 					Enabled: true,
+					Path:    "/metadata",
+					ServerConfig: confighttp.ServerConfig{
+						Endpoint: "localhost:8088",
+					},
 				},
 			},
 		},
@@ -425,6 +430,10 @@ func TestFleetAutomationExtension_Start(t *testing.T) {
 			config: &Config{
 				HTTPConfig: &httpserver.Config{
 					Enabled: true,
+					Path:    "/metadata",
+					ServerConfig: confighttp.ServerConfig{
+						Endpoint: "localhost:8088",
+					},
 				},
 			},
 		},
@@ -442,6 +451,10 @@ func TestFleetAutomationExtension_Start(t *testing.T) {
 			config: &Config{
 				HTTPConfig: &httpserver.Config{
 					Enabled: true,
+					Path:    "/metadata",
+					ServerConfig: confighttp.ServerConfig{
+						Endpoint: "localhost:8088",
+					},
 				},
 			},
 		},
@@ -453,6 +466,10 @@ func TestFleetAutomationExtension_Start(t *testing.T) {
 			config: &Config{
 				HTTPConfig: &httpserver.Config{
 					Enabled: true,
+					Path:    "/metadata",
+					ServerConfig: confighttp.ServerConfig{
+						Endpoint: "localhost:8088",
+					},
 				},
 			},
 		},
