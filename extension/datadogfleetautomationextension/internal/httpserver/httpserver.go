@@ -75,9 +75,13 @@ func (s *Server) Start(
 	ctx, cancel := context.WithCancel(context.Background())
 	s.cancel = cancel
 
+	// Create a mux to handle only the specific path
+	mux := http.NewServeMux()
+	mux.HandleFunc(s.config.Path, handler)
+
 	s.server = &http.Server{
-		Addr:         ":" + fmt.Sprintf("%d", DefaultServerPort),
-		Handler:      http.HandlerFunc(handler),
+		Addr:         s.config.Endpoint,
+		Handler:      mux,
 		ReadTimeout:  5 * time.Second,
 		WriteTimeout: 10 * time.Second,
 		BaseContext:  func(net.Listener) context.Context { return ctx },
@@ -98,7 +102,7 @@ func (s *Server) Start(
 		}
 	}()
 
-	s.logger.Info("HTTP Server started on port " + fmt.Sprintf("%d", DefaultServerPort))
+	s.logger.Info("HTTP Server started at " + s.config.Endpoint + s.config.Path)
 }
 
 // PrepareAndSendFleetAutomationPayloads prepares and sends the fleet automation payloads
@@ -115,8 +119,8 @@ func PrepareAndSendFleetAutomationPayloads(
 	otelMetadataPayload payload.OtelMetadata,
 	otelCollectorPayload payload.OtelCollector,
 ) (*payload.CombinedPayload, error) {
-	healthStatus := componentchecker.DataToFlattenedJSONString(componentStatus, false, false)
-	otelMetadataPayload.EnvironmentVariableConfiguration = componentchecker.DataToFlattenedJSONString(componentStatus, false, false)
+	healthStatus := componentchecker.DataToFlattenedJSONString(componentStatus, true, false)
+	otelMetadataPayload.EnvironmentVariableConfiguration = healthStatus
 
 	// add full components list to Provided Configuration
 	moduleInfoJSON := componentchecker.PopulateFullComponentsJSON(moduleInfo, collectorConfigStringMap)

@@ -129,7 +129,7 @@ func (e *fleetAutomationExtension) NotifyConfig(ctx context.Context, conf *confm
 	)
 
 	// convert full config map to a json string and remove excess quotation marks
-	fullConfig := componentchecker.DataToFlattenedJSONString(e.collectorConfigStringMap, false, false)
+	fullConfig := componentchecker.DataToFlattenedJSONString(e.collectorConfigStringMap, true, false)
 
 	// create otel metadata payload
 	e.otelMetadataPayload = payload.PrepareOtelMetadataPayload(

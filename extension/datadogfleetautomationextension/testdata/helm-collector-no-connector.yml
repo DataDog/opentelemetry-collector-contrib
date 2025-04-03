@@ -7,7 +7,7 @@ autoscaling:
   targetCPUUtilizationPercentage: 80
 image:
   repository: registry.ddbuild.io/ci/opentelemetry-collector-contrib
-  tag: "otelcolcontrib-v926be118" # UPDATE TO MOST RECENT CI BUILD TAG BEFORE RUNNING
+  tag: "otelcolcontrib-v46583c5a" # UPDATE TO MOST RECENT CI BUILD TAG BEFORE RUNNING
 resources:
   limits:
     cpu: 512m
