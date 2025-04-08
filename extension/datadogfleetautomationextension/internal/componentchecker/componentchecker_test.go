@@ -271,7 +271,7 @@ func TestGetServiceComponent(t *testing.T) {
 				Kind:            "extension",
 				Gomod:           "example.com/module",
 				Version:         "v1.0.0",
-				ComponentStatus: `{"status": "healthy"}`,
+				ComponentStatus: `{"status":"healthy"}`,
 			},
 			expectedLogs: nil,
 		},
@@ -425,19 +425,17 @@ func TestUpdateComponentStatus(t *testing.T) {
 
 func TestDataToFlattenedJSONString(t *testing.T) {
 	tests := []struct {
-		name         string
-		data         any
-		removeLines  bool
-		removeQuotes bool
-		expected     string
+		name        string
+		data        any
+		removeLines bool
+		expected    string
 	}{
 		{
 			name: "Simple map with lines and quotes",
 			data: map[string]any{
 				"key": "value",
 			},
-			removeLines:  false,
-			removeQuotes: false,
+			removeLines: false,
 			expected: `{
   "key": "value"
 }`,
@@ -447,42 +445,20 @@ func TestDataToFlattenedJSONString(t *testing.T) {
 			data: map[string]any{
 				"key": "value",
 			},
-			removeLines:  true,
-			removeQuotes: false,
-			expected:     `{"key": "value"}`,
+			removeLines: true,
+			expected:    `{"key":"value"}`,
 		},
 		{
-			name: "Simple map without quotes",
-			data: map[string]any{
-				"key": "value",
-			},
-			removeLines:  false,
-			removeQuotes: true,
-			expected: `{
-  key: value
-}`,
-		},
-		{
-			name: "Simple map without lines or quotes",
-			data: map[string]any{
-				"key": "value",
-			},
-			removeLines:  true,
-			removeQuotes: true,
-			expected:     `{key: value}`,
-		},
-		{
-			name:         "Invalid JSON",
-			data:         make(chan int),
-			removeLines:  false,
-			removeQuotes: false,
-			expected:     "",
+			name:        "Invalid JSON",
+			data:        make(chan int),
+			removeLines: false,
+			expected:    "",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := DataToFlattenedJSONString(tt.data, tt.removeLines, tt.removeQuotes)
+			result := DataToFlattenedJSONString(tt.data, tt.removeLines)
 			assert.Equal(t, tt.expected, result)
 		})
 	}
@@ -685,7 +661,7 @@ func TestPopulateActiveComponentsJSON(t *testing.T) {
 					Kind:            "extension",
 					Gomod:           "example.com/module",
 					Version:         "v1.0.0",
-					ComponentStatus: `{"status": "healthy"}`,
+					ComponentStatus: `{"status":"healthy"}`,
 				},
 				{
 					ID:              "examplereceiver",
@@ -694,7 +670,7 @@ func TestPopulateActiveComponentsJSON(t *testing.T) {
 					Kind:            "receiver",
 					Gomod:           "example.com/module",
 					Version:         "v1.0.0",
-					ComponentStatus: `{"pipeline:traces": {"receiver:examplereceiver": {"healthy": true,"status": "StatusStarting"}}}`,
+					ComponentStatus: `{"pipeline:traces":{"receiver:examplereceiver":{"healthy":true,"status":"StatusStarting"}}}`,
 				},
 				{
 					ID:              "exampleprocessor",
@@ -703,7 +679,7 @@ func TestPopulateActiveComponentsJSON(t *testing.T) {
 					Kind:            "processor",
 					Gomod:           "example.com/module",
 					Version:         "v1.0.0",
-					ComponentStatus: `{"pipeline:traces": {"processor:exampleprocessor": {"healthy": true,"status": "StatusStarting"}}}`,
+					ComponentStatus: `{"pipeline:traces":{"processor:exampleprocessor":{"healthy":true,"status":"StatusStarting"}}}`,
 				},
 				{
 					ID:              "exampleexporter",
@@ -712,7 +688,7 @@ func TestPopulateActiveComponentsJSON(t *testing.T) {
 					Kind:            "exporter",
 					Gomod:           "example.com/module",
 					Version:         "v1.0.0",
-					ComponentStatus: `{"pipeline:traces": {"exporter:exampleexporter": {"healthy": true,"status": "StatusStarting"}}}`,
+					ComponentStatus: `{"pipeline:traces":{"exporter:exampleexporter":{"healthy":true,"status":"StatusStarting"}}}`,
 				},
 			},
 			expectedError: nil,

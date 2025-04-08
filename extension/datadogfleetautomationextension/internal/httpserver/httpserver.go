@@ -119,19 +119,19 @@ func PrepareAndSendFleetAutomationPayloads(
 	otelMetadataPayload payload.OtelMetadata,
 	otelCollectorPayload payload.OtelCollector,
 ) (*payload.CombinedPayload, error) {
-	healthStatus := componentchecker.DataToFlattenedJSONString(componentStatus, true, false)
+	healthStatus := componentchecker.DataToFlattenedJSONString(componentStatus, true)
 	otelMetadataPayload.EnvironmentVariableConfiguration = healthStatus
 
 	// add full components list to Provided Configuration
 	moduleInfoJSON := componentchecker.PopulateFullComponentsJSON(moduleInfo, collectorConfigStringMap)
-	otelMetadataPayload.ProvidedConfiguration = componentchecker.DataToFlattenedJSONString(moduleInfoJSON, false, false)
+	otelMetadataPayload.ProvidedConfiguration = componentchecker.DataToFlattenedJSONString(moduleInfoJSON, false)
 
 	// add active components list to Provided Configuration, if available
 	activeComponentsJSON, err := componentchecker.PopulateActiveComponentsJSON(collectorConfigStringMap, moduleInfoJSON, componentStatus, logger)
 	if err != nil {
 		logger.Error("Failed to populate active components JSON", zap.Error(err))
 	} else {
-		otelMetadataPayload.ProvidedConfiguration = componentchecker.DataToFlattenedJSONString(activeComponentsJSON, false, false) + "\n" + otelMetadataPayload.ProvidedConfiguration
+		otelMetadataPayload.ProvidedConfiguration = componentchecker.DataToFlattenedJSONString(activeComponentsJSON, false) + "\n" + otelMetadataPayload.ProvidedConfiguration
 	}
 
 	// add remaining data to otelCollectorPayload

@@ -159,7 +159,7 @@ func GetServiceComponent(componentString string, componentsKind string, moduleIn
 	status = ""
 	statusMap := GetComponentHealthStatus(id, componentsKind, componentStatus)
 	if len(statusMap) > 0 {
-		status = DataToFlattenedJSONString(statusMap, true, false)
+		status = DataToFlattenedJSONString(statusMap, true)
 	}
 	return &payload.ServiceComponent{
 		ID:              id,
@@ -190,13 +190,14 @@ func UpdateComponentStatus(source interface {
 	}
 }
 
-func DataToFlattenedJSONString(data any, removeNewLines bool, removeQuotes bool) string {
-	indent := ""
+func DataToFlattenedJSONString(data any, removeNewLines bool) string {
+	var jsonData []byte
+	var err error
 	if !removeNewLines {
-		indent = "  "
+		jsonData, err = json.MarshalIndent(data, "", "  ")
+	} else {
+		jsonData, err = json.Marshal(data)
 	}
-
-	jsonData, err := json.MarshalIndent(data, "", indent)
 	if err != nil {
 		return ""
 	}
@@ -204,9 +205,6 @@ func DataToFlattenedJSONString(data any, removeNewLines bool, removeQuotes bool)
 	res := string(jsonData)
 	if removeNewLines {
 		res = strings.ReplaceAll(res, "\n", "")
-	}
-	if removeQuotes {
-		res = strings.ReplaceAll(res, "\"", "")
 	}
 	return res
 }
