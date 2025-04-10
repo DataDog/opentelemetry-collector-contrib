@@ -195,7 +195,7 @@ prod-deploy:
     E2E_OUTPUT_DIR: $CI_PROJECT_DIR/e2e-output
     E2E_PULUMI_VERBOSE_PROGRESS_STREAMS: true
   script:
-    - cd e2e-tests && go test $TARGETS/... -v -timeout 0 --args -docker_secret $(aws ecr get-login-password)
+    - cd e2etests && go test $TARGETS/... -v -timeout 0 --args -docker_secret $(aws ecr get-login-password)
 
 new-e2e-otel-collector:
   extends: .new_e2e_template
