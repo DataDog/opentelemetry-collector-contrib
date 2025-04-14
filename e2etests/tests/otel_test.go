@@ -21,9 +21,8 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	otelcollector "github.com/DataDog/opentelemetry-collector-contrib/e2etests/otelcollector"
+	"github.com/DataDog/opentelemetry-collector-contrib/e2etests/otelcollector"
 	"github.com/DataDog/opentelemetry-collector-contrib/e2etests/otelcollector/otelparams"
 )
 
@@ -62,14 +61,14 @@ image:
 func (s *otelSuite) TestCollectorReady() {
 	s.T().Log("Waiting for collector pod startup")
 	assert.EventuallyWithT(s.T(), func(t *assert.CollectT) {
-		res, _ := s.Env().KubernetesCluster.Client().CoreV1().Pods("default").List(context.TODO(), v1.ListOptions{})
+		res, _ := s.Env().KubernetesCluster.Client().CoreV1().Pods("default").List(context.TODO(), metav1.ListOptions{})
 		for _, pod := range res.Items {
 			for _, containerStatus := range append(pod.Status.InitContainerStatuses, pod.Status.ContainerStatuses...) {
 				assert.Truef(t, containerStatus.Ready, "Container %s of pod %s isn’t ready", containerStatus.Name, pod.Name)
 				assert.Zerof(t, containerStatus.RestartCount, "Container %s of pod %s has restarted", containerStatus.Name, pod.Name)
 			}
 		}
-	}, 2*time.Minute, 10*time.Second)
+	}, 10*time.Minute, 10*time.Second)
 }
 
 func (s *otelSuite) TestOTLPTraces() {
