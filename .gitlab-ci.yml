@@ -179,8 +179,8 @@ prod-deploy:
     - aws ssm get-parameter --region us-east-1 --name "ci.opentelemetry-collector-contrib.agent-qa-profile" --with-decryption --query "Parameter.Value" --output text >> ~/.aws/config
     - export AWS_PROFILE=agent-qa-ci
     # Now all `aws` commands target the agent-qa profile
-    - aws ssm get-parameter --region us-east-1 --name "ci.opentelemetry-collector-contrib.ssh_public_key" --with-decryption --query "Parameter.Value" --output text > $E2E_PUBLIC_KEY_PATH
-    - touch $E2E_PRIVATE_KEY_PATH && chmod 600 $E2E_PRIVATE_KEY_PATH && aws ssm get-parameter --region us-east-1 --name "ci.opentelemetry-collector-contrib.ssh_private_key" --with-decryption --query "Parameter.Value" --output text > $E2E_PRIVATE_KEY_PATH
+    - aws ssm get-parameter --region us-east-1 --name "ci.opentelemetry-collector-contrib.ssh_public_key" --with-decryption --query "Parameter.Value" --output text > $E2E_AWS_PUBLIC_KEY_PATH
+    - touch $E2E_AWS_PRIVATE_KEY_PATH && chmod 600 $E2E_AWS_PRIVATE_KEY_PATH && aws ssm get-parameter --region us-east-1 --name "ci.opentelemetry-collector-contrib.ssh_private_key" --with-decryption --query "Parameter.Value" --output text > $E2E_AWS_PRIVATE_KEY_PATH
     # Use S3 backend
     - pulumi login "s3://dd-pulumi-state?region=us-east-1&awssdk=v2&profile=$AWS_PROFILE"
   variables:
@@ -189,8 +189,8 @@ prod-deploy:
     KUBERNETES_CPU_REQUEST: 6
     E2E_PIPELINE_ID: $CI_PIPELINE_ID
     E2E_COMMIT_SHORT_SHA: $CI_COMMIT_SHORT_SHA
-    E2E_PUBLIC_KEY_PATH: /tmp/agent-qa-ssh-key.pub
-    E2E_PRIVATE_KEY_PATH: /tmp/agent-qa-ssh-key
+    E2E_AWS_PUBLIC_KEY_PATH: /tmp/agent-qa-ssh-key.pub
+    E2E_AWS_PRIVATE_KEY_PATH: /tmp/agent-qa-ssh-key
     E2E_KEY_PAIR_NAME: ci.open-telemetry-collector-contrib
     E2E_OUTPUT_DIR: $CI_PROJECT_DIR/e2e-output
     E2E_PULUMI_VERBOSE_PROGRESS_STREAMS: true
