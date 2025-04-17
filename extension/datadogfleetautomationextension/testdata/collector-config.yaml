@@ -1,0 +1,33 @@
+receivers:
+  otlp:
+    protocols:
+      http:
+  otlp/log:
+    protocols:
+      grpc:
+exporters:
+  datadog:
+    api:
+      key: ${env:DD_API_KEY}
+      site: ${env:DD_SITE}
+  debug:
+processors:
+  batch:
+    timeout: 10s
+extensions:
+  datadogfleetautomation/test:
+    api: 
+      key: ${env:DD_API_KEY}
+      site: ${env:DD_SITE}
+#    hostname: "datadogfleetautomation-confighostname"
+service:
+  extensions: [datadogfleetautomation/test]
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [debug, datadog]
+    logs:
+      receivers: [otlp/log]
+      processors: [batch]
+      exporters: [debug]
