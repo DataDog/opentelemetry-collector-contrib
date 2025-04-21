@@ -2,7 +2,7 @@
 // Copyright The OpenTelemetry Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package otelparams
+package otelparams // import "github.com/DataDog/opentelemetry-collector-contrib/e2etests/otelcollector/otelparams"
 
 import (
 	"fmt"

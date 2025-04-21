@@ -2,7 +2,7 @@
 // Copyright The OpenTelemetry Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package component
+package component // import "github.com/DataDog/opentelemetry-collector-contrib/e2etests/otelcollector/component"
 
 import (
 	"github.com/DataDog/test-infra-definitions/components"

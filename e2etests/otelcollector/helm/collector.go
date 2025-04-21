@@ -1,7 +1,7 @@
 // Copyright The OpenTelemetry Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package helm
+package helm // import "github.com/DataDog/opentelemetry-collector-contrib/e2etests/otelcollector/helm"
 
 import (
 	_ "embed"
