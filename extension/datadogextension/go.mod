@@ -8,6 +8,7 @@ require (
 	github.com/DataDog/datadog-agent/comp/forwarder/defaultforwarder v0.64.3
 	github.com/DataDog/datadog-agent/pkg/config/model v0.64.3
 	github.com/DataDog/datadog-agent/pkg/config/viperconfig v0.64.3
+	github.com/DataDog/datadog-agent/pkg/metrics v0.64.3
 	github.com/DataDog/datadog-agent/pkg/serializer v0.64.3
 	github.com/DataDog/datadog-agent/pkg/util/compression v0.64.3
 	github.com/open-telemetry/opentelemetry-collector-contrib/pkg/datadog v0.124.1
@@ -46,7 +47,6 @@ require (
 	github.com/DataDog/datadog-agent/pkg/config/teeconfig v0.64.3 // indirect
 	github.com/DataDog/datadog-agent/pkg/config/utils v0.64.3 // indirect
 	github.com/DataDog/datadog-agent/pkg/fips v0.64.3 // indirect
-	github.com/DataDog/datadog-agent/pkg/metrics v0.64.3 // indirect
 	github.com/DataDog/datadog-agent/pkg/orchestrator/model v0.64.3 // indirect
 	github.com/DataDog/datadog-agent/pkg/process/util/api v0.64.3 // indirect
 	github.com/DataDog/datadog-agent/pkg/proto v0.66.0-devel // indirect
