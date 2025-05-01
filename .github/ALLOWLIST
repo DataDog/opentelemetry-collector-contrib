@@ -29,6 +29,7 @@ internal/common
 
 # Start unmaintained components list
 
+e2etests
 exporter/carbonexporter
 receiver/bigipreceiver
 receiver/carbonreceiver
