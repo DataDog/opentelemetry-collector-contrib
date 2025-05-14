@@ -388,6 +388,10 @@ gencodecov: $(CODECOVGEN)
 update-codeowners: generate gengithub
 	$(MAKE) genlabels
 
+.PHONY: gencodeowners
+gencodeowners: install-tools
+	$(GITHUBGEN) -skipgithub
+
 FILENAME?=$(shell git branch --show-current)
 .PHONY: chlog-new
 chlog-new: $(CHLOGGEN)
