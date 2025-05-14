@@ -160,7 +160,7 @@ tidylist: $(CROSSLINK)
 gotidy:
 	@for mod in $$(cat internal/tidylist/tidylist.txt); do \
 		echo "Tidying $$mod"; \
-		(cd $$mod && rm -rf go.sum && $(GOCMD) mod tidy -compat=1.22.0) || exit $?; \
+		(cd $$mod && rm -rf go.sum && $(GOCMD) mod tidy -compat=1.22.0 && $(GOCMD) get toolchain@none) || exit $?; \
 	done
 
 .PHONY: remove-toolchain
