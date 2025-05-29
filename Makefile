@@ -416,7 +416,7 @@ genotelcontribcol: $(BUILDER)
 # Build the Collector executable.
 .PHONY: otelcontribcol
 otelcontribcol: genotelcontribcol
-	cd ./cmd/otelcontribcol && GO111MODULE=on CGO_ENABLED=0 $(GOCMD) build -trimpath -o ../../bin/otelcontribcol_$(GOOS)_$(GOARCH)$(EXTENSION) \
+	cd ./cmd/otelcontribcol && GO111MODULE=on CGO_ENABLED=0 $(GOCMD) build -o ../../bin/otelcontribcol_$(GOOS)_$(GOARCH)$(EXTENSION) \
 		-tags $(GO_BUILD_TAGS) .
 
 # Build the Collector executable without the symbol table, debug information, and the DWARF symbol table.
@@ -574,12 +574,12 @@ kind-ready:
 .PHONY: kind-build
 kind-build: kind-ready docker-otelcontribcol
 	docker tag otelcontribcol otelcontribcol-dev:0.0.1
-	kind load docker-image otelcontribcol-dev:0.0.1
+	kind load docker-image otelcontribcol-dev:0.0.1 --name otel-debug
 
 .PHONY: kind-install-daemonset
 kind-install-daemonset: kind-ready kind-uninstall-daemonset## Install a local Collector version into the cluster.
 	@echo "Installing daemonset collector"
-	helm install daemonset-collector-dev open-telemetry/opentelemetry-collector --values ./examples/kubernetes/daemonset-collector-dev.yaml
+	helm install daemonset-collector-dev open-telemetry/opentelemetry-collector --values ./debug-values.yaml --set image.repository=otelcontribcol-dev --set image.tag=0.0.1 
 
 .PHONY: kind-uninstall-daemonset
 kind-uninstall-daemonset: kind-ready

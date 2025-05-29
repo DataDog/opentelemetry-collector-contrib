@@ -1,0 +1,106 @@
+mode: daemonset
+
+image:
+  repository: otelcontribcol-dev
+  tag: "0.0.1"
+  pullPolicy: Never
+
+command:
+  name: otelcontribcol
+
+extraEnvs:
+  - name: K8S_NODE_NAME
+    valueFrom:
+      fieldRef:
+        fieldPath: spec.nodeName
+  - name: DD_SITE
+    value: "datad0g.com"
+  - name: DD_API_KEY
+    valueFrom:
+      secretKeyRef:
+        name: datadog-secret
+        key: api-key
+
+clusterRole:
+  create: true
+  rules:
+    - apiGroups:
+        - ''
+      resources:
+        - 'pods'
+        - 'nodes'
+      verbs:
+        - 'get'
+        - 'list'
+        - 'watch'
+    - apiGroups: [ "" ]
+      resources: [ "nodes/stats", "nodes/proxy"]
+      verbs: [ "get" ]
+
+config:
+  receivers:
+    otlp:
+      protocols:
+        grpc:
+          endpoint: 0.0.0.0:4317
+        http:
+          endpoint: 0.0.0.0:4318
+
+  processors:
+    resourcedetection:
+      timeout: 35s
+      detectors:
+        - azure
+    batch:
+      send_batch_max_size: 1000
+      send_batch_size: 100
+      timeout: 10s
+
+  exporters:
+    debug:
+      verbosity: detailed
+    # datadog:
+    #   host_metadata:
+    #     enabled: false
+    #   api:
+    #     site: ${env:DD_SITE}
+    #     key: ${env:DD_API_KEY}
+
+  connectors:
+    datadog/connector:
+
+  service:
+    telemetry:
+      logs:
+        level: "debug"
+    pipelines:
+      # metrics:
+        # receivers: [otlp, kubeletstats, datadog/connector]
+        # processors: [batch]
+        # exporters: [datadog]
+      traces:
+        receivers: [otlp]
+        processors: [resourcedetection, batch]
+        exporters: [debug]
+      # traces/2:
+      #   receivers: [datadog/connector]
+      #   processors: [batch]
+      #   exporters: [datadog]
+      # logs:
+      #   receivers: [otlp]
+      #   processors: [batch]
+      #   exporters: [datadog]
+
+# ports:
+#   grpc:
+#     enabled: true
+#     containerPort: 4317
+#     servicePort: 4317
+#   http:
+#     enabled: true
+#     containerPort: 4318
+#     servicePort: 4318
+#   debug:
+#     enabled: true
+#     containerPort: 2345
+#     servicePort: 2345 
