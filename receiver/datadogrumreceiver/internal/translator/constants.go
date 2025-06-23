@@ -6,9 +6,9 @@ package translator
 const (
 	PREFIX_DATADOG      = "datadog"
 	PREFIX_ERROR        = "error"
+	PREFIX_GEO          = "geo"
 	PREFIX_USER         = "user"
 	PREFIX_USR          = "usr"
-	PREFIX_GEO          = "geo"
 	PREFIX_DEVICE       = "device"
 	PREFIX_MODEL        = "model"
 	PREFIX_OS           = "os"
