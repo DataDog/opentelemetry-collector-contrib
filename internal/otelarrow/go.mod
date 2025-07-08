@@ -11,7 +11,7 @@ require (
 	go.opentelemetry.io/collector/component v1.35.1-0.20250708151327-74cb2f311035
 	go.opentelemetry.io/collector/component/componenttest v0.129.1-0.20250708151327-74cb2f311035
 	go.opentelemetry.io/collector/config/configgrpc v0.129.1-0.20250708151327-74cb2f311035
-	go.opentelemetry.io/collector/config/configoptional v0.129.0
+	go.opentelemetry.io/collector/config/configoptional v0.129.1-0.20250708151327-74cb2f311035
 	go.opentelemetry.io/collector/config/configtelemetry v0.129.1-0.20250708151327-74cb2f311035
 	go.opentelemetry.io/collector/consumer v1.35.1-0.20250708151327-74cb2f311035
 	go.opentelemetry.io/collector/consumer/consumererror v0.129.1-0.20250708151327-74cb2f311035
