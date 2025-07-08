@@ -141,6 +141,72 @@ func (exp *traceExporter) consumeTraces(
 	}
 	for i := 0; i < rspans.Len(); i++ {
 		rspan := rspans.At(i)
+		_, isRum := rspan.Resource().Attributes().Get("session.id")
+		if isRum {
+			// Converting OTLP signals into RUM JSON payload
+			fmt.Println("&&&&&&&&&& CONVERTING TO RUM: ")
+
+			client := &http.Client{
+				Timeout: 10 * time.Second,
+			}
+
+			rattr := rspan.Resource().Attributes()
+
+			var rawRumData pcommon.Value
+			rawRumData, _ = rattr.Get("request_body_dump")
+
+			// build the Datadog intake URL
+			ddforward, _ := rattr.Get("request_ddforward")
+			outUrlString := "https://browser-intake-datadoghq.com" +
+				ddforward.AsString()
+
+			// forward the request to the Datadog intake URL using the POST method
+			req, err := http.NewRequest("POST", outUrlString, bytes.NewBuffer(rawRumData.Bytes().AsRaw()))
+
+			// add X-Forwarded-For header containing the request client IP address
+			ip, _ := rattr.Get("client.address")
+			req.Header.Add("X-Forwarded-For", ip.AsString())
+			req.Header.Set("Content-Type", "application/json")
+
+			headersMap, _ := rattr.Get("request_headers")
+			headersMap.Map().Range(func(key string, v pcommon.Value) bool {
+				exp.params.Logger.Debug("setting header:")
+				exp.params.Logger.Debug(key)
+				for i := range v.Slice().Len() {
+					exp.params.Logger.Debug(v.Slice().At(i).AsString())
+					req.Header.Set(key, v.Slice().At(i).AsString())
+				}
+				return true
+			})
+
+			// construct request body according to RUM spec
+			
+
+			// send the request to the Datadog intake URL
+			resp, err := client.Do(req)
+			if err != nil {
+				return fmt.Errorf("failed to send request: %v", err)
+			}
+			defer func(Body io.ReadCloser) {
+				err := Body.Close()
+				if err != nil {
+
+				}
+			}(resp.Body)
+
+			// read the response body
+			body, err := ioutil.ReadAll(resp.Body)
+			if err != nil {
+				return fmt.Errorf("failed to read response: %v", err)
+			}
+
+			// check the status code of the response
+			if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusAccepted {
+				return fmt.Errorf("received non-OK response: status: %s, body: %s", resp.Status, body)
+			}
+			fmt.Println("Response:", string(body))
+			continue
+		}
 		src := exp.agent.OTLPReceiver.ReceiveResourceSpans(ctx, rspan, header, exp.gatewayUsage)
 		switch src.Kind {
 		case source.HostnameKind:
