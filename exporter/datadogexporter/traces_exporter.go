@@ -334,7 +334,7 @@ func newTraceAgentConfig(ctx context.Context, params exporter.Settings, cfg *dat
 	return acfg, nil
 }
 
-func traverseRumPayload(k string, v pcommon.Value, rumPayload map[string]any) {
+func buildRumPayload(k string, v pcommon.Value, rumPayload map[string]any) {
 	parts := strings.Split(k, ".")
 	
 	current := rumPayload
@@ -361,7 +361,7 @@ func traverseRumPayload(k string, v pcommon.Value, rumPayload map[string]any) {
 func constructRumPayloadFromOTLP(rattr pcommon.Map) map[string]any {
 	rumPayload := make(map[string]any)
 	rattr.Range(func(k string, v pcommon.Value) bool {
-		traverseRumPayload(k, v, rumPayload)
+		buildRumPayload(k, v, rumPayload)
 		return true
 	})
 	return rumPayload
