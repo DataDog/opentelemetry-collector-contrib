@@ -4,9 +4,14 @@
 package datadogexporter // import "github.com/open-telemetry/opentelemetry-collector-contrib/exporter/datadogexporter"
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -180,7 +185,12 @@ func (exp *traceExporter) consumeTraces(
 			})
 
 			// construct request body according to RUM spec
-			
+			rumPayload := constructRumPayloadFromOTLP(rattr)
+			byts, err = json.Marshal(rumPayload)
+			if err != nil {
+				return fmt.Errorf("failed to marshal RUM payload: %v", err)
+			}
+			req.Body = io.NopCloser(bytes.NewBuffer(byts))
 
 			// send the request to the Datadog intake URL
 			resp, err := client.Do(req)
@@ -322,4 +332,37 @@ func newTraceAgentConfig(ctx context.Context, params exporter.Settings, cfg *dat
 	}
 	tracelog.SetLogger(&agentcomponents.ZapLogger{Logger: params.Logger}) // TODO: This shouldn't be a singleton
 	return acfg, nil
+}
+
+func traverseRumPayload(k string, v pcommon.Value, rumPayload map[string]any) {
+	parts := strings.Split(k, ".")
+	
+	current := rumPayload
+	for i, part := range parts {
+		if i == len(parts) - 1 {
+			current[part] = v
+		} else {
+			if _, ok := current[part]; !ok {
+				current[part] = make(map[string]any)
+			}
+
+			// in case the current part is not a map, we should override it with a map to avoid type assertion errors
+			next, ok := current[part].(map[string]any)
+			if !ok {
+				next = make(map[string]any)
+				current[part] = next
+			}
+			current = next
+		}
+	
+}
+
+
+func constructRumPayloadFromOTLP(rattr pcommon.Map) map[string]any {
+	rumPayload := make(map[string]any)
+	rattr.Range(func(k string, v pcommon.Value) bool {
+		traverseRumPayload(k, v, rumPayload)
+		return true
+	})
+	return rumPayload
 }
