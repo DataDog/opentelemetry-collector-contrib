@@ -9,7 +9,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"strings"
 	"sync"
@@ -144,78 +143,99 @@ func (exp *traceExporter) consumeTraces(
 	if noAPMStatsFeatureGate.IsEnabled() {
 		header[headerComputedStats] = []string{"true"}
 	}
-	for i := 0; i < rspans.Len(); i++ {
+	for i := range rspans.Len() {
 		rspan := rspans.At(i)
-		_, isRum := rspan.Resource().Attributes().Get("session.id")
-		if isRum {
-			// Converting OTLP signals into RUM JSON payload
-			fmt.Println("&&&&&&&&&& CONVERTING TO RUM: ")
+		sspans := rspan.ScopeSpans()
 
-			client := &http.Client{
-				Timeout: 10 * time.Second,
-			}
+		for j := range sspans.Len() {
+			sspan := sspans.At(j)
+			spans := sspan.Spans()
 
-			rattr := rspan.Resource().Attributes()
+			for k := range spans.Len() {
+				span := spans.At(k)
 
-			var rawRumData pcommon.Value
-			rawRumData, _ = rattr.Get("request_body_dump")
+				_, isRum := span.Attributes().Get("session.id")
+				if isRum {
+					fmt.Println("&&&&&&&&&& CONVERTING TO RUM: ")
 
-			// build the Datadog intake URL
-			ddforward, _ := rattr.Get("request_ddforward")
-			outUrlString := "https://browser-intake-datadoghq.com" +
-				ddforward.AsString()
+					client := &http.Client{
+						Timeout: 10 * time.Second,
+					}
 
-			// forward the request to the Datadog intake URL using the POST method
-			req, err := http.NewRequest("POST", outUrlString, bytes.NewBuffer(rawRumData.Bytes().AsRaw()))
+					rattr := rspan.Resource().Attributes()
+					sattr := span.Attributes()
 
-			// add X-Forwarded-For header containing the request client IP address
-			ip, _ := rattr.Get("client.address")
-			req.Header.Add("X-Forwarded-For", ip.AsString())
-			req.Header.Set("Content-Type", "application/json")
+					var rawRumData pcommon.Value
+					rawRumData, _ = rattr.Get("request_body_dump")
 
-			headersMap, _ := rattr.Get("request_headers")
-			headersMap.Map().Range(func(key string, v pcommon.Value) bool {
-				exp.params.Logger.Debug("setting header:")
-				exp.params.Logger.Debug(key)
-				for i := range v.Slice().Len() {
-					exp.params.Logger.Debug(v.Slice().At(i).AsString())
-					req.Header.Set(key, v.Slice().At(i).AsString())
+					// build the Datadog intake URL
+					ddforward, _ := rattr.Get("request_ddforward")
+					outUrlString := "https://browser-intake-datadoghq.com" +
+						ddforward.AsString()
+
+					// forward the request to the Datadog intake URL using the POST method
+					req, err := http.NewRequest("POST", outUrlString, bytes.NewBuffer(rawRumData.Bytes().AsRaw()))
+					if err != nil {
+						exp.params.Logger.Info("failed to create request: %v", zap.Error(err))
+					}
+
+					// add X-Forwarded-For header containing the request client IP address
+					ip, ok := sattr.Get("client.address")
+					if ok {
+						req.Header.Add("X-Forwarded-For", ip.AsString())
+					}
+					req.Header.Set("Content-Type", "application/json")
+
+					// we're currently not setting the request headers in the resource on the receiver side
+					/*
+						headersMap, _ := rattr.Get("request_headers")
+						headersMap.Map().Range(func(key string, v pcommon.Value) bool {
+							exp.params.Logger.Debug("setting header:")
+							exp.params.Logger.Debug(key)
+							for i := range v.Slice().Len() {
+								exp.params.Logger.Debug(v.Slice().At(i).AsString())
+								req.Header.Set(key, v.Slice().At(i).AsString())
+							}
+							return true
+						})
+					*/
+
+					// construct request body according to RUM spec
+					rumPayload := constructRumPayloadFromOTLP(sattr)
+					exp.params.Logger.Info("RUM Payload%%%%%%%%%%%%%%", zap.Any("rumPayload", rumPayload))
+
+					byts, err := json.Marshal(rumPayload)
+					if err != nil {
+						return fmt.Errorf("failed to marshal RUM payload: %v", err)
+					}
+					req.Body = io.NopCloser(bytes.NewBuffer(byts))
+
+					// send the request to the Datadog intake URL
+					resp, err := client.Do(req)
+					if err != nil {
+						return fmt.Errorf("failed to send request: %v", err)
+					}
+					defer func(Body io.ReadCloser) {
+						err := Body.Close()
+						if err != nil {
+
+						}
+					}(resp.Body)
+
+					// read the response body
+					body, err := io.ReadAll(resp.Body)
+					if err != nil {
+						return fmt.Errorf("failed to read response: %v", err)
+					}
+
+					// check the status code of the response
+					if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusAccepted {
+						return fmt.Errorf("received non-OK response: status: %s, body: %s", resp.Status, body)
+					}
+					fmt.Println("Response:", string(body))
+					continue
 				}
-				return true
-			})
-
-			// construct request body according to RUM spec
-			rumPayload := constructRumPayloadFromOTLP(rattr)
-			byts, err = json.Marshal(rumPayload)
-			if err != nil {
-				return fmt.Errorf("failed to marshal RUM payload: %v", err)
 			}
-			req.Body = io.NopCloser(bytes.NewBuffer(byts))
-
-			// send the request to the Datadog intake URL
-			resp, err := client.Do(req)
-			if err != nil {
-				return fmt.Errorf("failed to send request: %v", err)
-			}
-			defer func(Body io.ReadCloser) {
-				err := Body.Close()
-				if err != nil {
-
-				}
-			}(resp.Body)
-
-			// read the response body
-			body, err := ioutil.ReadAll(resp.Body)
-			if err != nil {
-				return fmt.Errorf("failed to read response: %v", err)
-			}
-
-			// check the status code of the response
-			if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusAccepted {
-				return fmt.Errorf("received non-OK response: status: %s, body: %s", resp.Status, body)
-			}
-			fmt.Println("Response:", string(body))
-			continue
 		}
 		src := exp.agent.OTLPReceiver.ReceiveResourceSpans(ctx, rspan, header, exp.gatewayUsage)
 		switch src.Kind {
@@ -336,10 +356,10 @@ func newTraceAgentConfig(ctx context.Context, params exporter.Settings, cfg *dat
 
 func buildRumPayload(k string, v pcommon.Value, rumPayload map[string]any) {
 	parts := strings.Split(k, ".")
-	
+
 	current := rumPayload
 	for i, part := range parts {
-		if i == len(parts) - 1 {
+		if i == len(parts)-1 {
 			current[part] = v
 		} else {
 			if _, ok := current[part]; !ok {
@@ -354,13 +374,12 @@ func buildRumPayload(k string, v pcommon.Value, rumPayload map[string]any) {
 			}
 			current = next
 		}
-	
+	}
 }
 
-
-func constructRumPayloadFromOTLP(rattr pcommon.Map) map[string]any {
+func constructRumPayloadFromOTLP(attr pcommon.Map) map[string]any {
 	rumPayload := make(map[string]any)
-	rattr.Range(func(k string, v pcommon.Value) bool {
+	attr.Range(func(k string, v pcommon.Value) bool {
 		buildRumPayload(k, v, rumPayload)
 		return true
 	})
