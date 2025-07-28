@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"go.opentelemetry.io/collector/pdata/pcommon"
 	"go.opentelemetry.io/collector/pdata/ptrace"
 	semconv "go.opentelemetry.io/collector/semconv/v1.5.0"
 	"go.uber.org/zap"
@@ -43,10 +44,32 @@ func ToTraces(logger *zap.Logger, payload map[string]any, req *http.Request, req
 	}
 	newSpan.SetTraceID(traceID)
 	newSpan.SetSpanID(spanID)
+	newSpan.Attributes().PutStr("operation.name", "rum")
 
 	flatPayload := flattenJSON(payload)
 
+	setDateForSpan(payload, newSpan)
 	setAttributes(flatPayload, newSpan.Attributes())
 
 	return results
+}
+
+func setDateForSpan(payload map[string]any, span ptrace.Span) {
+	date, ok := payload["date"]
+	if !ok {
+		return
+	}
+	dateFloat, ok := date.(float64)
+	if !ok {
+		return
+	}
+	dateNanoseconds := uint64(dateFloat) * 1e6
+
+	duration, ok := payload["resource"].(map[string]any)["duration"].(float64)
+	if !ok {
+		return
+	}
+
+	span.SetStartTimestamp(pcommon.Timestamp(dateNanoseconds))
+	span.SetEndTimestamp(pcommon.Timestamp(dateNanoseconds + uint64(duration)))
 }
