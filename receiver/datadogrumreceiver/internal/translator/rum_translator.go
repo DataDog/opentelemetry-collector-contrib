@@ -95,9 +95,6 @@ func parseRUMRequestIntoResource(resource pcommon.Resource, payload map[string]a
 	prettyPayload, _ := json.MarshalIndent(payload, "", "\t")
 	resource.Attributes().PutStr("pretty_payload", string(prettyPayload))
 
-	bodyDump := resource.Attributes().PutEmptyBytes("request_body_dump")
-	bodyDump.FromRaw(rawRequestBody)
-
 	// Store URL query parameters as attributes
 	queryAttrs := resource.Attributes().PutEmptyMap("request_query")
 	for paramName, paramValues := range req.URL.Query() {
@@ -161,51 +158,58 @@ func flattenJSON(payload map[string]any) map[string]any {
 }
 
 func setAttributes(flatPayload map[string]any, attributes pcommon.Map) {
-	for rumKey, meta := range attributeMetaMap {
-		val, exists := flatPayload[rumKey]
-		if !exists {
-			continue
+	for key, val := range flatPayload {
+		meta, exists := attributeMetaMap[key]
+
+		rumKey := ""
+		typ := StringAttribute
+		if exists {
+			rumKey = meta.OTLPName
+			typ = meta.Type
+		} else {
+			rumKey = "datadog" + "." + key
+			typ = StringAttribute
 		}
 
-		switch meta.Type {
+		switch typ {
 		case StringAttribute:
 			if s, ok := val.(string); ok {
-				attributes.PutStr(meta.OTLPName, s)
+				attributes.PutStr(rumKey, s)
 			}
 		case BoolAttribute:
 			if b, ok := val.(bool); ok {
-				attributes.PutBool(meta.OTLPName, b)
+				attributes.PutBool(rumKey, b)
 			}
 		case NumberAttribute:
 			if f, ok := val.(float64); ok {
-				attributes.PutDouble(meta.OTLPName, f)
+				attributes.PutDouble(rumKey, f)
 			}
 		case IntegerAttribute:
 			if i, ok := val.(int64); ok {
-				attributes.PutInt(meta.OTLPName, i)
+				attributes.PutInt(rumKey, i)
 			} else if f, ok := val.(float64); ok {
 				i := int64(f)
-				attributes.PutInt(meta.OTLPName, i)
+				attributes.PutInt(rumKey, i)
 			}
 		case ObjectAttribute:
 			if o, ok := val.(map[string]any); ok {
-				objVal := attributes.PutEmptyMap(meta.OTLPName)
+				objVal := attributes.PutEmptyMap(rumKey)
 				for k, v := range o {
 					objVal.PutStr(k, fmt.Sprintf("%v", v))
 				}
 			}
 		case ArrayAttribute:
 			if a, ok := val.([]any); ok {
-				arrVal := attributes.PutEmptySlice(meta.OTLPName)
+				arrVal := attributes.PutEmptySlice(rumKey)
 				for _, v := range a {
 					arrVal.AppendEmpty().SetStr(fmt.Sprintf("%v", v))
 				}
 			}
 		case StringOrArrayAttribute:
 			if s, ok := val.(string); ok {
-				attributes.PutStr(meta.OTLPName, s)
+				attributes.PutStr(rumKey, s)
 			} else if a, ok := val.([]any); ok {
-				arrVal := attributes.PutEmptySlice(meta.OTLPName)
+				arrVal := attributes.PutEmptySlice(rumKey)
 				for _, v := range a {
 					arrVal.AppendEmpty().SetStr(fmt.Sprintf("%v", v))
 				}
