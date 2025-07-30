@@ -14,6 +14,9 @@ import (
 )
 
 func ToTraces(logger *zap.Logger, payload map[string]any, req *http.Request, reqBytes []byte, traceparent string) ptrace.Traces {
+	headers := req.Header
+	fmt.Println("&&&&&&&&&& HEADERS ORIGINAL: ", headers)
+
 	results := ptrace.NewTraces()
 	rs := results.ResourceSpans().AppendEmpty()
 	rs.SetSchemaUrl(semconv.SchemaURL)
