@@ -203,6 +203,8 @@ func (exp *traceExporter) consumeTraces(
 					rumPayload := constructRumPayloadFromOTLP(sattr)
 
 					byts, err := json.Marshal(rumPayload)
+					prettybyts, _ := json.MarshalIndent(rumPayload, "", "  ")
+					fmt.Println("&&&&&&&&&& PRETTY RUM PAYLOAD: ", string(prettybyts))
 					if err != nil {
 						return fmt.Errorf("failed to marshal RUM payload: %v", err)
 					}

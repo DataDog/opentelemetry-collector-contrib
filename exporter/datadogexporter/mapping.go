@@ -20,7 +20,7 @@ var OTLPToRUMAttributeMap = map[string]string{
 	"user.id":                                              "usr.id",
 	"user.full_name":                                       "usr.name",
 	"user.email":                                           "usr.email",
-	"user.hash":                                            "usr.anonymoud_id",
+	"user.hash":                                            "usr.anonymous_id",
 	"datadog.account.id":                                   "account.id",
 	"user.name":                                            "account.name",
 	"datadog.connectivity.status":                          "connectivity.status",
