@@ -35,6 +35,7 @@ import (
 	"github.com/open-telemetry/opentelemetry-collector-contrib/exporter/datadogexporter/internal/metadata"
 	pkgdatadog "github.com/open-telemetry/opentelemetry-collector-contrib/pkg/datadog"
 	datadogconfig "github.com/open-telemetry/opentelemetry-collector-contrib/pkg/datadog/config"
+	// "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/datadogrumreceiver/internal/translator"
 )
 
 func setupTestMain(m *testing.M) {
@@ -590,4 +591,79 @@ func genTraces(traceID pcommon.TraceID, rattrs map[string]any, sattrs map[string
 		}
 	}
 	return traces
+}
+func TestConstructRumPayload_EqualsOriginalRumPayload(t *testing.T) {
+	originalRumPayload := map[string]interface{}{
+		"_dd": map[string]interface{}{
+			"configuration": map[string]interface{}{
+				"session_replay_sample_rate": 0,
+				"session_sample_rate":        100,
+			},
+			"discarded":      false,
+			"drift":          0,
+			"format_version": 2,
+			"span_id":        "6046190619614034189",
+			"trace_id":       "9750105489261430259",
+		},
+		"action": map[string]interface{}{
+			"id": []string{
+				"bbc6b1cb-3b2b-42b5-ae89-febaa720309e",
+				"f0eb5f24-1a0e-4f50-9a5d-ccb48ca56d73",
+			},
+		},
+		"application": map[string]interface{}{
+			"id": "f6ba6acc-d759-4cbf-bc03-f762165018cd",
+		},
+		"connectivity": map[string]interface{}{
+			"effective_type": "4g",
+			"status":         "connected",
+		},
+		"date": 1753818075427,
+		"display": map[string]interface{}{
+			"viewport": map[string]interface{}{
+				"height": 958,
+				"width":  1091,
+			},
+		},
+		"resource": map[string]interface{}{
+			"decoded_body_size": 46,
+			"delivery_type":     "other",
+			"download": map[string]interface{}{
+				"duration": 500000,
+				"start":    4800000,
+			},
+			"duration":          5300000,
+			"encoded_body_size": 46,
+			"first_byte": map[string]interface{}{
+				"duration": 3300000,
+				"start":    1500000,
+			},
+			"id":                     "090bc834-12ca-4264-afc0-7875c89d0911",
+			"method":                 "POST",
+			"protocol":               "http/1.1",
+			"render_blocking_status": "non-blocking",
+			"size":                   46,
+			"status_code":            200,
+			"transfer_size":          346,
+			"type":                   "fetch",
+			"url":                    "http://localhost:8080/rungame",
+		},
+		"service": "game-of-life-otel-rum",
+		"session": map[string]interface{}{
+			"id":   "51c83f84-08e0-4960-87ee-502fa90993cc",
+			"type": "user",
+		},
+		"source": "browser",
+		"type":   "resource",
+		"view": map[string]interface{}{
+			"id":       "8f1b1f10-c308-4864-aea1-a1ef5134cd81",
+			"referrer": "",
+			"url":      "http://localhost:8080/",
+		},
+	}
+
+	newSpan := ptrace.NewSpan()
+	// setAttributes(originalRumPayload, newSpan.Attributes())
+	fmt.Println("&&&&&&&&&& ORIGINAL RUM PAYLOAD: ", originalRumPayload)
+	fmt.Println("&&&&&&&&&& NEW SPAN ATTRIBUTES: ", newSpan.Attributes().AsRaw())
 }
