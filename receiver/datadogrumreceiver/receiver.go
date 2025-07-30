@@ -34,7 +34,7 @@ type datadogRUMReceiver struct {
 	server    *http.Server
 	lReceiver *receiverhelper.ObsReport
 
-	cancel        context.CancelFunc
+	cancel context.CancelFunc
 }
 
 func newDataDogRUMReceiver(config *Config, params receiver.Settings) (component.Component, error) {
