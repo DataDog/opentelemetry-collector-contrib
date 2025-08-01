@@ -31,7 +31,6 @@ internal/common
 
 e2etests
 exporter/awscloudwatchlogsexporter
-e2etests
 exporter/carbonexporter
 extension/healthcheckextension
 extension/observer/ecstaskobserver
