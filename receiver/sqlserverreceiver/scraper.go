@@ -625,50 +625,6 @@ func (s *sqlServerScraperHelper) recordDatabaseWaitMetrics(ctx context.Context) 
 	return errors.Join(errs...)
 }
 
-func (s *sqlServerScraperHelper) recordDatabaseWaitMetrics(ctx context.Context) error {
-	// Constants are the columns for metrics from query
-	const (
-		waitCategory = "wait_category"
-		waitTimeMs   = "wait_time_ms"
-		waitType     = "wait_type"
-	)
-
-	rows, err := s.client.QueryRows(ctx)
-	if err != nil {
-		if !errors.Is(err, sqlquery.ErrNullValueWarning) {
-			return fmt.Errorf("sqlServerScraperHelper: %w", err)
-		}
-		s.logger.Warn("problems encountered getting metric rows", zap.Error(err))
-	}
-
-	var errs []error
-	now := pcommon.NewTimestampFromTime(time.Now())
-	var val any
-	for i, row := range rows {
-		rb := s.mb.NewResourceBuilder()
-		rb.SetSqlserverDatabaseName(row[databaseNameKey])
-		rb.SetSqlserverInstanceName(row[instanceNameKey])
-		rb.SetHostName(s.config.Server)
-
-		if !removeServerResourceAttributeFeatureGate.IsEnabled() {
-			rb.SetServerAddress(s.config.Server)
-			rb.SetServerPort(int64(s.config.Port))
-		}
-
-		val, err = retrieveFloat(row, waitTimeMs)
-		if err != nil {
-			errs = append(errs, fmt.Errorf("failed to parse valueKey for row %d: %w in %s", i, err, waitTimeMs))
-		} else {
-			// The value is divided here because it's stored in SQL Server in ms, need to convert to s
-			s.mb.RecordSqlserverOsWaitDurationDataPoint(now, val.(float64)/1e3, row[waitCategory], row[waitType])
-		}
-
-		s.mb.EmitForResource(metadata.WithResource(rb.Emit()))
-	}
-
-	return errors.Join(errs...)
-}
-
 func (s *sqlServerScraperHelper) recordDatabaseQueryTextAndPlan(ctx context.Context, topQueryCount uint) (pcommon.Resource, error) {
 	// Constants are the column names of the database status
 	const (

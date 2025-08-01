@@ -268,23 +268,6 @@ The status of a rolling restart.
 | splunk.splunkd.build | The build number for this Splunk instance version | Any Str | false |
 | splunk.splunkd.version | The splunkd version number | Any Str | false |
 
-### splunk.indexer.rollingrestart.status
-
-The status of a rolling restart.
-
-| Unit | Metric Type | Value Type |
-| ---- | ----------- | ---------- |
-| {status} | Gauge | Int |
-
-#### Attributes
-
-| Name | Description | Values |
-| ---- | ----------- | ------ |
-| splunk.searchable.restart | Boolean that indicates if a searchable rolling restart/upgrade in progress.t | Any Bool |
-| splunk.rollingorrestart | Boolean that indicates if there is a rolling restart or rolling upgrade in progress. | Any Bool |
-| splunk.splunkd.build | The build number for this Splunk instance version | Any Str |
-| splunk.splunkd.version | The splunkd version number | Any Str |
-
 ### splunk.indexer.throughput
 
 Gauge tracking average bytes per second throughput of indexer. *Note:** Must be pointed at specific indexer `endpoint` and gathers metrics from only that indexer.
@@ -668,22 +651,6 @@ Gauge total size (MB) of ad hoc search artifacts currently on disk. Note:* Must 
 | splunk.splunkd.build | The build number for this Splunk instance version | Any Str | false |
 | splunk.splunkd.version | The splunkd version number | Any Str | false |
 
-### splunk.server.searchartifacts.adhoc.size
-
-Gauge total size (MB) of ad hoc search artifacts currently on disk. Note:* Must be pointed at specific Search Head endpoint and gathers metrics from only that Search Head. Available in builds 9.1.2312.207+ and 9.3.x+.
-
-| Unit | Metric Type | Value Type |
-| ---- | ----------- | ---------- |
-| {search_artifacts} | Gauge | Int |
-
-#### Attributes
-
-| Name | Description | Values |
-| ---- | ----------- | ------ |
-| splunk.host | The name of the splunk host | Any Str |
-| splunk.splunkd.build | The build number for this Splunk instance version | Any Str |
-| splunk.splunkd.version | The splunkd version number | Any Str |
-
 ### splunk.server.searchartifacts.completed
 
 Gauge tracking number of artifacts currently on disk that belong to finished searches. Note:* Must be pointed at specific Search Head endpoint and gathers metrics from only that Search Head. Available in builds 9.1.2312.207+ and 9.3.x+.
@@ -716,22 +683,6 @@ Gauge total size (MB) of artifacts currently on disk that belong to finished sea
 | splunk.splunkd.build | The build number for this Splunk instance version | Any Str | false |
 | splunk.splunkd.version | The splunkd version number | Any Str | false |
 
-### splunk.server.searchartifacts.completed.size
-
-Gauge total size (MB) of artifacts currently on disk that belong to finished searches. Note:* Must be pointed at specific Search Head endpoint and gathers metrics from only that Search Head. Available in builds 9.1.2312.207+ and 9.3.x+.
-
-| Unit | Metric Type | Value Type |
-| ---- | ----------- | ---------- |
-| {search_artifacts} | Gauge | Int |
-
-#### Attributes
-
-| Name | Description | Values |
-| ---- | ----------- | ------ |
-| splunk.host | The name of the splunk host | Any Str |
-| splunk.splunkd.build | The build number for this Splunk instance version | Any Str |
-| splunk.splunkd.version | The splunkd version number | Any Str |
-
 ### splunk.server.searchartifacts.incomplete
 
 Gauge tracking number of artifacts currently on disk that belong to unfinished/running searches. Note:* Must be pointed at specific Search Head endpoint and gathers metrics from only that Search Head. Available in builds 9.1.2312.207+ and 9.3.x+.
@@ -763,22 +714,6 @@ Gauge total size (MB) of artifacts currently on disk that belong to unfinished/r
 | splunk.host | The name of the splunk host | Any Str | false |
 | splunk.splunkd.build | The build number for this Splunk instance version | Any Str | false |
 | splunk.splunkd.version | The splunkd version number | Any Str | false |
-
-### splunk.server.searchartifacts.incomplete.size
-
-Gauge total size (MB) of artifacts currently on disk that belong to unfinished/running searches. Note:* Must be pointed at specific Search Head endpoint and gathers metrics from only that Search Head. Available in builds 9.1.2312.207+ and 9.3.x+.
-
-| Unit | Metric Type | Value Type |
-| ---- | ----------- | ---------- |
-| {search_artifacts} | Gauge | Int |
-
-#### Attributes
-
-| Name | Description | Values |
-| ---- | ----------- | ------ |
-| splunk.host | The name of the splunk host | Any Str |
-| splunk.splunkd.build | The build number for this Splunk instance version | Any Str |
-| splunk.splunkd.version | The splunkd version number | Any Str |
 
 ### splunk.server.searchartifacts.invalid
 
@@ -876,22 +811,6 @@ Gauge total size (MB) of scheduled search artifacts currently on disk. Note:* Mu
 | splunk.host | The name of the splunk host | Any Str | false |
 | splunk.splunkd.build | The build number for this Splunk instance version | Any Str | false |
 | splunk.splunkd.version | The splunkd version number | Any Str | false |
-
-### splunk.server.searchartifacts.scheduled.size
-
-Gauge total size (MB) of scheduled search artifacts currently on disk. Note:* Must be pointed at specific Search Head endpoint and gathers metrics from only that Search Head. Available in builds 9.1.2312.207+ and 9.3.x+.
-
-| Unit | Metric Type | Value Type |
-| ---- | ----------- | ---------- |
-| {search_artifacts} | Gauge | Int |
-
-#### Attributes
-
-| Name | Description | Values |
-| ---- | ----------- | ------ |
-| splunk.host | The name of the splunk host | Any Str |
-| splunk.splunkd.build | The build number for this Splunk instance version | Any Str |
-| splunk.splunkd.version | The splunkd version number | Any Str |
 
 ### splunk.typing.queue.ratio
 

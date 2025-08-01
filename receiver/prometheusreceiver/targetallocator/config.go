@@ -4,7 +4,6 @@
 package targetallocator // import "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/prometheusreceiver/targetallocator"
 
 import (
-	"bytes"
 	"encoding/base64"
 	"errors"
 	"fmt"

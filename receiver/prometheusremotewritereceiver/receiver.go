@@ -655,7 +655,6 @@ func convertDeltaBuckets(spans []writev2.BucketSpan, deltas []int64, buckets pco
 			bucketIdx++
 			buckets.Append(uint64(bucketCount))
 		}
-		stats.Samples++
 	}
 }
 
