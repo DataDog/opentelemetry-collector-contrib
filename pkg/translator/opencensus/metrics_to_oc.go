@@ -9,9 +9,9 @@ import (
 	occommon "github.com/census-instrumentation/opencensus-proto/gen-go/agent/common/v1"
 	ocmetrics "github.com/census-instrumentation/opencensus-proto/gen-go/metrics/v1"
 	ocresource "github.com/census-instrumentation/opencensus-proto/gen-go/resource/v1"
-	"github.com/golang/protobuf/ptypes/wrappers"
 	"go.opentelemetry.io/collector/pdata/pcommon"
 	"go.opentelemetry.io/collector/pdata/pmetric"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 type labelKeysAndType struct {
@@ -313,8 +313,8 @@ func doubleSummaryPointToOC(dps pmetric.SummaryDataPointSlice, labelKeys *labelK
 					Timestamp: timestampAsTimestampPb(dp.Timestamp()),
 					Value: &ocmetrics.Point_SummaryValue{
 						SummaryValue: &ocmetrics.SummaryValue{
-							Sum:   &wrappers.DoubleValue{Value: dp.Sum()},
-							Count: &wrappers.Int64Value{Value: int64(dp.Count())},
+							Sum:   &wrapperspb.DoubleValue{Value: dp.Sum()},
+							Count: &wrapperspb.Int64Value{Value: int64(dp.Count())},
 							Snapshot: &ocmetrics.SummaryValue_Snapshot{
 								PercentileValues: percentileValues,
 							},

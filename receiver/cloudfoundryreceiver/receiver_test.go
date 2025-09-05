@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"code.cloudfoundry.org/go-loggregator/rpc/loggregator_v2"
+	"code.cloudfoundry.org/go-loggregator/v10/rpc/loggregator_v2"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/collector/component/componenttest"
 	"go.opentelemetry.io/collector/consumer/consumertest"
@@ -110,27 +110,27 @@ func TestGetResourceMetrics(t *testing.T) {
 	tests := []struct {
 		name          string
 		resourceAttrs bool
-		envelope      loggregator_v2.Envelope
+		envelope      *loggregator_v2.Envelope
 		metrics       pmetric.Metrics
 		expected      pmetric.ResourceMetrics
 	}{
 		{
 			name:          "resource attributes false",
-			envelope:      loggregator_v2.Envelope{},
+			envelope:      &loggregator_v2.Envelope{},
 			resourceAttrs: false,
 			metrics:       pmetric.NewMetrics(),
 			expected:      pmetric.NewResourceMetrics(),
 		},
 		{
 			name:          "empty metrics",
-			envelope:      loggregator_v2.Envelope{},
+			envelope:      &loggregator_v2.Envelope{},
 			resourceAttrs: true,
 			metrics:       pmetric.NewMetrics(),
 			expected:      pmetric.NewResourceMetrics(),
 		},
 		{
 			name: "matched resource metrics",
-			envelope: loggregator_v2.Envelope{
+			envelope: &loggregator_v2.Envelope{
 				Tags: map[string]string{
 					"origin": "rep",
 					"custom": "datapoint",
@@ -142,7 +142,7 @@ func TestGetResourceMetrics(t *testing.T) {
 		},
 		{
 			name: "non-matched resource metrics",
-			envelope: loggregator_v2.Envelope{
+			envelope: &loggregator_v2.Envelope{
 				Tags: map[string]string{
 					"origin": "rep2",
 					"custom": "datapoint",
@@ -162,7 +162,7 @@ func TestGetResourceMetrics(t *testing.T) {
 					require.NoError(t, featuregate.GlobalRegistry().Set(allowResourceAttributes.ID(), false))
 				})
 			}
-			require.Equal(t, tt.expected, getResourceMetrics(tt.metrics, &tt.envelope))
+			require.Equal(t, tt.expected, getResourceMetrics(tt.metrics, tt.envelope))
 		})
 	}
 }
@@ -208,27 +208,27 @@ func TestGetResourceLogs(t *testing.T) {
 	tests := []struct {
 		name          string
 		resourceAttrs bool
-		envelope      loggregator_v2.Envelope
+		envelope      *loggregator_v2.Envelope
 		logs          plog.Logs
 		expected      plog.ResourceLogs
 	}{
 		{
 			name:          "resource attributes false",
-			envelope:      loggregator_v2.Envelope{},
+			envelope:      &loggregator_v2.Envelope{},
 			resourceAttrs: false,
 			logs:          plog.NewLogs(),
 			expected:      plog.NewResourceLogs(),
 		},
 		{
 			name:          "empty logs",
-			envelope:      loggregator_v2.Envelope{},
+			envelope:      &loggregator_v2.Envelope{},
 			resourceAttrs: true,
 			logs:          plog.NewLogs(),
 			expected:      plog.NewResourceLogs(),
 		},
 		{
 			name: "matched resource logs",
-			envelope: loggregator_v2.Envelope{
+			envelope: &loggregator_v2.Envelope{
 				Tags: map[string]string{
 					"origin": "rep",
 					"custom": "datapoint",
@@ -240,7 +240,7 @@ func TestGetResourceLogs(t *testing.T) {
 		},
 		{
 			name: "non-matched resource logs",
-			envelope: loggregator_v2.Envelope{
+			envelope: &loggregator_v2.Envelope{
 				Tags: map[string]string{
 					"origin": "rep2",
 					"custom": "datapoint",
@@ -260,7 +260,7 @@ func TestGetResourceLogs(t *testing.T) {
 					require.NoError(t, featuregate.GlobalRegistry().Set(allowResourceAttributes.ID(), false))
 				})
 			}
-			require.Equal(t, tt.expected, getResourceLogs(tt.logs, &tt.envelope))
+			require.Equal(t, tt.expected, getResourceLogs(tt.logs, tt.envelope))
 		})
 	}
 }

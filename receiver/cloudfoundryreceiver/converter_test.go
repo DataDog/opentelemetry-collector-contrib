@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"code.cloudfoundry.org/go-loggregator/rpc/loggregator_v2"
+	"code.cloudfoundry.org/go-loggregator/v10/rpc/loggregator_v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/collector/featuregate"
@@ -52,13 +52,13 @@ func TestConvertCountEnvelope(t *testing.T) {
 
 	tests := []struct {
 		name          string
-		envelope      loggregator_v2.Envelope
+		testEnvelope  *loggregator_v2.Envelope
 		expected      map[string]string
 		resourceAttrs bool
 	}{
 		{
-			name:     "resource attributes true",
-			envelope: envelope,
+			name:         "resource attributes true",
+			testEnvelope: &envelope,
 			expected: map[string]string{
 				"org.cloudfoundry.custom": "datapoint",
 			},
@@ -66,7 +66,7 @@ func TestConvertCountEnvelope(t *testing.T) {
 		},
 		{
 			name:          "resource attributes false",
-			envelope:      envelope,
+			testEnvelope:  &envelope,
 			expected:      expectedAttributes,
 			resourceAttrs: false,
 		},
@@ -82,7 +82,7 @@ func TestConvertCountEnvelope(t *testing.T) {
 				})
 			}
 
-			convertEnvelopeToMetrics(&tt.envelope, resourceMetricSlice.AppendEmpty().ScopeMetrics().AppendEmpty().Metrics(), before)
+			convertEnvelopeToMetrics(tt.testEnvelope, resourceMetricSlice.AppendEmpty().ScopeMetrics().AppendEmpty().Metrics(), before)
 
 			require.Equal(t, 1, resourceMetricSlice.Len())
 
@@ -151,13 +151,13 @@ func TestConvertGaugeEnvelope(t *testing.T) {
 
 	tests := []struct {
 		name          string
-		envelope      loggregator_v2.Envelope
+		envelope      *loggregator_v2.Envelope
 		expected      map[string]string
 		resourceAttrs bool
 	}{
 		{
 			name:     "resource attributes true",
-			envelope: envelope,
+			envelope: &envelope,
 			expected: map[string]string{
 				"org.cloudfoundry.custom": "datapoint",
 			},
@@ -165,7 +165,7 @@ func TestConvertGaugeEnvelope(t *testing.T) {
 		},
 		{
 			name:          "resource attributes false",
-			envelope:      envelope,
+			envelope:      &envelope,
 			expected:      expectedAttributes,
 			resourceAttrs: false,
 		},
@@ -181,7 +181,7 @@ func TestConvertGaugeEnvelope(t *testing.T) {
 				})
 			}
 
-			convertEnvelopeToMetrics(&tt.envelope, resourceMetricSlice.AppendEmpty().ScopeMetrics().AppendEmpty().Metrics(), before)
+			convertEnvelopeToMetrics(tt.envelope, resourceMetricSlice.AppendEmpty().ScopeMetrics().AppendEmpty().Metrics(), before)
 
 			require.Equal(t, 1, resourceMetricSlice.Len())
 
@@ -222,13 +222,13 @@ func TestConvertLogsEnvelope(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
 		id            string
-		envelope      loggregator_v2.Envelope
+		envelope      *loggregator_v2.Envelope
 		expected      map[string]any
 		resourceAttrs bool
 	}{
 		{
 			id: "normal-without-sourcetype-tag",
-			envelope: loggregator_v2.Envelope{
+			envelope: &loggregator_v2.Envelope{
 				Timestamp: before.UnixNano(),
 				SourceId:  "744e75bb-69d1-4cf4-b037-76875368097b",
 				Tags: map[string]string{
@@ -254,7 +254,7 @@ func TestConvertLogsEnvelope(t *testing.T) {
 		},
 		{
 			id: "normal-without-sourcetype-tag-resource-attrs",
-			envelope: loggregator_v2.Envelope{
+			envelope: &loggregator_v2.Envelope{
 				Timestamp: before.UnixNano(),
 				SourceId:  "744e75bb-69d1-4cf4-b037-76875368097b",
 				Tags: map[string]string{
@@ -280,7 +280,7 @@ func TestConvertLogsEnvelope(t *testing.T) {
 		},
 		{
 			id: "json-log-with-sourcetype-error",
-			envelope: loggregator_v2.Envelope{
+			envelope: &loggregator_v2.Envelope{
 				Timestamp: before.UnixNano(),
 				SourceId:  "df75aec8-b937-4dc8-9b4d-c336e36e3895",
 				Tags: map[string]string{
@@ -318,7 +318,7 @@ func TestConvertLogsEnvelope(t *testing.T) {
 		},
 		{
 			id: "json-log-with-sourcetype-error-resource-attrs",
-			envelope: loggregator_v2.Envelope{
+			envelope: &loggregator_v2.Envelope{
 				Timestamp: before.UnixNano(),
 				SourceId:  "df75aec8-b937-4dc8-9b4d-c336e36e3895",
 				Tags: map[string]string{
@@ -358,7 +358,7 @@ func TestConvertLogsEnvelope(t *testing.T) {
 					require.NoError(t, featuregate.GlobalRegistry().Set(allowResourceAttributes.ID(), false))
 				})
 			}
-			e := convertEnvelopeToLogs(&tt.envelope, resourceLogSlice.AppendEmpty().ScopeLogs().AppendEmpty().LogRecords(), now)
+			e := convertEnvelopeToLogs(tt.envelope, resourceLogSlice.AppendEmpty().ScopeLogs().AppendEmpty().LogRecords(), now)
 			require.NoError(t, e)
 			require.Equal(t, 1, resourceLogSlice.Len())
 
