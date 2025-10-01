@@ -36,6 +36,12 @@ extraEnvs:
         name: datadog-secrets
         key: api-key
         optional: false
+  #- name: DD_API_KEY_HTTP_EXP
+  #  valueFrom:
+  #    secretKeyRef:
+  #      name: datadog-secrets
+  #      key: api-key-http-exp
+  #      optional: false
   - name: OTEL_K8S_NAMESPACE
     valueFrom:
       fieldRef:
@@ -90,7 +96,20 @@ config:
         trace_buffer: 1000
       api:
         key: "${env:DD_API_KEY}"
+    #otlphttp:
+    #  metrics_endpoint: https://api.datadoghq.com/api/intake/otlp/v1/metrics
+    #  dd-otel-metric-config: '{"resource_attributes_as_tags": true}'
+    #  #endpoint: "https://api.datadoghq.com/api/v2/otlp"
+    #  #otlpmetrichttp.WithURLPath("/api/intake/otlp/v1/metrics") ???
+    #  headers:
+    #    "DD-API-KEY": "${env:DD_API_KEY_HTTP_EXP}"
   processors:
+    ##azh
+    #processors:
+    #  # processor name: cumulativetodelta
+    #  cumulativetodelta:
+    #    # If include/exclude are not specified
+    #    # convert all cumulative sum or histogram metrics to delta
     attributes:
       actions:
         - key: log.file.path
@@ -233,6 +252,10 @@ config:
         receivers: [otlp, hostmetrics, prometheus, datadog/connector]
         processors: [resourcedetection, k8sattributes, transform, batch]
         exporters: [datadog]
+      #metrics/directInTake:
+      #  receivers: [otlp, hostmetrics, prometheus, datadog/connector]
+      #  processors: [cumulativetodelta, resourcedetection, k8sattributes, transform, batch]
+      #  exporters: [otlphttp]
       traces:
         receivers: [otlp]
         processors: [resourcedetection, k8sattributes, transform, batch]
