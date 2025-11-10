@@ -28,7 +28,10 @@ import (
 	datadogconfig "github.com/open-telemetry/opentelemetry-collector-contrib/pkg/datadog/config"
 )
 
-const payloadSendingInterval = 30 * time.Minute
+const (
+	payloadSendingInterval = 30 * time.Minute
+	initialPayloadDelay    = 1 * time.Minute
+)
 
 // uuidProvider defines an interface for generating UUIDs, allowing for mocking in tests.
 type uuidProvider interface {
@@ -176,12 +179,9 @@ func (e *datadogExtension) NotifyConfig(_ context.Context, conf *confmap.Conf) e
 		otelCollectorPayload,
 	)
 	e.httpServer.Start()
-	_, err = e.httpServer.SendPayload()
-	if err != nil {
-		return err
-	}
 
-	// Start periodic payload sending (every 30 minutes)
+	// Start payload sending routine with initial delay
+	// This allows the collector to fully initialize before sending the first metadata payload
 	e.startPeriodicPayloadSending()
 
 	return nil
@@ -240,15 +240,32 @@ func (e *datadogExtension) Shutdown(ctx context.Context) error {
 	return nil
 }
 
-// startPeriodicPayloadSending starts a goroutine that sends payloads on payloadSendingInterval
+// startPeriodicPayloadSending starts a goroutine that sends payloads after an initial delay,
+// then periodically on payloadSendingInterval
 func (e *datadogExtension) startPeriodicPayloadSending() {
 	e.payloadSender.once.Do(func() {
 		go func() {
 			defer e.payloadSender.ticker.Stop()
+
+			// Initial delay before first send to allow collector to fully initialize
+			select {
+			case <-time.After(initialPayloadDelay):
+				e.logger.Info("Sending initial OTel collector metadata payload to Datadog")
+				if _, err := e.httpServer.SendPayload(); err != nil {
+					e.logger.Warn("Failed to send initial metadata payload", zap.Error(err))
+				} else {
+					e.logger.Info("Successfully sent initial metadata payload to Datadog")
+				}
+			case <-e.payloadSender.ctx.Done():
+				e.logger.Debug("Extension shutting down before initial payload send")
+				return
+			}
+
+			// Then periodic sends every 30 minutes
 			for {
 				select {
 				case <-e.payloadSender.ticker.C:
-					e.logger.Debug("Sending periodic payload to Datadog")
+					e.logger.Debug("Sending periodic OTel collector metadata payload to Datadog")
 					if _, err := e.httpServer.SendPayload(); err != nil {
 						e.logger.Error("Failed to send periodic payload", zap.Error(err))
 					} else {
@@ -267,7 +284,9 @@ func (e *datadogExtension) startPeriodicPayloadSending() {
 			}
 		}()
 
-		e.logger.Info("Started periodic payload sending", zap.Duration("interval", payloadSendingInterval))
+		e.logger.Info("Started OTel collector metadata sender",
+			zap.Duration("initial_delay", initialPayloadDelay),
+			zap.Duration("interval", payloadSendingInterval))
 	})
 }
 

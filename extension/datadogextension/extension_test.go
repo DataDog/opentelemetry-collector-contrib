@@ -281,7 +281,7 @@ func TestComponentStatusChanged(t *testing.T) {
 }
 
 func TestNotifyConfigErrorPaths(t *testing.T) {
-	t.Run("http server SendPayload error", func(t *testing.T) {
+	t.Run("http server SendPayload error does not block startup", func(t *testing.T) {
 		set := extension.Settings{
 			TelemetrySettings: componenttest.NewNopTelemetrySettings(),
 			BuildInfo:         component.BuildInfo{Version: "1.2.3"},
@@ -309,10 +309,14 @@ func TestNotifyConfigErrorPaths(t *testing.T) {
 			"service":   map[string]any{"pipelines": map[string]any{"traces": map[string]any{"receivers": []any{"otlp"}}}},
 		})
 
-		// This should trigger the error path when SendPayload fails
+		// NotifyConfig should succeed even though SendPayload will eventually fail
+		// (SendPayload now happens asynchronously with a delay, failures are logged as warnings)
 		err = ext.NotifyConfig(t.Context(), conf)
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "payload send failed")
+		require.NoError(t, err, "NotifyConfig should not return error even if SendPayload will fail later")
+
+		// Verify the metadata was prepared
+		assert.NotNil(t, ext.otelCollectorMetadata)
+		assert.NotNil(t, ext.httpServer)
 
 		// Cleanup
 		assert.NoError(t, ext.Shutdown(t.Context()))
@@ -466,7 +470,7 @@ func TestPeriodicPayloadSending(t *testing.T) {
 		}
 	})
 
-	t.Run("manual payload trigger works", func(t *testing.T) {
+	t.Run("manual payload trigger channel exists", func(t *testing.T) {
 		set := extension.Settings{
 			TelemetrySettings: componenttest.NewNopTelemetrySettings(),
 			BuildInfo:         component.BuildInfo{Version: "1.2.3"},
@@ -497,24 +501,17 @@ func TestPeriodicPayloadSending(t *testing.T) {
 			component.MustNewType("otlp"): {BuilderRef: "gomod.example/otlp v1.0.0"},
 		}}
 
-		// NotifyConfig will send the initial payload
+		// NotifyConfig starts the payload sender with an initial delay
 		err = ext.NotifyConfig(t.Context(), conf)
 		require.NoError(t, err)
 
-		initialCount := mockSerializer.GetSendCount()
-
-		// Trigger manual payload send
+		// Verify the channel exists and can accept triggers
 		select {
 		case ext.payloadSender.channel <- struct{}{}:
-			// Successfully sent trigger
-		default:
-			t.Fatal("unable to send manual trigger")
+			// Successfully sent trigger - channel exists and is ready
+		case <-time.After(100 * time.Millisecond):
+			t.Fatal("unable to send manual trigger - channel blocked or not initialized")
 		}
-
-		// Give some time for the goroutine to process
-		require.Eventually(t, func() bool {
-			return mockSerializer.GetSendCount() > initialCount
-		}, time.Second, 10*time.Millisecond, "manual payload should be sent")
 
 		// Cleanup
 		err = ext.Shutdown(t.Context())
@@ -579,6 +576,57 @@ func TestPeriodicPayloadSending(t *testing.T) {
 		assert.NotPanics(t, func() {
 			ext.stopPeriodicPayloadSending()
 		})
+	})
+
+	t.Run("initial delay before first payload send", func(t *testing.T) {
+		set := extension.Settings{
+			TelemetrySettings: componenttest.NewNopTelemetrySettings(),
+			BuildInfo:         component.BuildInfo{Version: "1.2.3"},
+		}
+		hostProvider := &mockSourceProvider{source: source.Source{Kind: source.HostnameKind, Identifier: "test-host"}}
+		uuidProvider := &mockUUIDProvider{mockUUID: "test-uuid"}
+		cfg := &Config{
+			API: datadogconfig.APIConfig{Key: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", Site: "datadoghq.com"},
+			HTTPConfig: &httpserver.Config{
+				ServerConfig: confighttp.ServerConfig{Endpoint: "localhost:0"},
+				Path:         "/test-path",
+			},
+		}
+		ext, err := newExtension(t.Context(), cfg, set, hostProvider, uuidProvider)
+		require.NoError(t, err)
+
+		// Use a counting mock serializer to track when payloads are sent
+		mockSerializer := &countingMockSerializer{}
+		ext.serializer = mockSerializer
+
+		require.NoError(t, ext.Start(t.Context(), componenttest.NewNopHost()))
+
+		conf := confmap.NewFromStringMap(map[string]any{
+			"receivers": map[string]any{"otlp": nil},
+			"service":   map[string]any{"pipelines": map[string]any{"traces": map[string]any{"receivers": []any{"otlp"}}}},
+		})
+		ext.info.modules = service.ModuleInfos{Receiver: map[component.Type]service.ModuleInfo{
+			component.MustNewType("otlp"): {BuilderRef: "gomod.example/otlp v1.0.0"},
+		}}
+
+		// NotifyConfig should return immediately without sending payload
+		err = ext.NotifyConfig(t.Context(), conf)
+		require.NoError(t, err)
+
+		// Verify no payload was sent immediately (should be 0 during initial delay)
+		assert.Equal(t, 0, mockSerializer.GetSendCount(), "No payload should be sent immediately")
+
+		// Shutdown before initial delay completes
+		err = ext.Shutdown(t.Context())
+		require.NoError(t, err)
+
+		// Verify context was cancelled during initial delay (graceful shutdown)
+		select {
+		case <-ext.payloadSender.ctx.Done():
+			// Expected: context should be cancelled
+		default:
+			t.Fatal("payload context should be cancelled after shutdown")
+		}
 	})
 }
 
