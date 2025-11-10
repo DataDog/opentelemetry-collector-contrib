@@ -166,6 +166,9 @@ func TestCompleteOtelCollectorPayload(t *testing.T) {
 		site,
 		fullConfig,
 		buildInfo,
+		true,  // featureAPMEnabled (traces pipeline exists in test config)
+		false, // featureLogsEnabled (no logs pipeline in test config)
+		false, // featureRemoteConfigurationEnabled (always false until RC via OpAMP)
 	)
 
 	// Add full components (what would come from module info)
@@ -392,4 +395,12 @@ func TestCompleteOtelCollectorPayload(t *testing.T) {
 	assert.Contains(t, metadataMap, "build_info")
 	assert.Contains(t, metadataMap, "full_configuration")
 	assert.Contains(t, metadataMap, "health_status")
+	assert.Contains(t, metadataMap, "feature_apm_enabled")
+	assert.Contains(t, metadataMap, "feature_logs_enabled")
+	assert.Contains(t, metadataMap, "feature_remote_configuration_enabled")
+
+	// Verify feature flags have correct values
+	assert.Equal(t, true, metadataMap["feature_apm_enabled"], "feature_apm_enabled should be true (traces pipeline exists)")
+	assert.Equal(t, false, metadataMap["feature_logs_enabled"], "feature_logs_enabled should be false (no logs pipeline)")
+	assert.Equal(t, false, metadataMap["feature_remote_configuration_enabled"], "feature_remote_configuration_enabled should be false")
 }

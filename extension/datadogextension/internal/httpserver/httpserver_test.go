@@ -218,7 +218,10 @@ const successfulInstanceResponse = `{
     },
     "full_configuration": "",
     "health_status": "",
-    "collector_resource_attributes": {}
+    "collector_resource_attributes": {},
+    "feature_apm_enabled": false,
+    "feature_logs_enabled": false,
+    "feature_remote_configuration_enabled": false
   },
   "uuid": "test-uuid"
 }`

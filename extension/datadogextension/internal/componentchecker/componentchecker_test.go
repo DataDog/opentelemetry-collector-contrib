@@ -695,3 +695,144 @@ func TestDataToFlattenedJSONStringAdditionalCases(t *testing.T) {
 		assert.Equal(t, "null", result)
 	})
 }
+
+func TestGetPipelineFeatures(t *testing.T) {
+	tests := []struct {
+		name               string
+		config             map[string]any
+		expectedHasTraces  bool
+		expectedHasLogs    bool
+		expectedError      bool
+	}{
+		{
+			name: "traces and logs pipelines present",
+			config: map[string]any{
+				"service": map[string]any{
+					"pipelines": map[string]any{
+						"traces": map[string]any{
+							"receivers": []any{"otlp"},
+							"exporters": []any{"debug"},
+						},
+						"logs": map[string]any{
+							"receivers": []any{"otlp"},
+							"exporters": []any{"debug"},
+						},
+					},
+				},
+			},
+			expectedHasTraces: true,
+			expectedHasLogs:   true,
+			expectedError:     false,
+		},
+		{
+			name: "only traces pipeline present",
+			config: map[string]any{
+				"service": map[string]any{
+					"pipelines": map[string]any{
+						"traces": map[string]any{
+							"receivers": []any{"otlp"},
+							"exporters": []any{"debug"},
+						},
+						"metrics": map[string]any{
+							"receivers": []any{"otlp"},
+							"exporters": []any{"debug"},
+						},
+					},
+				},
+			},
+			expectedHasTraces: true,
+			expectedHasLogs:   false,
+			expectedError:     false,
+		},
+		{
+			name: "only logs pipeline present",
+			config: map[string]any{
+				"service": map[string]any{
+					"pipelines": map[string]any{
+						"logs": map[string]any{
+							"receivers": []any{"otlp"},
+							"exporters": []any{"debug"},
+						},
+						"metrics": map[string]any{
+							"receivers": []any{"otlp"},
+							"exporters": []any{"debug"},
+						},
+					},
+				},
+			},
+			expectedHasTraces: false,
+			expectedHasLogs:   true,
+			expectedError:     false,
+		},
+		{
+			name: "no traces or logs pipelines",
+			config: map[string]any{
+				"service": map[string]any{
+					"pipelines": map[string]any{
+						"metrics": map[string]any{
+							"receivers": []any{"otlp"},
+							"exporters": []any{"debug"},
+						},
+					},
+				},
+			},
+			expectedHasTraces: false,
+			expectedHasLogs:   false,
+			expectedError:     false,
+		},
+		{
+			name: "custom named traces pipeline",
+			config: map[string]any{
+				"service": map[string]any{
+					"pipelines": map[string]any{
+						"traces/custom": map[string]any{
+							"receivers": []any{"otlp"},
+							"exporters": []any{"debug"},
+						},
+					},
+				},
+			},
+			expectedHasTraces: true,
+			expectedHasLogs:   false,
+			expectedError:     false,
+		},
+		{
+			name: "custom named logs pipeline",
+			config: map[string]any{
+				"service": map[string]any{
+					"pipelines": map[string]any{
+						"logs/prod": map[string]any{
+							"receivers": []any{"otlp"},
+							"exporters": []any{"debug"},
+						},
+					},
+				},
+			},
+			expectedHasTraces: false,
+			expectedHasLogs:   true,
+			expectedError:     false,
+		},
+		{
+			name:               "empty config",
+			config:             map[string]any{},
+			expectedHasTraces:  false,
+			expectedHasLogs:    false,
+			expectedError:      false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			conf := confmap.NewFromStringMap(tt.config)
+			hasTraces, hasLogs, err := GetPipelineFeatures(conf)
+
+			if tt.expectedError {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				assert.Equal(t, tt.expectedHasTraces, hasTraces, "hasTraces mismatch")
+				assert.Equal(t, tt.expectedHasLogs, hasLogs, "hasLogs mismatch")
+			}
+		})
+	}
+}

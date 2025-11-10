@@ -350,6 +350,9 @@ func createTestOtelCollectorPayload() *payload.OtelCollectorPayload {
 	version := "0.127.0"
 	site := "datadoghq.com"
 
+	// Determine feature flags based on pipeline configuration
+	hasTraces, hasLogs, _ := componentchecker.GetPipelineFeatures(confMap)
+
 	metadata := payload.PrepareOtelCollectorMetadata(
 		hostname,
 		hostnameSource,
@@ -358,6 +361,9 @@ func createTestOtelCollectorPayload() *payload.OtelCollectorPayload {
 		site,
 		fullConfig,
 		buildInfo,
+		hasTraces, // featureAPMEnabled
+		hasLogs,   // featureLogsEnabled
+		false,     // featureRemoteConfigurationEnabled (always false until RC via OpAMP)
 	)
 
 	// Populate with realistic component data
@@ -556,6 +562,9 @@ func TestHTTPServerIntegration(t *testing.T) {
 		Version:     "0.127.0",
 	}
 	fullConfig := componentchecker.DataToFlattenedJSONString(confMap.ToStringMap())
+	// Determine feature flags based on pipeline configuration
+	hasTraces, hasLogs, _ := componentchecker.GetPipelineFeatures(confMap)
+
 	otelMetadata := payload.PrepareOtelCollectorMetadata(
 		testHostname,
 		"config",
@@ -564,6 +573,9 @@ func TestHTTPServerIntegration(t *testing.T) {
 		"datadoghq.com",
 		fullConfig,
 		buildInfo,
+		hasTraces, // featureAPMEnabled
+		hasLogs,   // featureLogsEnabled
+		false,     // featureRemoteConfigurationEnabled (always false until RC via OpAMP)
 	)
 	if activeComponents != nil {
 		otelMetadata.ActiveComponents = *activeComponents
@@ -722,6 +734,9 @@ func TestHTTPServerConfigIntegration(t *testing.T) {
 		"datadoghq.com",
 		"{}",
 		buildInfo,
+		false, // featureAPMEnabled
+		false, // featureLogsEnabled
+		false, // featureRemoteConfigurationEnabled (always false until RC via OpAMP)
 	)
 
 	// Test different server configurations
@@ -810,6 +825,9 @@ func TestHTTPServerConcurrentAccess(t *testing.T) {
 		"datadoghq.com",
 		"{}",
 		buildInfo,
+		false, // featureAPMEnabled
+		false, // featureLogsEnabled
+		false, // featureRemoteConfigurationEnabled (always false until RC via OpAMP)
 	)
 
 	// Create server

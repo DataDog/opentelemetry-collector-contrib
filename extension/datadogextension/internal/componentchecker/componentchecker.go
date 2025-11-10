@@ -183,3 +183,31 @@ func PopulateActiveComponents(c *confmap.Conf, moduleInfoJSON *payload.ModuleInf
 
 	return &serviceComponents, nil
 }
+
+// GetPipelineFeatures analyzes the service pipelines configuration and returns
+// feature flags indicating whether traces and logs pipelines are present.
+func GetPipelineFeatures(c *confmap.Conf) (hasTraces bool, hasLogs bool, err error) {
+	oc := otelcol.Config{}
+	if err := c.Unmarshal(&oc); err != nil {
+		return false, false, err
+	}
+
+	// Check if there are any traces or logs pipelines in the service configuration
+	// Pipeline ID string format is either "signal" or "signal/name"
+	for pipelineName := range oc.Service.Pipelines {
+		pipelineIDStr := pipelineName.String()
+		// Extract the signal type from the pipeline name (e.g., "traces" from "traces/custom")
+		parts := strings.Split(pipelineIDStr, "/")
+		if len(parts) > 0 {
+			signalType := parts[0]
+			if signalType == "traces" {
+				hasTraces = true
+			}
+			if signalType == "logs" {
+				hasLogs = true
+			}
+		}
+	}
+
+	return hasTraces, hasLogs, nil
+}
