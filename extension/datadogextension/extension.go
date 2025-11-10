@@ -111,6 +111,19 @@ func (e *datadogExtension) NotifyConfig(_ context.Context, conf *confmap.Conf) e
 	// Get the full collector configuration as a flattened JSON string
 	fullConfig := componentchecker.DataToFlattenedJSONString(e.configs.collector.ToStringMap())
 
+	// Determine feature flags based on pipeline configuration
+	hasTraces, hasLogs, err := componentchecker.GetPipelineFeatures(e.configs.collector)
+	if err != nil {
+		e.logger.Warn("Failed to determine pipeline features", zap.Error(err))
+	}
+
+	// Feature flags for Datadog backend
+	featureAPMEnabled := hasTraces
+	featureLogsEnabled := hasLogs
+	// Note: feature_remote_configuration_enabled will only be set to true when
+	// remote configuration is enabled via OpAMP
+	featureRemoteConfigurationEnabled := false
+
 	// Prepare the base payload
 	otelCollectorPayload := payload.PrepareOtelCollectorMetadata(
 		e.info.host.Identifier,
@@ -120,6 +133,9 @@ func (e *datadogExtension) NotifyConfig(_ context.Context, conf *confmap.Conf) e
 		e.configs.extension.API.Site,
 		fullConfig,
 		buildInfo,
+		featureAPMEnabled,
+		featureLogsEnabled,
+		featureRemoteConfigurationEnabled,
 	)
 
 	// Populate resource attributes collected from TelemetrySettings.Resource
