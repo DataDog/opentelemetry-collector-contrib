@@ -1,0 +1,2 @@
+github.com/DataDog/datadog-agent/pkg/util/containers/image v0.72.2 h1:sZ9OrvYLGrC8z/slBvCn42KaUTXNrz8SRR6+A66a3rU=
+github.com/DataDog/datadog-agent/pkg/util/containers/image v0.72.2/go.mod h1:qMhlESLSCvI8jZKUpJwXJTAgNUFK6M+N+77/P+Mjv6o=
