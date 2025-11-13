@@ -64,4 +64,7 @@ clusterArn="${clusterArn}"
 aws eks --region us-east-1 update-kubeconfig --name "${clusterName}"
 kubectl config use-context "${clusterArn}"
 
+# Ensure namespace exists before deploying
+kubectl create namespace "${namespace}" --dry-run=client -o yaml | kubectl apply -f -
+
 install_collector
