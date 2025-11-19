@@ -258,7 +258,6 @@ func (e *datadogExtension) sendLivenessMetric(ctx context.Context) error {
 		)
 		return clientutil.WrapError(merr, httpresp)
 	})
-
 	if err != nil {
 		e.logger.Error("Failed to send extension liveness metric", zap.Error(err))
 		return e.scrubber.Scrub(err)
