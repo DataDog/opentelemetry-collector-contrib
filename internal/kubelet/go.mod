@@ -1,6 +1,6 @@
 module github.com/open-telemetry/opentelemetry-collector-contrib/internal/kubelet
 
-go 1.24.0
+go 1.25.7
 
 require (
 	github.com/open-telemetry/opentelemetry-collector-contrib/internal/common v0.140.1
