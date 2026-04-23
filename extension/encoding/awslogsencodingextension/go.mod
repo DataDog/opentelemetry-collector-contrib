@@ -3,9 +3,9 @@ module github.com/open-telemetry/opentelemetry-collector-contrib/extension/encod
 go 1.24.0
 
 require (
-	github.com/aws/aws-lambda-go v1.50.0
-	github.com/goccy/go-json v0.10.5
-	github.com/klauspost/compress v1.18.1
+	github.com/aws/aws-lambda-go v1.54.0
+	github.com/goccy/go-json v0.10.6
+	github.com/klauspost/compress v1.18.5
 	github.com/open-telemetry/opentelemetry-collector-contrib/extension/encoding v0.140.1
 	github.com/open-telemetry/opentelemetry-collector-contrib/pkg/golden v0.140.1
 	github.com/open-telemetry/opentelemetry-collector-contrib/pkg/pdatatest v0.140.1
@@ -20,7 +20,7 @@ require (
 	go.opentelemetry.io/collector/pdata v1.46.0
 	go.opentelemetry.io/otel v1.38.0
 	go.uber.org/goleak v1.3.0
-	go.uber.org/zap v1.27.0
+	go.uber.org/zap v1.27.1
 )
 
 require (
