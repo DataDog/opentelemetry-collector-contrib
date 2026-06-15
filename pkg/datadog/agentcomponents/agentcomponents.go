@@ -11,10 +11,10 @@ import (
 	corelog "github.com/DataDog/datadog-agent/comp/core/log/def"
 	"github.com/DataDog/datadog-agent/comp/forwarder/defaultforwarder"
 	logsconfig "github.com/DataDog/datadog-agent/comp/logs/agent/config"
+	pkgconfigcreate "github.com/DataDog/datadog-agent/pkg/config/create"
 	pkgconfigmodel "github.com/DataDog/datadog-agent/pkg/config/model"
 	pkgconfigsetup "github.com/DataDog/datadog-agent/pkg/config/setup"
 	pkgconfigutils "github.com/DataDog/datadog-agent/pkg/config/utils"
-	"github.com/DataDog/datadog-agent/pkg/config/viperconfig"
 	"github.com/DataDog/datadog-agent/pkg/serializer"
 	zlib "github.com/DataDog/datadog-agent/pkg/util/compression/impl-zlib"
 	"go.opentelemetry.io/collector/component"
@@ -97,7 +97,7 @@ func NewSerializerComponent(cfg coreconfig.Component, logger corelog.Component, 
 // This function uses the options pattern to allow different modules to configure
 // the component with their specific needs.
 func NewConfigComponent(options ...ConfigOption) coreconfig.Component {
-	pkgconfig := viperconfig.NewConfig("DD", "DD", strings.NewReplacer(".", "_"))
+	pkgconfig := pkgconfigcreate.NewConfig(name, "")
 
 	// Apply all configuration options
 	for _, opt := range options {

@@ -10,10 +10,10 @@ require (
 	github.com/DataDog/datadog-agent/comp/logs/agent/config v0.73.0-rc.8
 	github.com/DataDog/datadog-agent/comp/otelcol/otlp/components/metricsclient v0.72.2
 	github.com/DataDog/datadog-agent/comp/otelcol/otlp/testutil v0.73.0-rc.8
+	github.com/DataDog/datadog-agent/pkg/config/create v0.73.0-rc.8
 	github.com/DataDog/datadog-agent/pkg/config/model v0.73.0-rc.8
 	github.com/DataDog/datadog-agent/pkg/config/setup v0.73.0-rc.8
 	github.com/DataDog/datadog-agent/pkg/config/utils v0.73.0-rc.8
-	github.com/DataDog/datadog-agent/pkg/config/viperconfig v0.73.0-rc.8
 	github.com/DataDog/datadog-agent/pkg/obfuscate v0.73.0-rc.8
 	github.com/DataDog/datadog-agent/pkg/opentelemetry-mapping-go/otlp/attributes v0.73.0-rc.8
 	github.com/DataDog/datadog-agent/pkg/opentelemetry-mapping-go/otlp/metrics v0.73.0-rc.8
@@ -71,12 +71,12 @@ require (
 	github.com/DataDog/datadog-agent/pkg/aggregator/ckey v0.73.0-rc.8 // indirect
 	github.com/DataDog/datadog-agent/pkg/api v0.73.0-rc.8 // indirect
 	github.com/DataDog/datadog-agent/pkg/collector/check/defaults v0.73.0-rc.8 // indirect
-	github.com/DataDog/datadog-agent/pkg/config/create v0.73.0-rc.8 // indirect
 	github.com/DataDog/datadog-agent/pkg/config/env v0.73.0-rc.8 // indirect
 	github.com/DataDog/datadog-agent/pkg/config/mock v0.73.0-rc.8 // indirect
 	github.com/DataDog/datadog-agent/pkg/config/nodetreemodel v0.73.0-rc.8 // indirect
 	github.com/DataDog/datadog-agent/pkg/config/structure v0.73.0-rc.8 // indirect
 	github.com/DataDog/datadog-agent/pkg/config/teeconfig v0.73.0-rc.8 // indirect
+	github.com/DataDog/datadog-agent/pkg/config/viperconfig v0.73.0-rc.8 // indirect
 	github.com/DataDog/datadog-agent/pkg/fips v0.73.0-rc.8 // indirect
 	github.com/DataDog/datadog-agent/pkg/logs/types v0.73.0-rc.8 // indirect
 	github.com/DataDog/datadog-agent/pkg/metrics v0.73.0-rc.8 // indirect
