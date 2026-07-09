@@ -1,0 +1,40 @@
+docker_attributes:
+
+docker_attributes/full:
+  endpoint: unix:///var/run/docker.sock
+  timeout: 20s
+  api_version: "1.44"
+  excluded_images:
+    - excluded-image
+    - "*/pause"
+  delete_grace_period: 300s
+  extract:
+    labels:
+      - key: com.example.team
+        tag_name: team
+      - key_regex: com\.example\.(.*)
+        tag_name: $1
+    env_vars:
+      - key: MY_ENV
+  association:
+    - from: resource_attribute
+      name: container.id
+
+docker_attributes/invalid_endpoint:
+  endpoint: ""
+
+docker_attributes/unsupported_association:
+  association:
+    - from: connection
+      name: container.id
+
+docker_attributes/both_key_and_regex:
+  extract:
+    labels:
+      - key: com.example.team
+        key_regex: com\.example\..*
+
+docker_attributes/bad_key_regex:
+  extract:
+    labels:
+      - key_regex: "com\\.example\\.([)"
