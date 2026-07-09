@@ -25,7 +25,7 @@ func newCache() *cache {
 	}
 }
 
-// Get returns the entry for id. 
+// Get returns the entry for id.
 // entries should never be mutated in place.
 func (c *cache) Get(id string) (*entry, bool) {
 	c.mu.RLock()

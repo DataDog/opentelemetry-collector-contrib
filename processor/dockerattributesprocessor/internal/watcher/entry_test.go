@@ -53,8 +53,9 @@ func inspectFixture(id, name, image, imageID string, cmd, env []string, labels m
 func TestBuild_FullRunningContainer(t *testing.T) {
 	insp := inspectFixture(
 		"abc123", "/web", "nginx:1.2", "sha256:deadbeef",
-		[]string{"nginx", "-g", "daemon off;"}, nil, nil,
+		[]string{"-g", "daemon off;"}, nil, nil,
 	)
+	insp.Config.Entrypoint = []string{"nginx"}
 
 	e, ok := build(insp, extractConfig{}, &fakeMatcher{})
 	require.True(t, ok)
@@ -64,12 +65,15 @@ func TestBuild_FullRunningContainer(t *testing.T) {
 	assert.Equal(t, "web", e.name)
 	assert.Equal(t, "nginx:1.2", e.imageName)
 	assert.Equal(t, "sha256:deadbeef", e.imageID)
-	assert.Equal(t, "nginx -g daemon off;", e.command)
 	assert.Equal(t, "docker", e.runtimeName)
 	assert.Equal(t, []string{"1.2"}, e.imageTags)
 	assert.Equal(t, int64(0), e.stamp) // build never stamps
+	// Command is entrypoint + cmd (semconv): command=executable, args=full list,
+	// line=joined.
+	assert.Equal(t, "nginx", e.command)
+	assert.Equal(t, []string{"nginx", "-g", "daemon off;"}, e.commandArgs)
+	assert.Equal(t, "nginx -g daemon off;", e.commandLine)
 
-	// Verify the attributes land on a resource map exactly.
 	attrs := pcommon.NewMap()
 	e.writeTo(attrs)
 	got := attrs.AsRaw()
@@ -77,8 +81,27 @@ func TestBuild_FullRunningContainer(t *testing.T) {
 	assert.Equal(t, "web", got[attrContainerName])
 	assert.Equal(t, "nginx:1.2", got[attrContainerImageName])
 	assert.Equal(t, "sha256:deadbeef", got[attrContainerImageID])
+	assert.Equal(t, "nginx", got[attrContainerCommand])
 	assert.Equal(t, "nginx -g daemon off;", got[attrContainerCommandLine])
+	assert.Equal(t, []any{"nginx", "-g", "daemon off;"}, got[attrContainerCommandArgs])
 	assert.Equal(t, "docker", got[attrContainerRuntimeName])
+}
+
+func TestBuild_BareDigestImageSuppressesName(t *testing.T) {
+	// Locally built / devcontainer images: Config.Image is the bare digest, which
+	// duplicates container.image.id and carries no name — so image.name is omitted.
+	insp := inspectFixture("id", "/c",
+		"sha256:8de24d360e1b083c2e32ce4be1f4eb056ed3fcdd05dc08499b5137f732cf66ae",
+		"sha256:8de24d360e1b083c2e32ce4be1f4eb056ed3fcdd05dc08499b5137f732cf66ae",
+		nil, nil, nil)
+	e, ok := build(insp, extractConfig{}, &fakeMatcher{})
+	require.True(t, ok)
+	assert.Empty(t, e.imageName, "bare digest must not be emitted as image.name")
+
+	attrs := pcommon.NewMap()
+	e.writeTo(attrs)
+	_, present := attrs.Get(attrContainerImageName)
+	assert.False(t, present, "container.image.name must be omitted for a bare-digest image")
 }
 
 func TestBuild_NameSlashTrim(t *testing.T) {

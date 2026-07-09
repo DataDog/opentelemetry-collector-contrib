@@ -12,16 +12,18 @@ import (
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/common/docker"
 )
 
-// Attribute keys emitted onto resources. Derivation matches dockerstatsreceiver,
-// not strict semconv.
+// Attribute keys emitted onto resources. Every key is a semconv container.*
+// attribute (semconv v1.41.0).
 const (
 	attrContainerID          = "container.id"
 	attrContainerName        = "container.name"
 	attrContainerImageName   = "container.image.name"
 	attrContainerImageID     = "container.image.id"
+	attrContainerImageTags   = "container.image.tags"
+	attrContainerCommand     = "container.command"
+	attrContainerCommandArgs = "container.command_args"
 	attrContainerCommandLine = "container.command_line"
 	attrContainerRuntimeName = "container.runtime.name"
-	attrContainerImageTags   = "container.image.tags"
 
 	runtimeDocker = "docker"
 )
@@ -33,7 +35,9 @@ type entry struct {
 	id, name    string
 	imageName   string
 	imageID     string
-	command     string
+	command     string   // executable (container.command)
+	commandArgs []string // full command incl. entrypoint (container.command_args)
+	commandLine string   // commandArgs joined (container.command_line)
 	runtimeName string
 	imageTags   []string
 	labels      map[string]string
@@ -55,17 +59,62 @@ func build(insp *container.InspectResponse, cfg extractConfig, excl imageMatcher
 	e = &entry{
 		id:          insp.ID,
 		name:        strings.TrimPrefix(insp.Name, "/"),
-		imageName:   rawImage,
+		imageName:   imageName(rawImage),
 		imageID:     insp.Image,
 		runtimeName: runtimeDocker,
 	}
 	if insp.Config != nil {
-		e.command = strings.Join(insp.Config.Cmd, " ")
+		// The full command is entrypoint followed by cmd (semconv). command is the
+		// executable, command_args the whole list, command_line the joined string.
+		argv := make([]string, 0, len(insp.Config.Entrypoint)+len(insp.Config.Cmd))
+		argv = append(argv, insp.Config.Entrypoint...)
+		argv = append(argv, insp.Config.Cmd...)
+		if len(argv) > 0 {
+			e.command = argv[0]
+			e.commandArgs = argv
+			e.commandLine = strings.Join(argv, " ")
+		}
 		e.imageTags = deriveImageTags(rawImage)
 		e.labels = filterMapped(insp.Config.Labels, cfg.labels)
 		e.env = filterEnv(insp.Config.Env, cfg.envVars)
 	}
 	return e, true
+}
+
+// imageName returns the image reference for container.image.name, or "" when the
+// ref is a bare digest (e.g. "sha256:..." for a locally built or devcontainer
+// image). A bare digest duplicates container.image.id and carries no human
+// identity, so it is suppressed rather than emitted.
+func imageName(rawImage string) string {
+	if rawImage == "" || isBareDigest(rawImage) {
+		return ""
+	}
+	return rawImage
+}
+
+// isBareDigest reports whether rawImage is a bare content digest with no
+// repository name, i.e. "<algo>:<hex>" where hex is a full 64- or 128-char
+// lowercase hash (sha256/sha512). This is what Docker stores as Config.Image for
+// a locally built image with no tag. A normal "repo:tag" (even a hex-looking tag
+// like "app:1") is not a digest — the hash-length check rules it out.
+func isBareDigest(rawImage string) bool {
+	if strings.ContainsRune(rawImage, '/') {
+		return false // has a registry/repo component
+	}
+	i := strings.IndexByte(rawImage, ':')
+	if i <= 0 {
+		return false
+	}
+	hex := rawImage[i+1:]
+	if len(hex) != 64 && len(hex) != 128 {
+		return false
+	}
+	for _, r := range hex {
+		if (r < '0' || r > '9') && (r < 'a' || r > 'f') {
+			return false
+		}
+	}
+	return true
 }
 
 // deriveImageTags returns the ref's tag, or nil when it carries none.
@@ -140,15 +189,12 @@ func (e *entry) writeTo(attrs pcommon.Map) {
 	putStr(attrs, attrContainerName, e.name)
 	putStr(attrs, attrContainerImageName, e.imageName)
 	putStr(attrs, attrContainerImageID, e.imageID)
-	putStr(attrs, attrContainerCommandLine, e.command)
+	putStr(attrs, attrContainerCommand, e.command)
+	putStr(attrs, attrContainerCommandLine, e.commandLine)
 	putStr(attrs, attrContainerRuntimeName, e.runtimeName)
 
-	if len(e.imageTags) > 0 && !hasNonEmptyTags(attrs, attrContainerImageTags) {
-		s := attrs.PutEmptySlice(attrContainerImageTags)
-		for _, t := range e.imageTags {
-			s.AppendEmpty().SetStr(t)
-		}
-	}
+	putStrSlice(attrs, attrContainerImageTags, e.imageTags)
+	putStrSlice(attrs, attrContainerCommandArgs, e.commandArgs)
 
 	// Labels/env are explicitly opted in, so an empty value is meaningful and
 	// still written (unlike the fixed metadata above).
@@ -177,12 +223,24 @@ func putStrAllowEmpty(attrs pcommon.Map, key, val string) {
 	attrs.PutStr(key, val)
 }
 
+// putStrSlice writes vals as a string Slice, unless empty or a non-empty slice
+// already exists at key.
+func putStrSlice(attrs pcommon.Map, key string, vals []string) {
+	if len(vals) == 0 || hasNonEmptySlice(attrs, key) {
+		return
+	}
+	s := attrs.PutEmptySlice(key)
+	for _, v := range vals {
+		s.AppendEmpty().SetStr(v)
+	}
+}
+
 func hasNonEmpty(attrs pcommon.Map, key string) bool {
 	v, ok := attrs.Get(key)
 	return ok && v.Str() != ""
 }
 
-func hasNonEmptyTags(attrs pcommon.Map, key string) bool {
+func hasNonEmptySlice(attrs pcommon.Map, key string) bool {
 	v, ok := attrs.Get(key)
 	return ok && v.Type() == pcommon.ValueTypeSlice && v.Slice().Len() > 0
 }
