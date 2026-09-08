@@ -245,6 +245,33 @@ func TestBuild_NoLabelsSelected_NilMap(t *testing.T) {
 	assert.Nil(t, e.labels, "no selected labels must leave labels nil, not empty map")
 }
 
+func BenchmarkEntryWriteTo(b *testing.B) {
+	e := &entry{
+		id:          "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+		name:        "checkout",
+		imageName:   "registry.example.com/shop/checkout:1.2.3",
+		imageID:     "sha256:abcdef",
+		command:     "/app/checkout",
+		commandArgs: []string{"/app/checkout", "--listen=:8080", "--log-level=info"},
+		commandLine: "/app/checkout --listen=:8080 --log-level=info",
+		runtimeName: runtimeDocker,
+		imageTags:   []string{"1.2.3"},
+		labels: map[string]string{
+			"container.label.com.example.team": "payments",
+			"container.label.com.example.env":  "benchmark",
+		},
+		env: map[string]string{
+			"deployment.region": "us-east-1",
+		},
+	}
+
+	b.ReportAllocs()
+	for b.Loop() {
+		attrs := pcommon.NewMap()
+		e.writeTo(attrs)
+	}
+}
+
 func TestNotActive(t *testing.T) {
 	tests := []struct {
 		name  string

@@ -200,6 +200,17 @@ func (w *Watcher) handleEvent(ctx context.Context, ev events.Message) {
 	id := ev.Actor.ID
 	switch ev.Action {
 	case "start", "unpause":
+		// Docker container configuration is immutable after creation. Reuse an
+		// existing entry when a stopped or paused container becomes active again;
+		// inspecting it again would only return the same enrichment metadata.
+		if old, ok := w.cache.Get(id); ok {
+			e := *old
+			if name := ev.Actor.Attributes["name"]; name != "" {
+				e.name = name
+			}
+			w.cache.put(&e, ev.TimeNano)
+			return
+		}
 		insp, ok := w.inspect(ctx, id)
 		if !ok {
 			return

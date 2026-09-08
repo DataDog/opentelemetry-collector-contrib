@@ -133,6 +133,56 @@ func TestHandleEvent_StartThenRename(t *testing.T) {
 	assert.Equal(t, "new", got.name, "rename must update the name")
 }
 
+func TestHandleEvent_UnpauseReusesCachedMetadata(t *testing.T) {
+	f := newFakeDocker()
+	f.setInspect("c1", "/c", "nginx:1", "sha256:a", true, false)
+	w := testWatcher(t, f, allowAll{})
+
+	w.handleEvent(t.Context(), events.Message{Action: "start", TimeNano: 100, Actor: events.Actor{ID: "c1"}})
+	w.handleEvent(t.Context(), events.Message{Action: "pause", TimeNano: 200, Actor: events.Actor{ID: "c1"}})
+	w.handleEvent(t.Context(), events.Message{Action: "unpause", TimeNano: 300, Actor: events.Actor{ID: "c1"}})
+
+	assert.Equal(t, 1, f.callCount("c1"), "unpause must reuse immutable cached metadata")
+	got, ok := w.cache.Get("c1")
+	require.True(t, ok)
+	assert.Equal(t, int64(300), got.stamp)
+	w.cache.mu.RLock()
+	_, marked := w.cache.expiring["c1"]
+	w.cache.mu.RUnlock()
+	assert.False(t, marked, "unpause must clear the pending expiry")
+}
+
+func TestHandleEvent_RepeatedStartReusesCachedMetadata(t *testing.T) {
+	f := newFakeDocker()
+	f.setInspect("c1", "/c", "nginx:1", "sha256:a", true, false)
+	w := testWatcher(t, f, allowAll{})
+
+	w.handleEvent(t.Context(), events.Message{Action: "start", TimeNano: 100, Actor: events.Actor{ID: "c1"}})
+	w.handleEvent(t.Context(), events.Message{
+		Action:   "start",
+		TimeNano: 200,
+		Actor:    events.Actor{ID: "c1", Attributes: map[string]string{"name": "renamed-while-disconnected"}},
+	})
+
+	assert.Equal(t, 1, f.callCount("c1"), "repeated start must reuse immutable cached metadata")
+	got, ok := w.cache.Get("c1")
+	require.True(t, ok)
+	assert.Equal(t, int64(200), got.stamp)
+	assert.Equal(t, "renamed-while-disconnected", got.name, "start attributes must repair a missed rename")
+}
+
+func TestHandleEvent_UnpauseCacheMissInspects(t *testing.T) {
+	f := newFakeDocker()
+	f.setInspect("c1", "/c", "nginx:1", "sha256:a", true, false)
+	w := testWatcher(t, f, allowAll{})
+
+	w.handleEvent(t.Context(), events.Message{Action: "unpause", TimeNano: 100, Actor: events.Actor{ID: "c1"}})
+
+	assert.Equal(t, 1, f.callCount("c1"), "cache miss must still self-heal through inspect")
+	_, ok := w.cache.Get("c1")
+	assert.True(t, ok)
+}
+
 func TestHandleEvent_ExitMarksExpiring(t *testing.T) {
 	f := newFakeDocker()
 	f.setInspect("c1", "/c", "nginx:1", "sha256:a", true, false)

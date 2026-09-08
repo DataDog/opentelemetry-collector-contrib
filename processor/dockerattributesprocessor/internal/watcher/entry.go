@@ -185,6 +185,10 @@ func filterEnv(env []string, f fieldFilter) map[string]string {
 // writeTo copies the entry's attributes onto attrs without overwriting existing
 // non-empty values.
 func (e *entry) writeTo(attrs pcommon.Map) {
+	// pcommon.Map is slice-backed. Reserve once so adding the fixed metadata and
+	// selected labels/env vars does not repeatedly grow and copy that slice.
+	attrs.EnsureCapacity(attrs.Len() + 9 + len(e.labels) + len(e.env))
+
 	putStr(attrs, attrContainerID, e.id)
 	putStr(attrs, attrContainerName, e.name)
 	putStr(attrs, attrContainerImageName, e.imageName)
@@ -208,41 +212,41 @@ func (e *entry) writeTo(attrs pcommon.Map) {
 
 // putStr sets key=val unless val is empty or key already holds a non-empty value.
 func putStr(attrs pcommon.Map, key, val string) {
-	if val == "" || hasNonEmpty(attrs, key) {
+	if val == "" {
 		return
 	}
-	attrs.PutStr(key, val)
+	v, loaded := attrs.GetOrPutEmpty(key)
+	if loaded && v.Str() != "" {
+		return
+	}
+	v.SetStr(val)
 }
 
 // putStrAllowEmpty is putStr but stores an empty val too; still won't overwrite a
 // non-empty value.
 func putStrAllowEmpty(attrs pcommon.Map, key, val string) {
-	if hasNonEmpty(attrs, key) {
+	v, loaded := attrs.GetOrPutEmpty(key)
+	if loaded && v.Str() != "" {
 		return
 	}
-	attrs.PutStr(key, val)
+	v.SetStr(val)
 }
 
 // putStrSlice writes vals as a string Slice, unless empty or a non-empty slice
 // already exists at key.
 func putStrSlice(attrs pcommon.Map, key string, vals []string) {
-	if len(vals) == 0 || hasNonEmptySlice(attrs, key) {
+	if len(vals) == 0 {
 		return
 	}
-	s := attrs.PutEmptySlice(key)
-	for _, v := range vals {
-		s.AppendEmpty().SetStr(v)
+	v, loaded := attrs.GetOrPutEmpty(key)
+	if loaded && v.Type() == pcommon.ValueTypeSlice && v.Slice().Len() > 0 {
+		return
 	}
-}
-
-func hasNonEmpty(attrs pcommon.Map, key string) bool {
-	v, ok := attrs.Get(key)
-	return ok && v.Str() != ""
-}
-
-func hasNonEmptySlice(attrs pcommon.Map, key string) bool {
-	v, ok := attrs.Get(key)
-	return ok && v.Type() == pcommon.ValueTypeSlice && v.Slice().Len() > 0
+	s := v.SetEmptySlice()
+	s.EnsureCapacity(len(vals))
+	for _, val := range vals {
+		s.AppendEmpty().SetStr(val)
+	}
 }
 
 // notActive reports whether the container is stopped or paused. A paused
