@@ -6,6 +6,8 @@ package dockerattributesprocessor // import "github.com/open-telemetry/opentelem
 import (
 	"context"
 	"encoding/hex"
+	"fmt"
+	"net/http"
 	"strings"
 
 	docker "github.com/docker/docker/client"
@@ -17,6 +19,7 @@ import (
 	"go.opentelemetry.io/collector/pdata/ptrace"
 	"go.uber.org/zap"
 
+	dockerinternal "github.com/open-telemetry/opentelemetry-collector-contrib/internal/docker"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/dockerattributesprocessor/internal/watcher"
 )
 
@@ -43,9 +46,26 @@ func (p *dockerAttributesProcessor) Start(ctx context.Context, _ component.Host)
 		docker.WithUserAgent(processorUserAgent),
 	}
 	if v := p.cfg.DockerAPIVersion; v != "" {
-		opts = append(opts, docker.WithVersion(v))
+		version, err := dockerinternal.NewAPIVersion(v)
+		if err != nil {
+			return err
+		}
+		opts = append(opts, docker.WithVersion(version))
 	} else {
 		opts = append(opts, docker.WithAPIVersionNegotiation())
+	}
+
+	// Apply TLS when configured, mirroring internal/docker.NewDockerClient. The
+	// TLS config is validated in Config.Validate; without this it would be
+	// silently ignored and the connection would fall back to plaintext.
+	if tls := p.cfg.TLS; tls.HasValue() && !tls.Get().Insecure {
+		tlsCfg, err := tls.Get().LoadTLSConfig(ctx)
+		if err != nil {
+			return fmt.Errorf("load docker client TLS config: %w", err)
+		}
+		opts = append(opts, docker.WithHTTPClient(&http.Client{
+			Transport: &http.Transport{TLSClientConfig: tlsCfg},
+		}))
 	}
 
 	sdk, err := docker.NewClientWithOpts(opts...)

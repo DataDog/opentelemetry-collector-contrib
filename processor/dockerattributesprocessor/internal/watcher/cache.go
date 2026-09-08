@@ -11,9 +11,10 @@ import (
 
 // cache holds container metadata keyed by container.id. byID is the store;
 // expiring holds delete-after deadlines for exited containers (grace period).
+// Stored *entry values are immutable: writers replace the map slot, never mutate
+// in place, so Get can hand out the pointer without copying.
 type cache struct {
-	mu sync.RWMutex
-	// Entries are immutable
+	mu       sync.RWMutex
 	byID     map[string]*entry
 	expiring map[string]time.Time
 }
@@ -25,8 +26,7 @@ func newCache() *cache {
 	}
 }
 
-// Get returns the entry for id.
-// entries should never be mutated in place.
+// Get returns the entry for id. The returned pointer must not be mutated.
 func (c *cache) Get(id string) (*entry, bool) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
@@ -34,31 +34,34 @@ func (c *cache) Get(id string) (*entry, bool) {
 	return e, ok
 }
 
-// put stores e and clears any pending expiry (the container is alive). A write
-// with an older stamp than the stored entry is dropped, guarding against stale
-// or out-of-order writes.
+// store writes e under the stamp guard: a write older than the stored entry is
+// dropped, guarding against stale or out-of-order writes. Caller holds c.mu.
+// Returns whether the write was applied.
+func (c *cache) store(e *entry, stamp int64) bool {
+	if cur := c.byID[e.id]; cur != nil && stamp < cur.stamp {
+		return false
+	}
+	e.stamp = stamp
+	c.byID[e.id] = e
+	return true
+}
+
+// put stores e and clears any pending expiry — the container is alive.
 func (c *cache) put(e *entry, stamp int64) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if cur := c.byID[e.id]; cur != nil && stamp < cur.stamp {
-		return
+	if c.store(e, stamp) {
+		delete(c.expiring, e.id)
 	}
-	e.stamp = stamp
-	c.byID[e.id] = e
-	delete(c.expiring, e.id)
 }
 
-// putKeepingExpiry stores e (same stamp guard as put) but leaves any deadline in
-// place. Rename uses this: Docker emits rename for stopped containers too, and
-// clearing expiry would keep a dead container cached forever.
+// putKeepingExpiry stores e but leaves any deadline in place. Rename uses this:
+// Docker emits rename for stopped containers too, and clearing expiry would keep
+// a dead container cached forever.
 func (c *cache) putKeepingExpiry(e *entry, stamp int64) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if cur := c.byID[e.id]; cur != nil && stamp < cur.stamp {
-		return
-	}
-	e.stamp = stamp
-	c.byID[e.id] = e
+	c.store(e, stamp)
 }
 
 // putIfAbsentWithExpiry stores e only if id is absent, reporting whether it
