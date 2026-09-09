@@ -16,6 +16,7 @@ import (
 	"go.opentelemetry.io/collector/processor/xprocessor"
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/docker"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/sharedcomponent"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/dockerattributesprocessor/internal/metadata"
 )
 
@@ -23,15 +24,20 @@ const defaultDeleteGracePeriod = 120 * time.Second
 
 var consumerCapabilities = consumer.Capabilities{MutatesData: true}
 
+type factory struct {
+	processors *sharedcomponent.SharedComponents
+}
+
 // NewFactory returns a new factory for the docker attributes processor.
 func NewFactory() processor.Factory {
+	f := &factory{processors: sharedcomponent.NewSharedComponents()}
 	return xprocessor.NewFactory(
 		metadata.Type,
 		createDefaultConfig,
-		xprocessor.WithTraces(createTracesProcessor, metadata.TracesStability),
-		xprocessor.WithMetrics(createMetricsProcessor, metadata.MetricsStability),
-		xprocessor.WithLogs(createLogsProcessor, metadata.LogsStability),
-		xprocessor.WithProfiles(createProfilesProcessor, metadata.ProfilesStability),
+		xprocessor.WithTraces(f.createTracesProcessor, metadata.TracesStability),
+		xprocessor.WithMetrics(f.createMetricsProcessor, metadata.MetricsStability),
+		xprocessor.WithLogs(f.createLogsProcessor, metadata.LogsStability),
+		xprocessor.WithProfiles(f.createProfilesProcessor, metadata.ProfilesStability),
 	)
 }
 
@@ -42,62 +48,69 @@ func createDefaultConfig() component.Config {
 	}
 }
 
-func createTracesProcessor(
+func (f *factory) get(set processor.Settings, cfg *Config) (*sharedcomponent.SharedComponent, *dockerAttributesProcessor) {
+	shared := f.processors.GetOrAdd(set.ID, func() component.Component {
+		return newProcessor(set.TelemetrySettings, cfg)
+	})
+	return shared, shared.Unwrap().(*dockerAttributesProcessor)
+}
+
+func (f *factory) createTracesProcessor(
 	ctx context.Context,
 	set processor.Settings,
 	cfg component.Config,
 	next consumer.Traces,
 ) (processor.Traces, error) {
-	dp := newProcessor(set.TelemetrySettings, cfg.(*Config))
+	shared, dp := f.get(set, cfg.(*Config))
 	return processorhelper.NewTraces(
 		ctx, set, cfg, next, dp.processTraces,
 		processorhelper.WithCapabilities(consumerCapabilities),
-		processorhelper.WithStart(dp.Start),
-		processorhelper.WithShutdown(dp.Shutdown),
+		processorhelper.WithStart(shared.Start),
+		processorhelper.WithShutdown(shared.Shutdown),
 	)
 }
 
-func createMetricsProcessor(
+func (f *factory) createMetricsProcessor(
 	ctx context.Context,
 	set processor.Settings,
 	cfg component.Config,
 	next consumer.Metrics,
 ) (processor.Metrics, error) {
-	dp := newProcessor(set.TelemetrySettings, cfg.(*Config))
+	shared, dp := f.get(set, cfg.(*Config))
 	return processorhelper.NewMetrics(
 		ctx, set, cfg, next, dp.processMetrics,
 		processorhelper.WithCapabilities(consumerCapabilities),
-		processorhelper.WithStart(dp.Start),
-		processorhelper.WithShutdown(dp.Shutdown),
+		processorhelper.WithStart(shared.Start),
+		processorhelper.WithShutdown(shared.Shutdown),
 	)
 }
 
-func createLogsProcessor(
+func (f *factory) createLogsProcessor(
 	ctx context.Context,
 	set processor.Settings,
 	cfg component.Config,
 	next consumer.Logs,
 ) (processor.Logs, error) {
-	dp := newProcessor(set.TelemetrySettings, cfg.(*Config))
+	shared, dp := f.get(set, cfg.(*Config))
 	return processorhelper.NewLogs(
 		ctx, set, cfg, next, dp.processLogs,
 		processorhelper.WithCapabilities(consumerCapabilities),
-		processorhelper.WithStart(dp.Start),
-		processorhelper.WithShutdown(dp.Shutdown),
+		processorhelper.WithStart(shared.Start),
+		processorhelper.WithShutdown(shared.Shutdown),
 	)
 }
 
-func createProfilesProcessor(
+func (f *factory) createProfilesProcessor(
 	ctx context.Context,
 	set processor.Settings,
 	cfg component.Config,
 	next xconsumer.Profiles,
 ) (xprocessor.Profiles, error) {
-	dp := newProcessor(set.TelemetrySettings, cfg.(*Config))
+	shared, dp := f.get(set, cfg.(*Config))
 	return xprocessorhelper.NewProfiles(
 		ctx, set, cfg, next, dp.processProfiles,
 		xprocessorhelper.WithCapabilities(consumerCapabilities),
-		xprocessorhelper.WithStart(dp.Start),
-		xprocessorhelper.WithShutdown(dp.Shutdown),
+		xprocessorhelper.WithStart(shared.Start),
+		xprocessorhelper.WithShutdown(shared.Shutdown),
 	)
 }

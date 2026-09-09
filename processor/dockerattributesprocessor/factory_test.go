@@ -9,12 +9,15 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/consumer/consumertest"
 	"go.opentelemetry.io/collector/consumer/xconsumer"
 	"go.opentelemetry.io/collector/processor/processortest"
 	"go.opentelemetry.io/collector/processor/xprocessor"
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/docker"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/sharedcomponent"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/dockerattributesprocessor/internal/metadata"
 )
 
 func TestCreateDefaultConfig(t *testing.T) {
@@ -28,6 +31,22 @@ func TestCreateDefaultConfig(t *testing.T) {
 	assert.Empty(t, dc.Extract.Labels)
 	assert.Empty(t, dc.Extract.EnvVars)
 	assert.NoError(t, dc.Validate())
+}
+
+func TestFactorySharesProcessorsByID(t *testing.T) {
+	f := &factory{processors: sharedcomponent.NewSharedComponents()}
+	cfg := createDefaultConfig().(*Config)
+	set := processortest.NewNopSettings(metadata.Type)
+
+	firstShared, first := f.get(set, cfg)
+	secondShared, second := f.get(set, cfg)
+	assert.Same(t, firstShared, secondShared)
+	assert.Same(t, first, second)
+
+	set.ID = component.NewIDWithName(metadata.Type, "named")
+	namedShared, named := f.get(set, cfg)
+	assert.NotSame(t, firstShared, namedShared)
+	assert.NotSame(t, first, named)
 }
 
 // TestCreateProcessors also asserts create does not connect to a daemon.
