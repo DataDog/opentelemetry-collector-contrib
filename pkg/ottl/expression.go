@@ -8,13 +8,13 @@ import (
 	"context"
 	"encoding/binary"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
 	"strconv"
 	"time"
 
-	"github.com/goccy/go-json"
 	"go.opentelemetry.io/collector/pdata/pcommon"
 	"golang.org/x/exp/constraints"
 
