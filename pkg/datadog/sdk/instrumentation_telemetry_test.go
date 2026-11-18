@@ -46,7 +46,12 @@ func telemetryServer(t *testing.T, handler http.HandlerFunc) *sdkServer {
 func startTelemetryServer(t *testing.T, e *sdkServer) string {
 	t.Helper()
 	require.NoError(t, e.Start(t.Context(), componenttest.NewNopHost()))
-	t.Cleanup(func() { require.NoError(t, e.Shutdown(t.Context())) })
+	t.Cleanup(func() {
+		// Testing cancels t.Context before cleanup, so give shutdown its own deadline.
+		ctx, cancel := context.WithTimeout(context.WithoutCancel(t.Context()), 5*time.Second)
+		defer cancel()
+		require.NoError(t, e.Shutdown(ctx))
+	})
 	return "http://" + e.listener.Addr().String()
 }
 
