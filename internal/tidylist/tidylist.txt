@@ -142,6 +142,7 @@ extension/awsproxy
 extension/azureauthextension
 extension/cgroupruntimeextension
 pkg/datadog/sdk
+pkg/datadog/remoteconfig
 extension/datadogextension
 extension/dbauth/awsiamdbauthextension
 extension/encoding/avrologencodingextension

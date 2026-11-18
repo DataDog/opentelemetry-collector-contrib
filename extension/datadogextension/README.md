@@ -128,3 +128,25 @@ service:
 ```
 
 Point the SDK's Agent URL at this listener. `sdk_http` optionally configures TLS, authentication and request limits; remote workloads need reachable networking and workload access controls. Forwarding preserves compressed native bodies and uses bounded synchronous delivery, without an extra queue or retries. The [shared module](../../pkg/datadog/sdk/README.md) describes the routing and limits. Python is the core [SDK POC](https://github.com/DataDog/dd-trace-py/pull/21688); Java parity is follow-up work.
+
+## Experimental Remote Configuration
+
+Enable the published Agent RC engine to serve existing DDOT SDK RC clients on the same SDK listener. SDK instrumentation telemetry and RC are independent opt-ins; RC alone advertises `/v0.7/config` without starting telemetry forwarding.
+
+```yaml
+extensions:
+  datadog:
+    api:
+      key: ${env:DD_API_KEY}
+      site: datadoghq.com
+    sdk_endpoint: 127.0.0.1:8234
+    remote_config:
+      enabled: true
+      cache_directory: /var/lib/otelcol/datadog-remote-config
+service:
+  extensions: [datadog]
+```
+
+The cache must be absolute, writable and unique per instance. Credential changes require a component restart. `sdk_endpoint` and `sdk_http` select the shared listener; otherwise `remote_config` listener settings are used for compatibility. Probe execution remains in the SDK and DI output uses the Datadog exporter.
+
+The [published-engine POC limits](../../pkg/datadog/remoteconfig/README.md#published-engine-poc-limits) apply to backend HTTP configuration, timeouts, cancellation, redirects and cleanup. No Agent source changes are needed. Python is the core [SDK POC](https://github.com/DataDog/dd-trace-py/pull/21688); Java parity follows after Python is stable.

@@ -18,6 +18,7 @@ import (
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/extension/datadogextension/internal/httpserver"
 	datadogconfig "github.com/open-telemetry/opentelemetry-collector-contrib/pkg/datadog/config"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/pkg/datadog/remoteconfig"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/pkg/datadog/sdk"
 )
 
@@ -25,6 +26,7 @@ var _ component.Config = (*Config)(nil)
 
 // Config contains the information necessary for enabling the Datadog Extension.
 type Config struct {
+	RemoteConfig             *remoteconfig.Config               `mapstructure:"remote_config"`
 	SDKEndpoint              string                             `mapstructure:"sdk_endpoint"`
 	SDKHTTP                  *confighttp.ServerConfig           `mapstructure:"sdk_http"`
 	InstrumentationTelemetry sdk.InstrumentationTelemetryConfig `mapstructure:"instrumentation_telemetry"`
@@ -84,8 +86,13 @@ func (c *Config) Validate() error {
 	if !slices.Contains(validInstallationMethods, c.InstallationMethod) {
 		return fmt.Errorf("installation_method must be one of: %s", strings.Join(validInstallationMethods[1:], ", "))
 	}
-	if c.InstrumentationTelemetry.Enabled {
-		return sdk.ValidateConfig(c.sdkConfig())
+	if c.sdkEnabled() {
+		if err := sdk.ValidateConfig(c.sdkConfig()); err != nil {
+			return err
+		}
+		if c.RemoteConfig != nil && c.RemoteConfig.Enabled {
+			return remoteconfig.ValidateConfig(c.rcConfig())
+		}
 	}
 	return nil
 }
@@ -93,6 +100,9 @@ func (c *Config) Validate() error {
 func (c *Config) sdkConfig() *sdk.Config {
 	config := sdk.DefaultConfig()
 	config.Version = version.AgentVersion
+	if c.RemoteConfig != nil && c.RemoteConfig.Enabled {
+		config.ServerConfig = c.RemoteConfig.ServerConfig
+	}
 	if c.SDKHTTP != nil {
 		config.ServerConfig = *c.SDKHTTP
 	}
@@ -103,4 +113,15 @@ func (c *Config) sdkConfig() *sdk.Config {
 	config.API = sdk.APIConfig{Key: c.API.Key, Site: c.API.Site}
 	config.Backend = c.ClientConfig
 	return config
+}
+
+func (c *Config) sdkEnabled() bool {
+	return c.InstrumentationTelemetry.Enabled || c.RemoteConfig != nil && c.RemoteConfig.Enabled
+}
+
+func (c *Config) rcConfig() *remoteconfig.Config {
+	config := *c.RemoteConfig
+	config.API = remoteconfig.APIConfig{Key: c.API.Key, Site: c.API.Site}
+	config.ServerConfig = c.sdkConfig().ServerConfig
+	return &config
 }

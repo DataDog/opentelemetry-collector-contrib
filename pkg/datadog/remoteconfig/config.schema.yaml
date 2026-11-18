@@ -1,0 +1,19 @@
+$defs:
+  api_config:
+    $ref: /pkg/datadog/sdk.api_config
+  config:
+    description: Config configures an Agent-protocol RC endpoint backed by the Agent RC service.
+    type: object
+    properties:
+      cache_directory:
+        type: string
+      enabled:
+        type: boolean
+      refresh_interval:
+        type: string
+        format: duration
+      request_timeout:
+        type: string
+        format: duration
+    allOf:
+      - $ref: go.opentelemetry.io/collector/config/confighttp.server_config

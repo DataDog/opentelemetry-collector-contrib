@@ -22,6 +22,7 @@ import (
 	"github.com/open-telemetry/opentelemetry-collector-contrib/pkg/datadog/agentcomponents"
 	datadogconfig "github.com/open-telemetry/opentelemetry-collector-contrib/pkg/datadog/config"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/pkg/datadog/hostmetadata"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/pkg/datadog/remoteconfig"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/pkg/datadog/sdk"
 )
 
@@ -83,6 +84,7 @@ func (*factory) createDefaultConfig() component.Config {
 	serverConfig := confighttp.NewDefaultServerConfig()
 	serverConfig.NetAddr = netAddr
 	return &Config{
+		RemoteConfig:             remoteconfig.DefaultConfig(),
 		InstrumentationTelemetry: sdk.DefaultInstrumentationTelemetryConfig(),
 		ClientConfig:             confighttp.NewDefaultClientConfig(),
 		API: datadogconfig.APIConfig{

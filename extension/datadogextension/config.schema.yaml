@@ -25,6 +25,9 @@ properties:
     type: string
   instrumentation_telemetry:
     $ref: /pkg/datadog/sdk.instrumentation_telemetry_config
+  remote_config:
+    x-pointer: true
+    $ref: /pkg/datadog/remoteconfig.config
   sdk_endpoint:
     type: string
   sdk_http:
