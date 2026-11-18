@@ -109,3 +109,22 @@ extensions:
 ## Notes
 - The extension is in active development. Functionality and configuration options may change as Datadog OpenTelemetry monitoring features evolve.
 - Please see [official documentation on Datadog's website](https://docs.datadoghq.com/opentelemetry/integrations/datadog_extension/) for more details.
+
+## Experimental SDK instrumentation telemetry
+
+This opt-in forwards [SDK instrumentation telemetry](https://docs.datadoghq.com/tracing/configure_data_security/#telemetry-collection) with Collector credentials. It uses a dedicated SDK listener, separate from private Collector metadata; no RC service or cache is started.
+
+```yaml
+extensions:
+  datadog:
+    api:
+      key: ${env:DD_API_KEY}
+      site: datadoghq.com
+    sdk_endpoint: 127.0.0.1:8234
+    instrumentation_telemetry:
+      enabled: true
+service:
+  extensions: [datadog]
+```
+
+Point the SDK's Agent URL at this listener. `sdk_http` optionally configures TLS, authentication and request limits; remote workloads need reachable networking and workload access controls. Forwarding preserves compressed native bodies and uses bounded synchronous delivery, without an extra queue or retries. The [shared module](../../pkg/datadog/sdk/README.md) describes the routing and limits. Python is the core [SDK POC](https://github.com/DataDog/dd-trace-py/pull/21688); Java parity is follow-up work.

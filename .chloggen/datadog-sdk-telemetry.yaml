@@ -1,0 +1,5 @@
+change_type: enhancement
+component: extension/datadog
+note: Add experimental opt-in SDK instrumentation telemetry forwarding.
+issues: []
+change_logs: [user, api]

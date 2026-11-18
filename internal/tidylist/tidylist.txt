@@ -360,3 +360,4 @@ scraper/zookeeperscraper
 receiver/zookeeperreceiver
 testbed/mockdatasenders/mockdatadogagentexporter
 testbed
+pkg/datadog/sdk
