@@ -1,0 +1,197 @@
+// Copyright The OpenTelemetry Authors
+// Copyright 2026-present Datadog, Inc.
+// SPDX-License-Identifier: Apache-2.0
+
+package remoteconfig
+
+import (
+	"context"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"sync/atomic"
+	"testing"
+	"time"
+
+	configmock "github.com/DataDog/datadog-agent/pkg/config/mock"
+	pbgo "github.com/DataDog/datadog-agent/pkg/proto/pbgo/core"
+	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/collector/component"
+	"go.opentelemetry.io/collector/component/componenttest"
+	"go.opentelemetry.io/collector/confmap"
+	"go.opentelemetry.io/collector/extension"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+)
+
+var Type = component.MustNewType("datadog")
+
+const tracerRequest = `{"client":{"id":"client-one","is_tracer":true,"state":{"root_version":1},"products":["APM_TRACING"],"client_tracer":{"language":"java","tracer_version":"1.68.1","runtime_id":"runtime-one","service":"rc-poc","env":"test"}}}`
+
+type fakeService struct {
+	started atomic.Bool
+	stopped atomic.Bool
+	get     func(context.Context, *pbgo.ClientGetConfigsRequest) (*pbgo.ClientGetConfigsResponse, error)
+}
+
+func (f *fakeService) Start() { f.started.Store(true) }
+func (f *fakeService) Stop() error {
+	f.stopped.Store(true)
+	return nil
+}
+
+func (f *fakeService) ClientGetConfigs(ctx context.Context, r *pbgo.ClientGetConfigsRequest) (*pbgo.ClientGetConfigsResponse, error) {
+	if f.get != nil {
+		return f.get(ctx, r)
+	}
+	return &pbgo.ClientGetConfigsResponse{}, nil
+}
+
+func testExtension(t *testing.T, service *fakeService) *Server {
+	t.Helper()
+	cfg := DefaultConfig()
+	cfg.ServerConfig.NetAddr.Endpoint = "127.0.0.1:0"
+	cfg.API.Key = "collector-secret"
+	cfg.CacheDirectory = t.TempDir()
+	return &Server{
+		config: cfg, settings: extension.Settings{ID: component.NewID(Type), TelemetrySettings: componenttest.NewNopTelemetrySettings()},
+		service:    service,
+		newService: func(context.Context, component.Host) (remoteConfigService, error) { return service, nil },
+	}
+}
+
+func TestAgentProtocol(t *testing.T) {
+	targets := []byte(`{"signed":{"version":2},"signatures":[]}`)
+	want := &pbgo.ClientGetConfigsResponse{
+		Roots: [][]byte{[]byte("signed-root")}, Targets: targets,
+		TargetFiles:   []*pbgo.File{{Path: "datadog/1/APM_TRACING/rule/hash", Raw: []byte(`{"sample_rate":0.25}`)}},
+		ClientConfigs: []string{"datadog/1/APM_TRACING/rule/hash"},
+	}
+	service := &fakeService{get: func(ctx context.Context, r *pbgo.ClientGetConfigsRequest) (*pbgo.ClientGetConfigsResponse, error) {
+		require.Equal(t, "java", r.Client.ClientTracer.Language)
+		require.Equal(t, "client-one", r.Client.Id)
+		require.Equal(t, []string{"APM_TRACING"}, r.Client.Products)
+		_, deadline := ctx.Deadline()
+		require.True(t, deadline)
+		return want, nil
+	}}
+	e := testExtension(t, service)
+	w := httptest.NewRecorder()
+	e.ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/v0.7/config", strings.NewReader(tracerRequest)))
+	require.Equal(t, http.StatusOK, w.Code)
+	require.Equal(t, "application/json", w.Header().Get("Content-Type"))
+	var got pbgo.ClientGetConfigsResponse
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &got))
+	require.Equal(t, want.Roots, got.Roots)
+	require.Equal(t, targets, got.Targets)
+	require.Equal(t, want.TargetFiles[0].Raw, got.TargetFiles[0].Raw)
+	require.Equal(t, want.ClientConfigs, got.ClientConfigs)
+	require.NotContains(t, w.Body.String(), "collector-secret")
+}
+
+func TestRejectedRequestsDoNotReachService(t *testing.T) {
+	for _, tt := range []struct {
+		name, method, path, body string
+		code                     int
+	}{
+		{"unknown", "POST", "/v0.4/traces", tracerRequest, 404},
+		{"wrong method", "GET", "/v0.7/config", tracerRequest, 405},
+		{"query", "POST", "/v0.7/config?site=other", tracerRequest, 400},
+		{"bad json", "POST", "/v0.7/config", "{", 400},
+		{"trailing json", "POST", "/v0.7/config", tracerRequest + " {}", 400},
+		{"not a tracer", "POST", "/v0.7/config", `{"client":{"is_agent":true}}`, 400},
+		{"null", "POST", "/v0.7/config", "null", 400},
+		{"oversize", "POST", "/v0.7/config", strings.Repeat(" ", 1025), 413},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			e := testExtension(t, &fakeService{get: func(context.Context, *pbgo.ClientGetConfigsRequest) (*pbgo.ClientGetConfigsResponse, error) {
+				t.Fatal("invalid request reached the RC service")
+				return nil, nil
+			}})
+			e.config.ServerConfig.MaxRequestBodySize = 1024
+			w := httptest.NewRecorder()
+			e.ServeHTTP(w, httptest.NewRequest(tt.method, tt.path, strings.NewReader(tt.body)))
+			require.Equal(t, tt.code, w.Code)
+		})
+	}
+}
+
+func TestServiceErrors(t *testing.T) {
+	for _, code := range []codes.Code{codes.InvalidArgument, codes.DeadlineExceeded, codes.Unavailable, codes.Internal} {
+		t.Run(code.String(), func(t *testing.T) {
+			e := testExtension(t, &fakeService{get: func(context.Context, *pbgo.ClientGetConfigsRequest) (*pbgo.ClientGetConfigsResponse, error) {
+				return nil, status.Error(code, "sensitive backend detail")
+			}})
+			w := httptest.NewRecorder()
+			e.ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/v0.7/config", strings.NewReader(tracerRequest)))
+			want := map[codes.Code]int{codes.InvalidArgument: 400, codes.DeadlineExceeded: 504, codes.Unavailable: 503, codes.Internal: 500}
+			require.Equal(t, want[code], w.Code)
+			require.NotContains(t, w.Body.String(), "sensitive")
+		})
+	}
+}
+
+func TestLifecycle(t *testing.T) {
+	service := &fakeService{}
+	e := testExtension(t, service)
+	require.NoError(t, e.Shutdown(t.Context()))
+	require.NoError(t, e.Start(t.Context(), componenttest.NewNopHost()))
+	require.True(t, service.started.Load())
+	require.NoError(t, e.Shutdown(t.Context()))
+	require.True(t, service.stopped.Load())
+}
+
+func TestConfig(t *testing.T) {
+	cfg := DefaultConfig()
+	require.ErrorContains(t, ValidateConfig(cfg), "api.key")
+	cfg.API.Key = "collector-secret"
+	require.ErrorContains(t, ValidateConfig(cfg), "cache_directory")
+	cfg.CacheDirectory = t.TempDir()
+	require.NoError(t, ValidateConfig(cfg))
+	cfg.API.Site = "datadoghq.com/other"
+	require.ErrorContains(t, ValidateConfig(cfg), "api.site")
+}
+
+func TestCollectorConfigDecoding(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.API = APIConfig{Key: "collector-secret", Site: "datadoghq.eu"}
+	conf := confmap.NewFromStringMap(map[string]any{
+		"endpoint": "127.0.0.1:9234",
+
+		"cache_directory":  t.TempDir(),
+		"refresh_interval": "5s",
+	})
+	require.NoError(t, conf.Unmarshal(cfg))
+	require.NoError(t, ValidateConfig(cfg))
+	require.Equal(t, "127.0.0.1:9234", cfg.ServerConfig.NetAddr.Endpoint)
+	require.Equal(t, "datadoghq.eu", cfg.API.Site)
+	require.Equal(t, 5*time.Second, cfg.RefreshInterval)
+}
+
+func TestAgentNormalization(t *testing.T) {
+	e := testExtension(t, &fakeService{get: func(_ context.Context, r *pbgo.ClientGetConfigsRequest) (*pbgo.ClientGetConfigsResponse, error) {
+		require.Equal(t, "bad_service", r.Client.ClientTracer.Service)
+		require.Equal(t, "prod_canary", r.Client.ClientTracer.Env)
+		return &pbgo.ClientGetConfigsResponse{}, nil
+	}})
+	body := strings.ReplaceAll(strings.ReplaceAll(tracerRequest, "rc-poc", "bad$service"), `"env":"test"`, `"env":"PROD Canary"`)
+	w := httptest.NewRecorder()
+	e.ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/v0.7/config", strings.NewReader(body)))
+	require.Equal(t, 200, w.Code)
+}
+
+func TestPublishedEngineCacheLifecycle(t *testing.T) {
+	set := extension.Settings{ID: component.NewID(Type), TelemetrySettings: componenttest.NewNopTelemetrySettings()}
+	config := DefaultConfig()
+	config.API.Key = "collector-secret"
+	config.CacheDirectory = t.TempDir()
+	server, err := New(set, config, configmock.New(t))
+	require.NoError(t, err)
+	e := server
+	for range 2 {
+		service, err := e.newService(t.Context(), componenttest.NewNopHost())
+		require.NoError(t, err)
+		require.NoError(t, service.Stop(), "the published engine must release the cache for reuse")
+	}
+}

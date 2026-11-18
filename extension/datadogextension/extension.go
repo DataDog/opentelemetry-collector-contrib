@@ -7,6 +7,7 @@ package datadogextension // import "github.com/open-telemetry/opentelemetry-coll
 
 import (
 	"context"
+	"net/http"
 	"runtime"
 	"sync"
 	"time"
@@ -32,6 +33,7 @@ import (
 	"github.com/open-telemetry/opentelemetry-collector-contrib/extension/datadogextension/internal/payload"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/pkg/datadog/agentcomponents"
 	datadogconfig "github.com/open-telemetry/opentelemetry-collector-contrib/pkg/datadog/config"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/pkg/datadog/remoteconfig"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/pkg/datadog/sdk"
 )
 
@@ -433,9 +435,17 @@ func newExtension(
 	// Create agent components
 	configComponent := buildAgentConfig(cfg, configOptions...)
 	var sdkListener extension.Extension
-	if cfg.InstrumentationTelemetry.Enabled {
+	if cfg.sdkEnabled() {
+		var routes []sdk.Route
+		if cfg.RemoteConfig != nil && cfg.RemoteConfig.Enabled {
+			rc, err := remoteconfig.New(set, cfg.rcConfig(), configComponent)
+			if err != nil {
+				return nil, err
+			}
+			routes = append(routes, sdk.Route{Path: "/v0.7/config", Method: http.MethodPost, Timeout: cfg.RemoteConfig.RequestTimeout, Handler: rc, Component: rc})
+		}
 		var err error
-		sdkListener, err = sdk.New(set, cfg.sdkConfig())
+		sdkListener, err = sdk.New(set, cfg.sdkConfig(), routes...)
 		if err != nil {
 			return nil, err
 		}
