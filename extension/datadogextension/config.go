@@ -11,18 +11,24 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/DataDog/datadog-agent/pkg/version"
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/config/confighttp"
+	"go.opentelemetry.io/collector/confmap"
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/extension/datadogextension/internal/httpserver"
 	datadogconfig "github.com/open-telemetry/opentelemetry-collector-contrib/pkg/datadog/config"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/pkg/datadog/sdk"
 )
 
 var _ component.Config = (*Config)(nil)
 
 // Config contains the information necessary for enabling the Datadog Extension.
 type Config struct {
-	ClientConfig confighttp.ClientConfig `mapstructure:",squash"`
+	SDKEndpoint              string                             `mapstructure:"sdk_endpoint"`
+	SDKHTTP                  *confighttp.ServerConfig           `mapstructure:"sdk_http"`
+	InstrumentationTelemetry sdk.InstrumentationTelemetryConfig `mapstructure:"instrumentation_telemetry"`
+	ClientConfig             confighttp.ClientConfig            `mapstructure:",squash"`
 	// Define the site and API key (and whether to fail on invalid API key) in API.
 	API datadogconfig.APIConfig `mapstructure:"api"`
 	// If Hostname is empty extension will use available system APIs and cloud provider endpoints.
@@ -44,6 +50,14 @@ type Config struct {
 	// Set by agent/daemonset collectors. Format: "service" or "namespace/service".
 	// Must match gateway_service on the receiving gateway collector.
 	GatewayDestination string `mapstructure:"gateway_destination"`
+}
+
+func (c *Config) Unmarshal(conf *confmap.Conf) error {
+	if c.SDKHTTP == nil && conf.IsSet("sdk_http") {
+		server := sdk.DefaultConfig().ServerConfig
+		c.SDKHTTP = &server
+	}
+	return conf.Unmarshal(c)
 }
 
 // Validate ensures that the configuration is valid.
@@ -70,5 +84,23 @@ func (c *Config) Validate() error {
 	if !slices.Contains(validInstallationMethods, c.InstallationMethod) {
 		return fmt.Errorf("installation_method must be one of: %s", strings.Join(validInstallationMethods[1:], ", "))
 	}
+	if c.InstrumentationTelemetry.Enabled {
+		return sdk.ValidateConfig(c.sdkConfig())
+	}
 	return nil
+}
+
+func (c *Config) sdkConfig() *sdk.Config {
+	config := sdk.DefaultConfig()
+	config.Version = version.AgentVersion
+	if c.SDKHTTP != nil {
+		config.ServerConfig = *c.SDKHTTP
+	}
+	if c.SDKEndpoint != "" {
+		config.ServerConfig.NetAddr.Endpoint = c.SDKEndpoint
+	}
+	config.InstrumentationTelemetry = c.InstrumentationTelemetry
+	config.API = sdk.APIConfig{Key: c.API.Key, Site: c.API.Site}
+	config.Backend = c.ClientConfig
+	return config
 }

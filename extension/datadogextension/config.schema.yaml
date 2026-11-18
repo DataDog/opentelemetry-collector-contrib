@@ -23,5 +23,12 @@ properties:
   installation_method:
     description: 'InstallationMethod indicates how the collector was installed. Valid values: "", "kubernetes", "bare-metal", "docker", "ecs-fargate", "eks-fargate". Defaults to "" (unset) if not configured.'
     type: string
+  instrumentation_telemetry:
+    $ref: /pkg/datadog/sdk.instrumentation_telemetry_config
+  sdk_endpoint:
+    type: string
+  sdk_http:
+    x-pointer: true
+    $ref: go.opentelemetry.io/collector/config/confighttp.server_config
 allOf:
   - $ref: go.opentelemetry.io/collector/config/confighttp.client_config

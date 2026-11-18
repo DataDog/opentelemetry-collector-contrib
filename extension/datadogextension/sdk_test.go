@@ -1,0 +1,91 @@
+// Copyright The OpenTelemetry Authors
+// SPDX-License-Identifier: Apache-2.0
+
+//go:build !aix && !freebsd && !solaris
+
+package datadogextension
+
+import (
+	"context"
+	"errors"
+	"testing"
+
+	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/collector/component"
+	"go.opentelemetry.io/collector/component/componenttest"
+	"go.opentelemetry.io/collector/confmap"
+	"go.opentelemetry.io/collector/extension/extensiontest"
+	"go.uber.org/zap"
+)
+
+func TestInstrumentationTelemetryIsOptional(t *testing.T) {
+	f := NewFactory()
+	cfg := f.CreateDefaultConfig().(*Config)
+	conf := confmap.NewFromStringMap(map[string]any{
+		"api":      map[string]any{"key": "0123456789abcdef0123456789abcdef", "fail_on_invalid_key": false},
+		"hostname": "collector-test", "sdk_endpoint": "127.0.0.1:0",
+		"sdk_http":                  map[string]any{"read_timeout": "15s"},
+		"instrumentation_telemetry": map[string]any{"enabled": true},
+	})
+	require.NoError(t, conf.Unmarshal(cfg))
+	require.NoError(t, cfg.Validate())
+	require.NotNil(t, cfg.SDKHTTP)
+	require.Equal(t, "127.0.0.1:0", cfg.sdkConfig().ServerConfig.NetAddr.Endpoint)
+	ext, err := f.Create(t.Context(), extensiontest.NewNopSettings(component.MustNewType("datadog")), cfg)
+	require.NoError(t, err)
+	require.NotNil(t, ext.(*datadogExtension).sdkListener)
+	require.NoError(t, ext.Shutdown(t.Context()))
+}
+
+func TestTelemetryUsesExtensionCredentials(t *testing.T) {
+	for _, enabled := range []bool{false, true} {
+		t.Run(map[bool]string{false: "disabled", true: "enabled"}[enabled], func(t *testing.T) {
+			f := NewFactory()
+			cfg := f.CreateDefaultConfig().(*Config)
+			cfg.API.Key = "0123456789abcdef0123456789abcdef"
+			cfg.API.FailOnInvalidKey = false
+			cfg.Hostname = "collector-test"
+			cfg.InstrumentationTelemetry.Enabled = enabled
+			require.NoError(t, cfg.Validate())
+			ext, err := f.Create(t.Context(), extensiontest.NewNopSettings(component.MustNewType("datadog")), cfg)
+			require.NoError(t, err)
+			e := ext.(*datadogExtension)
+			require.Equal(t, enabled, e.sdkListener != nil)
+			require.Equal(t, cfg.API.Key, cfg.sdkConfig().API.Key)
+			require.Equal(t, cfg.API.Site, cfg.sdkConfig().API.Site)
+			require.NoError(t, e.Shutdown(t.Context()))
+		})
+	}
+}
+
+type lifecycleSDK struct {
+	started, stopped bool
+	startErr         error
+}
+
+func (r *lifecycleSDK) Start(context.Context, component.Host) error {
+	r.started = true
+	return r.startErr
+}
+func (r *lifecycleSDK) Shutdown(context.Context) error { r.stopped = true; return nil }
+
+func TestExtensionOwnsSDKLifecycle(t *testing.T) {
+	for _, fail := range []bool{false, true} {
+		t.Run(map[bool]string{false: "success", true: "start failure"}[fail], func(t *testing.T) {
+			rc := &lifecycleSDK{}
+			if fail {
+				rc.startErr = errors.New("RC listener unavailable")
+			}
+			e := &datadogExtension{sdkListener: rc, info: &info{}, logger: zap.NewNop()}
+			err := e.Start(t.Context(), componenttest.NewNopHost())
+			if fail {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+			require.True(t, rc.started)
+			require.NoError(t, e.Shutdown(t.Context()))
+			require.Equal(t, !fail, rc.stopped)
+		})
+	}
+}
