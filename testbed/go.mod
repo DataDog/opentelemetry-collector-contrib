@@ -303,6 +303,7 @@ require (
 	github.com/open-telemetry/opentelemetry-collector-contrib/internal/pdatautil v0.165.1 // indirect
 	github.com/open-telemetry/opentelemetry-collector-contrib/internal/splunk v0.165.1 // indirect
 	github.com/open-telemetry/opentelemetry-collector-contrib/pkg/datadog v0.165.1 // indirect
+	github.com/open-telemetry/opentelemetry-collector-contrib/pkg/datadog/di v0.165.1 // indirect
 	github.com/open-telemetry/opentelemetry-collector-contrib/pkg/ottl v1.4.1 // indirect
 	github.com/open-telemetry/opentelemetry-collector-contrib/pkg/ottl/contexts/xprofile v0.165.1 // indirect
 	github.com/open-telemetry/opentelemetry-collector-contrib/pkg/ottl/xottl v0.165.1 // indirect
@@ -587,3 +588,5 @@ replace github.com/open-telemetry/opentelemetry-collector-contrib/pkg/ottl/xottl
 replace github.com/open-telemetry/opentelemetry-collector-contrib/extension/storage/filestorage => ../extension/storage/filestorage
 
 replace github.com/open-telemetry/opentelemetry-collector-contrib/exporter/elasticsearchexporter => ../exporter/elasticsearchexporter
+
+replace github.com/open-telemetry/opentelemetry-collector-contrib/pkg/datadog/di => ../pkg/datadog/di
